@@ -1,8 +1,8 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import type Database from "better-sqlite3";
@@ -19,7 +19,8 @@ import type {
   SkillManagerSnapshot,
   SourceType,
   StagedSourceDetail,
-  StagedSourceRecord
+  StagedSourceRecord,
+  WorkspaceSkillSource
 } from "@shared/contracts";
 
 import { createDatabase } from "./db";
@@ -27,6 +28,7 @@ import type { RuntimePaths } from "./runtime-paths";
 import { resolveRuntimePaths } from "./runtime-paths";
 import { detectSkillDirectory, slugifySkillName } from "./utils/skill-parser";
 import { detectSourceType, resolveGitHubArchiveUrl, validateRemoteSource } from "./utils/source-url";
+import { scanWorkspaceSkillSources } from "./utils/workspace-sources";
 
 const execFileAsync = promisify(execFile);
 
@@ -138,6 +140,15 @@ function toLogRecord(row: LogRow): LogRecord {
   };
 }
 
+function resolveConfiguredOrFallbackPath(configuredPath: string, fallbackPath: string) {
+  const normalized = configuredPath.trim();
+  return normalized || fallbackPath;
+}
+
+function psQuote(value: string) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 async function safeReadText(filePath: string | null) {
   if (!filePath) {
     return null;
@@ -148,10 +159,6 @@ async function safeReadText(filePath: string | null) {
   } catch {
     return null;
   }
-}
-
-function psQuote(value: string) {
-  return `'${value.replace(/'/g, "''")}'`;
 }
 
 export class SkillManagerBackend {
@@ -167,6 +174,7 @@ export class SkillManagerBackend {
     const settings = this.getSettings();
     const stagedSources = this.listStagedSources();
     const installedSkills = this.listInstalledSkills();
+    const workspaceSkillSources = await this.getWorkspaceSkillSources();
     const logs = this.listLogs();
     const recentFailures = this.database
       .prepare("select * from logs where level = 'error' order by created_at desc limit 5")
@@ -195,6 +203,7 @@ export class SkillManagerBackend {
       settings,
       stagedSources,
       installedSkills,
+      workspaceSkillSources,
       logs,
       summary: {
         ...summaryCounts,
@@ -213,7 +222,7 @@ export class SkillManagerBackend {
 
   async importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>> {
     if (!filePath) {
-      return { ok: false, error: "请选择一个 ZIP 文件。" };
+      return { ok: false, error: "Please choose a local ZIP archive." };
     }
 
     const created = this.insertStagedSource("localZip", filePath);
@@ -221,7 +230,7 @@ export class SkillManagerBackend {
 
     const refreshed = this.getStagedSource(created.id);
     if (!refreshed) {
-      return { ok: false, error: "导入后的暂存记录未能成功写入。" };
+      return { ok: false, error: "The imported archive could not be added to the staged list." };
     }
 
     return { ok: true, data: refreshed };
@@ -234,12 +243,17 @@ export class SkillManagerBackend {
     }
 
     const created = this.insertStagedSource(detectSourceType(url), url.trim());
-    await this.writeLog("staged", "info", "已加入远程来源到暂存区。", url.trim(), created.id);
+    await this.writeLog("staged", "info", "Added a remote source to the staging area.", url.trim(), created.id);
+
     return { ok: true, data: created };
   }
 
   async parseStagedSources(ids: string[]): Promise<OperationResult<StagedSourceRecord[]>> {
-    const results: StagedSourceRecord[] = [];
+    const settings = this.getSettings();
+    const extractionParent = this.getWorkingTempRoot(settings);
+    const parsedRecords: StagedSourceRecord[] = [];
+
+    await this.ensureDirectory(extractionParent);
 
     for (const id of ids) {
       const staged = this.getStagedSource(id);
@@ -255,15 +269,13 @@ export class SkillManagerBackend {
         });
 
         const archivePath = await this.resolveArchivePath(staged);
-        const extractionRoot = path.join(this.paths.tempRoot, `extract-${id}`);
+        const extractionRoot = path.join(extractionParent, `extract-${id}`);
 
         await fsp.rm(extractionRoot, { recursive: true, force: true });
-        await fsp.mkdir(extractionRoot, { recursive: true });
+        await this.ensureDirectory(extractionRoot);
         await this.extractArchive(archivePath, extractionRoot);
 
         const parsed = await detectSkillDirectory(extractionRoot);
-        const updatedAt = nowIso();
-
         this.updateStagedSource(id, {
           status: "ready",
           detectedName: parsed.name,
@@ -272,30 +284,56 @@ export class SkillManagerBackend {
           skillRootPath: parsed.rootPath,
           skillMdPath: parsed.skillMdPath,
           errorMessage: null,
-          updatedAt
+          updatedAt: nowIso()
         });
 
-        await this.writeLog("staged", "info", `成功解析来源：${parsed.name}`, staged.sourceValue, id);
         const refreshed = this.getStagedSource(id);
         if (refreshed) {
-          results.push(refreshed);
+          parsedRecords.push(refreshed);
         }
+
+        await this.writeLog("staged", "info", `Parsed source successfully: ${parsed.name}`, staged.sourceValue, id);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "解析暂存来源时发生未知错误。";
+        const message = error instanceof Error ? error.message : "Unknown parse error.";
         this.updateStagedSource(id, {
           status: "error",
           errorMessage: message,
           updatedAt: nowIso()
         });
-        await this.writeLog("staged", "error", "解析暂存来源失败。", message, id);
+        await this.writeLog("staged", "error", "Failed to parse the staged source.", message, id);
       }
     }
 
-    return { ok: true, data: results };
+    return { ok: true, data: parsedRecords };
   }
 
   async installStagedSources(ids: string[]): Promise<OperationResult<InstalledSkillRecord[]>> {
     const settings = this.getSettings();
+    const installRoot = settings.installDir.trim();
+
+    if (!installRoot) {
+      await this.writeLog(
+        "install",
+        "warning",
+        "Install blocked because no default install directory is configured.",
+        "Open Settings and choose a default install directory before installing skills.",
+        null
+      );
+
+      return {
+        ok: false,
+        error: "Please configure a default install directory in Settings before installing skills."
+      };
+    }
+
+    const validation = await this.validateDirectory(installRoot);
+    if (!validation.writable) {
+      return {
+        ok: false,
+        error: validation.error || "The configured install directory is not writable."
+      };
+    }
+
     const installed: InstalledSkillRecord[] = [];
 
     for (const id of ids) {
@@ -315,33 +353,32 @@ export class SkillManagerBackend {
 
       try {
         const slug = slugifySkillName(staged.detectedName || path.basename(staged.skillRootPath));
-        const installPath = await this.resolveInstallPath(settings.installDir, slug, settings.conflictPolicy);
-        const targetSkillMdPath = path.join(installPath, "SKILL.md");
+        const installPath = await this.resolveInstallPath(installRoot, slug, settings.conflictPolicy);
 
         if (settings.conflictPolicy === "overwrite") {
           await fsp.rm(installPath, { recursive: true, force: true });
         }
 
-        await fsp.mkdir(path.dirname(installPath), { recursive: true });
-        await fsp.cp(staged.skillRootPath, installPath, { recursive: true, force: false });
+        await this.ensureDirectory(path.dirname(installPath));
+        await fsp.cp(staged.skillRootPath, installPath, {
+          recursive: true,
+          force: false
+        });
 
-        const now = nowIso();
         const record: InstalledSkillRecord = {
           id: randomUUID(),
           name: staged.detectedName || slug,
           slug,
           description: staged.detectedDescription,
           installPath,
-          skillMdPath: targetSkillMdPath,
+          skillMdPath: path.join(installPath, "SKILL.md"),
           sourceType: staged.sourceType,
           sourceValue: staged.sourceValue,
-          installedAt: now,
-          updatedAt: now
+          installedAt: nowIso(),
+          updatedAt: nowIso()
         };
 
-        this.database
-          .prepare("delete from installed_skills where install_path = ?")
-          .run(installPath);
+        this.database.prepare("delete from installed_skills where install_path = ?").run(installPath);
         this.database
           .prepare(
             `
@@ -357,19 +394,19 @@ export class SkillManagerBackend {
         this.updateStagedSource(id, {
           status: "installed",
           installPath,
-          updatedAt: now
+          updatedAt: nowIso()
         });
 
-        await this.writeLog("install", "info", `已安装 Skill：${record.name}`, installPath, id);
+        await this.writeLog("install", "info", `Installed skill: ${record.name}`, installPath, id);
         installed.push(record);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "安装 Skill 时发生未知错误。";
+        const message = error instanceof Error ? error.message : "Unknown install error.";
         this.updateStagedSource(id, {
           status: "error",
           errorMessage: message,
           updatedAt: nowIso()
         });
-        await this.writeLog("install", "error", "安装 Skill 失败。", message, id);
+        await this.writeLog("install", "error", "Failed to install the staged skill.", message, id);
       }
     }
 
@@ -383,6 +420,7 @@ export class SkillManagerBackend {
 
     const statement = this.database.prepare("delete from staged_sources where id = ?");
     let removed = 0;
+
     for (const id of ids) {
       const staged = this.getStagedSource(id);
       if (staged?.skillRootPath) {
@@ -391,6 +429,7 @@ export class SkillManagerBackend {
       if (staged?.archivePath && staged.sourceType !== "localZip") {
         await fsp.rm(staged.archivePath, { force: true });
       }
+
       const result = statement.run(id);
       removed += result.changes;
     }
@@ -399,14 +438,14 @@ export class SkillManagerBackend {
   }
 
   async clearStagedSources(): Promise<OperationResult<number>> {
-    const allIds = this.listStagedSources().map((item) => item.id);
-    return this.removeStagedSources(allIds);
+    const ids = this.listStagedSources().map((item) => item.id);
+    return this.removeStagedSources(ids);
   }
 
   async getStagedSourceDetail(id: string): Promise<OperationResult<StagedSourceDetail>> {
     const staged = this.getStagedSource(id);
     if (!staged) {
-      return { ok: false, error: "未找到对应的暂存项。" };
+      return { ok: false, error: "The selected staged source could not be found." };
     }
 
     return {
@@ -419,32 +458,30 @@ export class SkillManagerBackend {
   }
 
   async getInstalledSkillDetail(id: string): Promise<OperationResult<InstalledSkillDetail>> {
-    const skill = this.getInstalledSkill(id);
-    if (!skill) {
-      return { ok: false, error: "未找到对应的已安装 Skill。" };
+    const installed = this.getInstalledSkill(id);
+    if (!installed) {
+      return { ok: false, error: "The selected installed skill could not be found." };
     }
 
-    const exists = fs.existsSync(skill.installPath) && fs.existsSync(skill.skillMdPath);
+    const exists = fs.existsSync(installed.installPath) && fs.existsSync(installed.skillMdPath);
 
     return {
       ok: true,
       data: {
-        ...skill,
-        markdown: await safeReadText(skill.skillMdPath),
+        ...installed,
+        markdown: await safeReadText(installed.skillMdPath),
         exists
       }
     };
   }
 
   async rescanInstalledSkill(id: string): Promise<OperationResult<InstalledSkillDetail>> {
-    const skill = this.getInstalledSkill(id);
-    if (!skill) {
-      return { ok: false, error: "未找到对应的已安装 Skill。" };
+    const installed = this.getInstalledSkill(id);
+    if (!installed) {
+      return { ok: false, error: "The selected installed skill could not be found." };
     }
 
-    const parsed = await detectSkillDirectory(skill.installPath);
-    const updatedAt = nowIso();
-
+    const parsed = await detectSkillDirectory(installed.installPath);
     this.database
       .prepare(
         `
@@ -453,9 +490,9 @@ export class SkillManagerBackend {
           where id = ?
         `
       )
-      .run(parsed.name, parsed.slug, parsed.description, parsed.skillMdPath, updatedAt, id);
+      .run(parsed.name, parsed.slug, parsed.description, parsed.skillMdPath, nowIso(), id);
 
-    await this.writeLog("install", "info", `已重新扫描 Skill：${parsed.name}`, skill.installPath, id);
+    await this.writeLog("install", "info", `Rescanned installed skill: ${parsed.name}`, installed.installPath, id);
     return this.getInstalledSkillDetail(id);
   }
 
@@ -463,21 +500,22 @@ export class SkillManagerBackend {
     const installDir = input.installDir.trim();
     const tempDir = input.tempDir.trim();
 
-    if (!installDir || !tempDir) {
-      return { ok: false, error: "安装目录和临时目录都不能为空。" };
+    if (!installDir) {
+      return { ok: false, error: "Please choose a default install directory before saving settings." };
     }
 
     const installValidation = await this.validateDirectory(installDir);
     if (!installValidation.writable) {
-      return { ok: false, error: installValidation.error || "安装目录不可写。" };
+      return { ok: false, error: installValidation.error || "The install directory is not writable." };
     }
 
-    const tempValidation = await this.validateDirectory(tempDir);
-    if (!tempValidation.writable) {
-      return { ok: false, error: tempValidation.error || "临时目录不可写。" };
+    if (tempDir) {
+      const tempValidation = await this.validateDirectory(tempDir);
+      if (!tempValidation.writable) {
+        return { ok: false, error: tempValidation.error || "The temp directory is not writable." };
+      }
     }
 
-    const updatedAt = nowIso();
     this.database
       .prepare(
         `
@@ -486,14 +524,31 @@ export class SkillManagerBackend {
           where id = 1
         `
       )
-      .run(installDir, tempDir, input.conflictPolicy, updatedAt);
+      .run(installDir, tempDir, input.conflictPolicy, nowIso());
 
-    await this.writeLog("settings", "info", "已保存设置。", `${installDir} | ${tempDir}`, null);
+    await this.writeLog(
+      "settings",
+      "info",
+      "Saved skill manager settings.",
+      `${installDir} | ${tempDir || this.paths.tempRoot}`,
+      null
+    );
+
     return { ok: true, data: this.getSettings() };
   }
 
   async validateDirectory(targetPath: string): Promise<DirectoryValidationResult> {
     const normalized = targetPath.trim();
+    if (!normalized) {
+      return {
+        path: normalized,
+        exists: false,
+        writable: false,
+        created: false,
+        error: "Directory path is empty."
+      };
+    }
+
     let exists = fs.existsSync(normalized);
     let created = false;
 
@@ -504,9 +559,9 @@ export class SkillManagerBackend {
         created = true;
       }
 
-      const writeProbePath = path.join(normalized, `.skill-manager-write-test-${Date.now()}.tmp`);
-      await fsp.writeFile(writeProbePath, "ok", "utf8");
-      await fsp.rm(writeProbePath, { force: true });
+      const probePath = path.join(normalized, `.skill-manager-write-test-${Date.now()}.tmp`);
+      await fsp.writeFile(probePath, "ok", "utf8");
+      await fsp.rm(probePath, { force: true });
 
       return {
         path: normalized,
@@ -520,12 +575,16 @@ export class SkillManagerBackend {
         exists,
         writable: false,
         created,
-        error: error instanceof Error ? error.message : "目录检查失败。"
+        error: error instanceof Error ? error.message : "Directory validation failed."
       };
     }
   }
 
   async openPath(targetPath: string): Promise<OperationResult<void>> {
+    if (!targetPath.trim()) {
+      return { ok: false, error: "There is no path to open yet." };
+    }
+
     const result = await shell.openPath(targetPath);
     if (result) {
       return { ok: false, error: result };
@@ -536,7 +595,7 @@ export class SkillManagerBackend {
 
   async pickArchiveFile(): Promise<OperationResult<string | null>> {
     const result = await dialog.showOpenDialog({
-      title: "选择 ZIP 文件",
+      title: "Choose a ZIP archive",
       properties: ["openFile"],
       filters: [{ name: "ZIP Archive", extensions: ["zip"] }]
     });
@@ -549,8 +608,8 @@ export class SkillManagerBackend {
 
   async pickDirectory(initialPath?: string): Promise<OperationResult<string | null>> {
     const result = await dialog.showOpenDialog({
-      title: "选择目录",
-      defaultPath: initialPath || this.paths.installRoot,
+      title: "Choose a directory",
+      defaultPath: initialPath || this.paths.dataRoot,
       properties: ["openDirectory", "createDirectory"]
     });
 
@@ -589,11 +648,12 @@ export class SkillManagerBackend {
     return rows.map(toLogRecord);
   }
 
-  private getStagedSource(id: string) {
-    const row = this.database
-      .prepare("select * from staged_sources where id = ?")
-      .get(id) as StagedRow | undefined;
+  private async getWorkspaceSkillSources(): Promise<WorkspaceSkillSource[]> {
+    return scanWorkspaceSkillSources(this.paths.appRoot);
+  }
 
+  private getStagedSource(id: string) {
+    const row = this.database.prepare("select * from staged_sources where id = ?").get(id) as StagedRow | undefined;
     return row ? toStagedRecord(row) : null;
   }
 
@@ -606,7 +666,6 @@ export class SkillManagerBackend {
   }
 
   private insertStagedSource(sourceType: SourceType, sourceValue: string) {
-    const now = nowIso();
     const created: StagedSourceRecord = {
       id: randomUUID(),
       sourceType,
@@ -619,8 +678,8 @@ export class SkillManagerBackend {
       skillMdPath: null,
       installPath: null,
       errorMessage: null,
-      createdAt: now,
-      updatedAt: now
+      createdAt: nowIso(),
+      updatedAt: nowIso()
     };
 
     this.database
@@ -642,7 +701,7 @@ export class SkillManagerBackend {
 
   private updateStagedSource(
     id: string,
-    input: Partial<
+    nextValues: Partial<
       Pick<
         StagedSourceRecord,
         | "status"
@@ -662,12 +721,12 @@ export class SkillManagerBackend {
       return;
     }
 
-    const next = {
+    const merged = {
       ...existing,
-      ...input,
-      updatedAt: input.updatedAt || nowIso()
+      ...nextValues,
+      updatedAt: nextValues.updatedAt || nowIso()
     };
-    const { id: _id, ...rest } = next;
+    const { id: _discardedId, ...rest } = merged;
 
     this.database
       .prepare(
@@ -694,9 +753,8 @@ export class SkillManagerBackend {
 
   private async resolveArchivePath(staged: StagedSourceRecord) {
     if (staged.sourceType === "localZip") {
-      const exists = fs.existsSync(staged.sourceValue);
-      if (!exists) {
-        throw new Error("本地 ZIP 文件不存在，可能已经被移动或删除。");
+      if (!fs.existsSync(staged.sourceValue)) {
+        throw new Error("The selected ZIP archive no longer exists on disk.");
       }
 
       return staged.sourceValue;
@@ -714,7 +772,7 @@ export class SkillManagerBackend {
     });
 
     if (!response.ok) {
-      throw new Error(`下载失败：${response.status} ${response.statusText}`);
+      throw new Error(`Download failed: ${response.status} ${response.statusText}`);
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -738,13 +796,12 @@ export class SkillManagerBackend {
     conflictPolicy: SettingsRecord["conflictPolicy"]
   ) {
     const basePath = path.join(installRoot, slug);
-
     if (!fs.existsSync(basePath)) {
       return basePath;
     }
 
     if (conflictPolicy === "skip") {
-      throw new Error(`目标目录已存在：${basePath}`);
+      throw new Error(`The target install directory already exists: ${basePath}`);
     }
 
     if (conflictPolicy === "overwrite") {
@@ -757,6 +814,14 @@ export class SkillManagerBackend {
     }
 
     return path.join(installRoot, `${slug}-${suffix}`);
+  }
+
+  private getWorkingTempRoot(settings: SettingsRecord) {
+    return resolveConfiguredOrFallbackPath(settings.tempDir, this.paths.tempRoot);
+  }
+
+  private async ensureDirectory(targetPath: string) {
+    await fsp.mkdir(targetPath, { recursive: true });
   }
 
   private async writeLog(

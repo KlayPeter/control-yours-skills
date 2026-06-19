@@ -14,8 +14,8 @@ function createDefaultSettings(paths: RuntimePaths): SettingsRecord {
   const now = currentIso();
 
   return {
-    installDir: paths.installRoot,
-    tempDir: paths.tempRoot,
+    installDir: "",
+    tempDir: "",
     conflictPolicy: "rename",
     theme: "dark",
     createdAt: now,

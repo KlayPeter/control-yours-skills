@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDistanceToNowStrict, formatISO9075 } from "date-fns";
 import { useDropzone } from "react-dropzone";
 import {
-  ArrowRight,
   CheckCircle2,
   Database,
   FolderOpen,
@@ -28,13 +27,15 @@ import type {
   LogRecord,
   SaveSettingsInput,
   SourceStatus,
-  StagedSourceRecord
+  StagedSourceRecord,
+  WorkspaceSkillProviderKey,
+  WorkspaceSkillSource
 } from "@shared/contracts";
 
+import { MarkdownViewer } from "@/components/markdown-viewer";
 import { useSkillManager } from "@/hooks/use-skill-manager";
 import { cn } from "@/lib/cn";
 import { isDesktopApiAvailable } from "@/lib/electron-api";
-import { MarkdownViewer } from "@/components/markdown-viewer";
 
 type WorkspaceSection = "overview" | "import" | "staged" | "skills" | "logs" | "settings";
 
@@ -49,16 +50,16 @@ const navItems: Array<{
   label: string;
   icon: typeof LayoutDashboard;
 }> = [
-  { section: "overview", href: "/", label: "总览", icon: LayoutDashboard },
-  { section: "import", href: "/import", label: "导入", icon: UploadCloud },
-  { section: "staged", href: "/staged", label: "暂存区", icon: ListTodo },
-  { section: "skills", href: "/skills", label: "已安装", icon: HardDriveDownload },
-  { section: "logs", href: "/logs", label: "日志", icon: Logs },
-  { section: "settings", href: "/settings", label: "设置", icon: Settings2 }
+  { section: "overview", href: "/", label: "Overview", icon: LayoutDashboard },
+  { section: "import", href: "/import", label: "Import", icon: UploadCloud },
+  { section: "staged", href: "/staged", label: "Staging", icon: ListTodo },
+  { section: "skills", href: "/skills", label: "Installed", icon: HardDriveDownload },
+  { section: "logs", href: "/logs", label: "Logs", icon: Logs },
+  { section: "settings", href: "/settings", label: "Settings", icon: Settings2 }
 ];
 
 function formatRelativeTime(value: string) {
-  return `${formatDistanceToNowStrict(new Date(value), { addSuffix: true })} · ${formatISO9075(
+  return `${formatDistanceToNowStrict(new Date(value), { addSuffix: true })} | ${formatISO9075(
     new Date(value)
   )}`;
 }
@@ -66,17 +67,17 @@ function formatRelativeTime(value: string) {
 function sectionTitle(section: WorkspaceSection) {
   switch (section) {
     case "overview":
-      return "总览";
+      return "Overview";
     case "import":
-      return "导入";
+      return "Import";
     case "staged":
-      return "暂存区";
+      return "Staging";
     case "skills":
-      return "已安装";
+      return "Installed Skills";
     case "logs":
-      return "日志";
+      return "Logs";
     case "settings":
-      return "设置";
+      return "Settings";
     default:
       return "Skill Manager";
   }
@@ -100,6 +101,32 @@ function statusTone(status: SourceStatus) {
   }
 
   return "text-ink-100/80 bg-white/5 border-white/10";
+}
+
+function providerMonogram(key: WorkspaceSkillProviderKey) {
+  switch (key) {
+    case "codex":
+      return "CX";
+    case "claude":
+      return "CL";
+    case "agent":
+      return "AG";
+    case "agents":
+      return "AS";
+    default:
+      return "SK";
+  }
+}
+
+function SourceBadge({ source }: { source: StagedSourceRecord["sourceType"] | InstalledSkillRecord["sourceType"] }) {
+  const label =
+    source === "localZip" ? "Local ZIP" : source === "githubRepo" ? "GitHub Repo" : "Remote ZIP";
+
+  return (
+    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs uppercase tracking-[0.16em] text-ink-200/70">
+      {label}
+    </span>
+  );
 }
 
 function SectionCard({
@@ -159,14 +186,61 @@ function EmptyState({
   );
 }
 
-function SourceBadge({ source }: { source: StagedSourceRecord["sourceType"] | InstalledSkillRecord["sourceType"] }) {
-  const label =
-    source === "localZip" ? "Local ZIP" : source === "githubRepo" ? "GitHub Repo" : "Remote ZIP";
-
+function WorkspaceSourcesGrid({
+  sources,
+  selectedKey,
+  onSelect
+}: {
+  sources: WorkspaceSkillSource[];
+  selectedKey: WorkspaceSkillProviderKey | null;
+  onSelect: (key: WorkspaceSkillProviderKey) => void;
+}) {
   return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs uppercase tracking-[0.16em] text-ink-200/70">
-      {label}
-    </span>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {sources.map((source) => {
+        const active = source.key === selectedKey;
+        return (
+          <button
+            key={source.key}
+            className={cn(
+              "rounded-3xl border p-4 text-left transition",
+              active
+                ? "border-signal/40 bg-signal/10"
+                : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
+            )}
+            onClick={() => onSelect(source.key)}
+            type="button"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white">
+                  {providerMonogram(source.key)}
+                </div>
+                <div>
+                  <p className="font-medium text-white">{source.label}</p>
+                  <p className="text-sm text-ink-200/65">{source.directoryName}</p>
+                </div>
+              </div>
+              <span
+                className={cn(
+                  "rounded-full border px-2 py-1 text-xs uppercase tracking-[0.15em]",
+                  source.exists
+                    ? "border-moss/20 bg-moss/10 text-moss"
+                    : "border-white/10 bg-white/5 text-ink-200/60"
+                )}
+              >
+                {source.exists ? "Found" : "Missing"}
+              </span>
+            </div>
+            <p className="mt-4 text-sm text-ink-200/75">
+              {source.exists
+                ? `${source.skillCount} skill${source.skillCount === 1 ? "" : "s"} detected under this directory.`
+                : "Directory not found in the current project root."}
+            </p>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -191,11 +265,13 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     selectedSkillId,
     selectedStagedId,
     selectedLogId,
+    selectedWorkspaceSourceKey,
     selectedSkillDetail,
     selectedStagedDetail,
     setNotice,
     setError,
     setSelectedLogId,
+    setSelectedWorkspaceSourceKey,
     refresh,
     loadSkillDetail,
     loadStagedDetail,
@@ -205,6 +281,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     addRemoteSource,
     parseStagedSources,
     installStagedSources,
+    removeStagedSources,
     clearStagedSources,
     openPath,
     pickArchiveFile,
@@ -213,11 +290,31 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   } = useSkillManager(initialSkillId);
   const [remoteUrl, setRemoteUrl] = useState("");
   const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
-  const [lastImportedId, setLastImportedId] = useState<string | null>(null);
-  const [settingsDraft, setSettingsDraft] = useState<SaveSettingsInput | null>(null);
   const [searchValue, setSearchValue] = useState("");
+  const [settingsDraft, setSettingsDraft] = useState<SaveSettingsInput>({
+    installDir: "",
+    tempDir: "",
+    conflictPolicy: "rename"
+  });
 
   const isDesktop = isDesktopApiAvailable();
+  const selectedLog = snapshot?.logs.find((item) => item.id === selectedLogId) || null;
+  const selectedWorkspaceSource =
+    snapshot?.workspaceSkillSources.find((source) => source.key === selectedWorkspaceSourceKey) || null;
+  const installPathConfigured = Boolean(snapshot?.settings.installDir.trim());
+
+  useEffect(() => {
+    if (!snapshot) {
+      return;
+    }
+
+    setSettingsDraft({
+      installDir: snapshot.settings.installDir,
+      tempDir: snapshot.settings.tempDir,
+      conflictPolicy: snapshot.settings.conflictPolicy
+    });
+  }, [snapshot]);
+
   const installedSkills = useMemo(() => {
     if (!snapshot) {
       return [];
@@ -231,114 +328,77 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     return snapshot.installedSkills.filter((skill) => {
       return (
         skill.name.toLowerCase().includes(term) ||
-        skill.description?.toLowerCase().includes(term) ||
-        skill.slug.toLowerCase().includes(term)
+        skill.slug.toLowerCase().includes(term) ||
+        skill.description?.toLowerCase().includes(term)
       );
     });
   }, [searchValue, snapshot]);
 
-  if (snapshot && !settingsDraft) {
-    setSettingsDraft({
-      installDir: snapshot.settings.installDir,
-      tempDir: snapshot.settings.tempDir,
-      conflictPolicy: snapshot.settings.conflictPolicy
-    });
-  }
-
-  const selectedLog = snapshot?.logs.find((log) => log.id === selectedLogId) || null;
-
-  const onDrop = async (files: File[]) => {
-    const firstFile = files[0];
-    if (!firstFile?.path) {
-      setError("当前拖拽未暴露本地路径，请改用“选择 ZIP 文件”按钮。");
-      return;
-    }
-
-    const imported = await importLocalArchive(firstFile.path);
-    if (imported) {
-      setLastImportedId(imported.id);
-    }
-  };
-
   const dropzone = useDropzone({
-    onDropAccepted: (acceptedFiles) => {
-      void onDrop(acceptedFiles);
-    },
     accept: {
       "application/zip": [".zip"]
     },
-    multiple: false
+    multiple: false,
+    onDropAccepted: (files) => {
+      void (async () => {
+        const file = files[0];
+        if (!file?.path) {
+          setError("The dropped file path is not available. Use the file picker instead.");
+          return;
+        }
+
+        await importLocalArchive(file.path);
+      })();
+    }
   });
+
+  const pendingCount = snapshot?.stagedSources.filter((item) => item.status === "pending").length || 0;
+  const failureCount = snapshot?.summary.failedCount || 0;
 
   const toggleStageSelection = (id: string) => {
     setSelectedStageIds((current) =>
-      current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
     );
   };
 
-  const pending = snapshot?.stagedSources.filter((item) => item.status === "pending").length || 0;
-  const failures = snapshot?.summary.failedCount || 0;
+  const workspaceSourcesContent = snapshot ? (
+    <WorkspaceSourcesGrid
+      onSelect={setSelectedWorkspaceSourceKey}
+      selectedKey={selectedWorkspaceSourceKey}
+      sources={snapshot.workspaceSkillSources}
+    />
+  ) : null;
 
   const renderOverview = () => (
     <div className="space-y-6">
+      {!installPathConfigured ? (
+        <SectionCard
+          title="Install path required"
+          subtitle="The app now starts with an empty install directory by design."
+        >
+          <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5 text-sm text-amber-100">
+            Choose a default install directory in Settings before you try to install any staged skills. Workspace
+            discovery and ZIP parsing can still be used before that.
+          </div>
+        </SectionCard>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="已安装" value={snapshot?.summary.installedCount || 0} accent="text-moss" />
-        <StatCard label="暂存待处理" value={snapshot?.summary.stagedCount || 0} accent="text-signal" />
-        <StatCard label="可安装" value={snapshot?.summary.readyCount || 0} accent="text-white" />
-        <StatCard label="失败记录" value={snapshot?.summary.failedCount || 0} accent="text-ember" />
+        <StatCard accent="text-moss" label="Installed" value={snapshot?.summary.installedCount || 0} />
+        <StatCard accent="text-signal" label="Staged" value={snapshot?.summary.stagedCount || 0} />
+        <StatCard accent="text-white" label="Ready" value={snapshot?.summary.readyCount || 0} />
+        <StatCard accent="text-ember" label="Errors" value={snapshot?.summary.failedCount || 0} />
       </div>
 
       <SectionCard
-        title="当前工作台状态"
-        subtitle="围绕 MVP 主链路的运行时信息和最近活动"
-        actions={
-          <button
-            className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-ink-100/80 transition hover:bg-white/10"
-            onClick={() => void refresh()}
-            type="button"
-          >
-            刷新快照
-          </button>
-        }
+        title="Workspace skill directories"
+        subtitle="Click a provider to inspect the skills already living under project folders like .codex or .claude."
       >
-        <div className="grid gap-4 lg:grid-cols-[1.4fr,1fr]">
-          <div className="space-y-3 rounded-3xl border border-white/10 bg-black/20 p-4">
-            <p className="text-sm uppercase tracking-[0.18em] text-ink-200/65">运行环境</p>
-            <div className="space-y-2 text-sm text-ink-100/80">
-              <p>模式：{snapshot?.runtime.isDevelopment ? "Development / repo data" : "Production / userData"}</p>
-              <p>安装目录：{snapshot?.settings.installDir}</p>
-              <p>数据库：{snapshot?.runtime.databasePath}</p>
-              <p>日志目录：{snapshot?.runtime.logsRoot}</p>
-            </div>
-          </div>
-          <div className="space-y-3 rounded-3xl border border-white/10 bg-black/20 p-4">
-            <p className="text-sm uppercase tracking-[0.18em] text-ink-200/65">快捷入口</p>
-            <div className="grid gap-3">
-              <Link
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/10"
-                href="/import"
-              >
-                打开导入工作区 <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/10"
-                href="/staged"
-              >
-                处理暂存区来源 <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white transition hover:bg-white/10"
-                href="/skills"
-              >
-                浏览已安装 Skill <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
+        {workspaceSourcesContent}
       </SectionCard>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <SectionCard title="最近安装" subtitle="展示最近写入安装目录的 Skill">
+        <SectionCard title="Recent installs" subtitle="The newest records written into the installed skills database.">
           {snapshot?.summary.recentInstalls.length ? (
             <div className="space-y-3">
               {snapshot.summary.recentInstalls.map((skill) => (
@@ -352,19 +412,20 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     <p className="font-medium text-white">{skill.name}</p>
                     <SourceBadge source={skill.sourceType} />
                   </div>
-                  <p className="mt-2 text-sm text-ink-200/75">
-                    {skill.description || "当前 Skill 尚未提供简介。"}
-                  </p>
+                  <p className="mt-2 text-sm text-ink-200/75">{skill.description || "No description extracted yet."}</p>
                   <p className="mt-3 text-xs text-ink-200/55">{formatRelativeTime(skill.installedAt)}</p>
                 </button>
               ))}
             </div>
           ) : (
-            <EmptyState title="还没有安装记录" description="从导入页选择一个 ZIP 或把远程来源加入暂存区开始。" />
+            <EmptyState
+              description="Import a ZIP or install staged remote sources to populate this list."
+              title="No install records yet"
+            />
           )}
         </SectionCard>
 
-        <SectionCard title="最近失败" subtitle="帮助快速定位导入、解析或安装失败原因">
+        <SectionCard title="Recent failures" subtitle="Useful for debugging broken ZIPs, download issues, or path errors.">
           {snapshot?.summary.recentFailures.length ? (
             <div className="space-y-3">
               {snapshot.summary.recentFailures.map((log) => (
@@ -378,13 +439,16 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     <ShieldAlert className="h-4 w-4 text-ember" />
                     <p className="font-medium text-white">{log.message}</p>
                   </div>
-                  <p className="mt-2 line-clamp-3 text-sm text-ink-200/75">{log.detail || "无额外错误细节。"}</p>
+                  <p className="mt-2 line-clamp-3 text-sm text-ink-200/75">{log.detail || "No extra log detail."}</p>
                   <p className="mt-3 text-xs text-ink-200/55">{formatRelativeTime(log.createdAt)}</p>
                 </button>
               ))}
             </div>
           ) : (
-            <EmptyState title="暂无失败记录" description="当前导入链路状态良好，失败日志会在这里集中显示。" />
+            <EmptyState
+              description="Once parse or install errors occur, the newest ones will appear here."
+              title="No recent failures"
+            />
           )}
         </SectionCard>
       </div>
@@ -393,7 +457,17 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   const renderImport = () => (
     <div className="space-y-6">
-      <SectionCard title="本地 ZIP 导入" subtitle="优先打通本地 ZIP 的最短闭环：导入、识别、安装、浏览。">
+      <SectionCard
+        title="Project-native skill directories"
+        subtitle="Recognize skills already placed under folders such as .codex, .claude, .agent, or .agents."
+      >
+        {workspaceSourcesContent}
+      </SectionCard>
+
+      <SectionCard
+        title="Import local ZIP"
+        subtitle="The most reliable MVP path is still local ZIP -> staging -> install -> browse."
+      >
         <div
           {...dropzone.getRootProps()}
           className={cn(
@@ -405,9 +479,10 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         >
           <input {...dropzone.getInputProps()} />
           <UploadCloud className="mx-auto h-10 w-10 text-signal" />
-          <p className="mt-4 text-lg font-medium text-white">拖入 ZIP 文件，或使用下方按钮选择</p>
+          <p className="mt-4 text-lg font-medium text-white">Drop a ZIP file here or use the picker below</p>
           <p className="mt-2 text-sm text-ink-200/70">
-            当前支持根目录或单层子目录中包含 <code>SKILL.md</code> 的 Skill 压缩包
+            The current MVP recognizes a skill when it finds <code>SKILL.md</code> in the archive root or in a
+            single nested directory.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button
@@ -415,47 +490,38 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               onClick={async () => {
                 const result = await pickArchiveFile();
                 if (result.ok && result.data) {
-                  const imported = await importLocalArchive(result.data);
-                  if (imported) {
-                    setLastImportedId(imported.id);
-                  }
+                  await importLocalArchive(result.data);
                 }
               }}
               type="button"
             >
-              选择 ZIP 文件
+              Choose ZIP
             </button>
-            {lastImportedId ? (
-              <button
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
-                onClick={() => void installStagedSources([lastImportedId])}
-                type="button"
-              >
-                安装刚导入项
-              </button>
-            ) : null}
           </div>
         </div>
       </SectionCard>
 
-      <SectionCard title="远程来源录入" subtitle="将 GitHub 仓库或直接 ZIP 下载地址先放入暂存区，再执行解析和批量安装。">
+      <SectionCard
+        title="Add remote sources"
+        subtitle="GitHub repositories and direct ZIP URLs are added into staging first, then parsed and installed in batches."
+      >
         <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
           <label className="block text-sm font-medium text-white" htmlFor="remote-url">
-            GitHub 仓库 / ZIP 地址
+            GitHub repository or ZIP URL
           </label>
           <div className="mt-3 flex flex-col gap-3 lg:flex-row">
             <input
               className="h-12 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition placeholder:text-ink-200/40 focus:border-signal/45"
               id="remote-url"
               onChange={(event) => setRemoteUrl(event.target.value)}
-              placeholder="https://github.com/owner/repo 或 https://example.com/skill.zip"
+              placeholder="https://github.com/owner/repo or https://example.com/skill.zip"
               value={remoteUrl}
             />
             <button
               className="h-12 rounded-2xl bg-ember px-5 text-sm font-medium text-ink-950 transition hover:brightness-110"
               onClick={async () => {
                 if (!remoteUrl.trim()) {
-                  setError("请输入一个远程地址。");
+                  setError("Please enter a GitHub repository URL or a direct ZIP URL.");
                   return;
                 }
 
@@ -464,11 +530,11 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               }}
               type="button"
             >
-              加入暂存区
+              Add to staging
             </button>
           </div>
           <p className="mt-3 text-sm text-ink-200/65">
-            MVP 阶段支持 GitHub 仓库整体 ZIP 下载，以及直接以 <code>.zip</code> 结尾的远程下载地址。
+            This MVP supports full GitHub repository ZIP downloads and remote URLs ending in <code>.zip</code>.
           </p>
         </div>
       </SectionCard>
@@ -478,30 +544,47 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const renderStaged = () => (
     <div className="space-y-6">
       <SectionCard
-        title="暂存来源列表"
-        subtitle="从这里统一解析、安装、删除，避免远程来源一步直装带来的不确定性。"
+        title="Staged sources"
+        subtitle="Parse, install, or remove items from one place before they touch the install directory."
         actions={
           <div className="flex flex-wrap gap-2">
             <button
               className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
-              onClick={() => void parseStagedSources(selectedStageIds.length ? selectedStageIds : snapshot?.stagedSources.map((item) => item.id) || [])}
+              onClick={() =>
+                void parseStagedSources(
+                  selectedStageIds.length ? selectedStageIds : snapshot?.stagedSources.map((item) => item.id) || []
+                )
+              }
               type="button"
             >
-              批量解析
+              Parse selected
             </button>
             <button
               className="rounded-full bg-moss px-3 py-2 text-sm font-medium text-ink-950 transition hover:brightness-110"
-              onClick={() => void installStagedSources(selectedStageIds.length ? selectedStageIds : snapshot?.stagedSources.filter((item) => item.status === "ready").map((item) => item.id) || [])}
+              onClick={() =>
+                void installStagedSources(
+                  selectedStageIds.length
+                    ? selectedStageIds
+                    : snapshot?.stagedSources.filter((item) => item.status === "ready").map((item) => item.id) || []
+                )
+              }
               type="button"
             >
-              批量安装
+              Install selected
+            </button>
+            <button
+              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+              onClick={() => void removeStagedSources(selectedStageIds)}
+              type="button"
+            >
+              Remove selected
             </button>
             <button
               className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
               onClick={() => void clearStagedSources()}
               type="button"
             >
-              清空暂存区
+              Clear staging
             </button>
           </div>
         }
@@ -535,7 +618,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                         <SourceBadge source={item.sourceType} />
                       </div>
                       <p className="mt-2 text-sm text-ink-200/75">
-                        {item.detectedDescription || item.errorMessage || "等待解析后展示 Skill 摘要。"}
+                        {item.detectedDescription || item.errorMessage || "Waiting for metadata parsing."}
                       </p>
                     </div>
                   </div>
@@ -553,7 +636,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             ))}
           </div>
         ) : (
-          <EmptyState title="暂存区还是空的" description="从导入页加入本地 ZIP 或远程来源后，这里会统一展示处理状态。" />
+          <EmptyState description="Add ZIP files or remote sources first." title="The staging area is empty" />
         )}
       </SectionCard>
     </div>
@@ -561,16 +644,17 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   const renderSkills = () => (
     <div className="space-y-6">
-      <SectionCard title="已安装 Skill 列表" subtitle="支持搜索、浏览来源、查看安装路径和打开对应目录。">
+      <SectionCard title="Installed skills" subtitle="Search, inspect, and open local install folders.">
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4">
           <Search className="h-4 w-4 text-ink-200/65" />
           <input
             className="h-12 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-ink-200/40"
             onChange={(event) => setSearchValue(event.target.value)}
-            placeholder="搜索名称、slug 或描述"
+            placeholder="Search by name, slug, or description"
             value={searchValue}
           />
         </div>
+
         {installedSkills.length ? (
           <div className="space-y-3">
             {installedSkills.map((skill) => (
@@ -591,9 +675,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                       <p className="font-medium text-white">{skill.name}</p>
                       <SourceBadge source={skill.sourceType} />
                     </div>
-                    <p className="mt-2 text-sm text-ink-200/75">
-                      {skill.description || "当前 Skill 尚未提供描述。"}
-                    </p>
+                    <p className="mt-2 text-sm text-ink-200/75">{skill.description || "No description available."}</p>
                   </div>
                   <CheckCircle2 className="h-5 w-5 text-moss" />
                 </div>
@@ -602,7 +684,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             ))}
           </div>
         ) : (
-          <EmptyState title="还没有已安装 Skill" description="把本地 ZIP 安装进默认目录后，这里会立刻出现详细记录。" />
+          <EmptyState description="Installed skills will appear here after a successful install." title="No installed skills yet" />
         )}
       </SectionCard>
     </div>
@@ -610,7 +692,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   const renderLogs = () => (
     <div className="space-y-6">
-      <SectionCard title="操作日志" subtitle="聚合设置保存、暂存处理、安装成功与失败记录，便于定位问题。">
+      <SectionCard title="Operation logs" subtitle="Every parse, install, and settings action writes a searchable log trail.">
         {snapshot?.logs.length ? (
           <div className="space-y-3">
             {snapshot.logs.map((log) => (
@@ -629,13 +711,13 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   <p className={cn("font-medium", logTone(log))}>{log.message}</p>
                   <span className="text-xs uppercase tracking-[0.16em] text-ink-200/55">{log.level}</span>
                 </div>
-                <p className="mt-2 text-sm text-ink-200/75">{log.detail || "无额外详情"}</p>
+                <p className="mt-2 text-sm text-ink-200/75">{log.detail || "No extra detail"}</p>
                 <p className="mt-3 text-xs text-ink-200/55">{formatRelativeTime(log.createdAt)}</p>
               </button>
             ))}
           </div>
         ) : (
-          <EmptyState title="日志还是空的" description="保存设置、导入 ZIP、解析来源和安装 Skill 后，这里会自动补全记录。" />
+          <EmptyState description="Logs will appear here as soon as you start importing or installing skills." title="No logs yet" />
         )}
       </SectionCard>
     </div>
@@ -643,136 +725,144 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   const renderSettings = () => (
     <div className="space-y-6">
-      <SectionCard title="默认目录与安装策略" subtitle="采用开发环境仓库 data/，生产环境 userData 的双模式存储策略。">
-        {settingsDraft ? (
-          <div className="space-y-5 rounded-3xl border border-white/10 bg-black/20 p-5">
-            <div>
-              <label className="block text-sm font-medium text-white" htmlFor="install-dir">
-                默认安装目录
-              </label>
-              <div className="mt-3 flex flex-col gap-3 xl:flex-row">
-                <input
-                  className="h-12 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition placeholder:text-ink-200/40 focus:border-signal/45"
-                  id="install-dir"
-                  onChange={(event) =>
-                    setSettingsDraft((current) =>
-                      current ? { ...current, installDir: event.target.value } : current
-                    )
-                  }
-                  value={settingsDraft.installDir}
-                />
-                <button
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
-                  onClick={async () => {
-                    const result = await pickDirectory(settingsDraft.installDir);
-                    if (result.ok && result.data) {
-                      setSettingsDraft((current) =>
-                        current ? { ...current, installDir: result.data || current.installDir } : current
-                      );
-                    }
-                  }}
-                  type="button"
-                >
-                  选择目录
-                </button>
-                <button
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
-                  onClick={async () => {
-                    const result = await validateDirectory(settingsDraft.installDir);
-                    setNotice(result.writable ? "安装目录可用。" : result.error || "安装目录不可用。");
-                  }}
-                  type="button"
-                >
-                  检查目录
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white" htmlFor="temp-dir">
-                临时缓存目录
-              </label>
-              <div className="mt-3 flex flex-col gap-3 xl:flex-row">
-                <input
-                  className="h-12 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition placeholder:text-ink-200/40 focus:border-signal/45"
-                  id="temp-dir"
-                  onChange={(event) =>
-                    setSettingsDraft((current) =>
-                      current ? { ...current, tempDir: event.target.value } : current
-                    )
-                  }
-                  value={settingsDraft.tempDir}
-                />
-                <button
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
-                  onClick={async () => {
-                    const result = await pickDirectory(settingsDraft.tempDir);
-                    if (result.ok && result.data) {
-                      setSettingsDraft((current) =>
-                        current ? { ...current, tempDir: result.data || current.tempDir } : current
-                      );
-                    }
-                  }}
-                  type="button"
-                >
-                  选择目录
-                </button>
-                <button
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
-                  onClick={async () => {
-                    const result = await validateDirectory(settingsDraft.tempDir);
-                    setNotice(result.writable ? "临时目录可用。" : result.error || "临时目录不可用。");
-                  }}
-                  type="button"
-                >
-                  检查目录
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white" htmlFor="conflict-policy">
-                冲突处理策略
-              </label>
-              <select
-                className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none focus:border-signal/45"
-                id="conflict-policy"
+      <SectionCard
+        title="Default install path and temp path"
+        subtitle="The install path now starts empty. You choose it explicitly before any install happens."
+      >
+        <div className="space-y-5 rounded-3xl border border-white/10 bg-black/20 p-5">
+          <div>
+            <label className="block text-sm font-medium text-white" htmlFor="install-dir">
+              Default install directory
+            </label>
+            <div className="mt-3 flex flex-col gap-3 xl:flex-row">
+              <input
+                className="h-12 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition placeholder:text-ink-200/40 focus:border-signal/45"
+                id="install-dir"
                 onChange={(event) =>
-                  setSettingsDraft((current) =>
-                    current
-                      ? {
-                          ...current,
-                          conflictPolicy: event.target.value as SaveSettingsInput["conflictPolicy"]
-                        }
-                      : current
-                  )
+                  setSettingsDraft((current) => ({
+                    ...current,
+                    installDir: event.target.value
+                  }))
                 }
-                value={settingsDraft.conflictPolicy}
-              >
-                <option value="rename">重命名安装</option>
-                <option value="skip">跳过冲突项</option>
-                <option value="overwrite">覆盖已有目录</option>
-              </select>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
+                placeholder="Choose where installed skills should be copied"
+                value={settingsDraft.installDir}
+              />
               <button
-                className="rounded-full bg-signal px-5 py-2.5 text-sm font-medium text-ink-950 transition hover:brightness-110"
-                onClick={() => void saveSettings(settingsDraft)}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                onClick={async () => {
+                  const result = await pickDirectory(settingsDraft.installDir);
+                  if (result.ok && result.data) {
+                    setSettingsDraft((current) => ({
+                      ...current,
+                      installDir: result.data || current.installDir
+                    }));
+                  }
+                }}
                 type="button"
               >
-                保存设置
+                Choose
               </button>
               <button
-                className="rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm text-white transition hover:bg-white/10"
-                onClick={() => void openPath(snapshot?.settings.installDir || settingsDraft.installDir)}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                onClick={async () => {
+                  const result = await validateDirectory(settingsDraft.installDir);
+                  setNotice(result.writable ? "Install directory is writable." : result.error || "Install directory is invalid.");
+                }}
                 type="button"
               >
-                打开安装目录
+                Validate
               </button>
             </div>
           </div>
-        ) : null}
+
+          <div>
+            <label className="block text-sm font-medium text-white" htmlFor="temp-dir">
+              Temp directory
+            </label>
+            <div className="mt-3 flex flex-col gap-3 xl:flex-row">
+              <input
+                className="h-12 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition placeholder:text-ink-200/40 focus:border-signal/45"
+                id="temp-dir"
+                onChange={(event) =>
+                  setSettingsDraft((current) => ({
+                    ...current,
+                    tempDir: event.target.value
+                  }))
+                }
+                placeholder={`Leave empty to use the internal temp path (${snapshot?.runtime.dataRoot || "data"})`}
+                value={settingsDraft.tempDir}
+              />
+              <button
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                onClick={async () => {
+                  const result = await pickDirectory(settingsDraft.tempDir || snapshot?.runtime.dataRoot);
+                  if (result.ok && result.data) {
+                    setSettingsDraft((current) => ({
+                      ...current,
+                      tempDir: result.data || current.tempDir
+                    }));
+                  }
+                }}
+                type="button"
+              >
+                Choose
+              </button>
+              <button
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                onClick={async () => {
+                  if (!settingsDraft.tempDir.trim()) {
+                    setNotice("Temp directory is empty, so the internal runtime temp path will be used.");
+                    return;
+                  }
+
+                  const result = await validateDirectory(settingsDraft.tempDir);
+                  setNotice(result.writable ? "Temp directory is writable." : result.error || "Temp directory is invalid.");
+                }}
+                type="button"
+              >
+                Validate
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white" htmlFor="conflict-policy">
+              Conflict policy
+            </label>
+            <select
+              className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none focus:border-signal/45"
+              id="conflict-policy"
+              onChange={(event) =>
+                setSettingsDraft((current) => ({
+                  ...current,
+                  conflictPolicy: event.target.value as SaveSettingsInput["conflictPolicy"]
+                }))
+              }
+              value={settingsDraft.conflictPolicy}
+            >
+              <option value="rename">Rename on conflict</option>
+              <option value="skip">Skip conflicting installs</option>
+              <option value="overwrite">Overwrite existing directories</option>
+            </select>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              className="rounded-full bg-signal px-5 py-2.5 text-sm font-medium text-ink-950 transition hover:brightness-110"
+              onClick={() => void saveSettings(settingsDraft)}
+              type="button"
+            >
+              Save settings
+            </button>
+            <button
+              className="rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm text-white transition hover:bg-white/10"
+              onClick={() => void openPath(settingsDraft.installDir)}
+              type="button"
+            >
+              Open install folder
+            </button>
+          </div>
+        </div>
       </SectionCard>
     </div>
   );
@@ -780,10 +870,10 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const renderPrimarySection = () => {
     if (!snapshot) {
       return (
-        <SectionCard title="正在加载工作台" subtitle="准备读取设置、暂存记录和已安装 Skill 清单。">
+        <SectionCard title="Loading workspace" subtitle="Reading settings, staged sources, installed skills, and project directories.">
           <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-ink-200/70">
             <LoaderCircle className="h-5 w-5 animate-spin text-signal" />
-            正在初始化本地数据快照...
+            Building your local skill manager snapshot...
           </div>
         </SectionCard>
       );
@@ -807,16 +897,84 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     }
   };
 
+  const renderWorkspaceSourceDetail = () => {
+    if (!selectedWorkspaceSource) {
+      return (
+        <SectionCard title="Project skill directories" subtitle="Choose a provider card to inspect local skills under hidden project folders.">
+          <EmptyState
+            description="This panel shows the skills detected under directories like .codex or .claude."
+            title="No provider selected"
+          />
+        </SectionCard>
+      );
+    }
+
+    return (
+      <SectionCard
+        title={`${selectedWorkspaceSource.label} skills`}
+        subtitle={selectedWorkspaceSource.exists ? selectedWorkspaceSource.path : `${selectedWorkspaceSource.directoryName} is not present in this project.`}
+        actions={
+          <button
+            className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+            onClick={() => void openPath(selectedWorkspaceSource.path)}
+            type="button"
+          >
+            Open folder
+          </button>
+        }
+      >
+        {selectedWorkspaceSource.exists ? (
+          selectedWorkspaceSource.skills.length ? (
+            <div className="space-y-3">
+              {selectedWorkspaceSource.skills.map((skill) => (
+                <div key={skill.id} className="rounded-3xl border border-white/10 bg-black/20 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-white">{skill.name}</p>
+                      <p className="mt-1 text-sm text-ink-200/70">{skill.description || "No description found in SKILL.md."}</p>
+                    </div>
+                    <button
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs text-white transition hover:bg-white/10"
+                      onClick={() => void openPath(skill.rootPath)}
+                      type="button"
+                    >
+                      Open skill
+                    </button>
+                  </div>
+                  <div className="mt-3 space-y-1 text-xs text-ink-200/55">
+                    <p>Relative path: {skill.relativePath}</p>
+                    <p>SKILL.md: {skill.skillMdPath}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              description="The directory exists, but no SKILL.md files were found under the supported scan depth."
+              title="No skills detected"
+            />
+          )
+        ) : (
+          <EmptyState description="Create this directory in the project root to expose provider-specific skills here." title="Directory missing" />
+        )}
+      </SectionCard>
+    );
+  };
+
   const renderDetailPanel = () => {
     if (!snapshot) {
       return null;
+    }
+
+    if ((section === "overview" || section === "import") && snapshot.workspaceSkillSources.length > 0) {
+      return renderWorkspaceSourceDetail();
     }
 
     if (section === "skills" && selectedSkillDetail) {
       return (
         <SectionCard
           title={selectedSkillDetail.name}
-          subtitle={selectedSkillDetail.exists ? "已安装 Skill 详情" : "安装记录存在，但本地文件缺失"}
+          subtitle={selectedSkillDetail.exists ? "Installed skill detail" : "Record exists, but files are missing on disk"}
           actions={
             <div className="flex gap-2">
               <button
@@ -824,14 +982,14 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 onClick={() => void openPath(selectedSkillDetail.installPath)}
                 type="button"
               >
-                打开目录
+                Open folder
               </button>
               <button
                 className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
                 onClick={() => void rescanInstalledSkill(selectedSkillDetail.id)}
                 type="button"
               >
-                重扫
+                Rescan
               </button>
             </div>
           }
@@ -844,11 +1002,11 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   installed
                 </span>
               </div>
-              <p className="mt-3">{selectedSkillDetail.description || "当前 Skill 没有提取到描述。"} </p>
+              <p className="mt-3">{selectedSkillDetail.description || "No description extracted for this skill."}</p>
               <div className="mt-4 space-y-1 text-xs text-ink-200/60">
-                <p>安装路径：{selectedSkillDetail.installPath}</p>
-                <p>SKILL.md：{selectedSkillDetail.skillMdPath}</p>
-                <p>安装时间：{formatRelativeTime(selectedSkillDetail.installedAt)}</p>
+                <p>Install path: {selectedSkillDetail.installPath}</p>
+                <p>SKILL.md: {selectedSkillDetail.skillMdPath}</p>
+                <p>Installed: {formatRelativeTime(selectedSkillDetail.installedAt)}</p>
               </div>
             </div>
             <MarkdownViewer markdown={selectedSkillDetail.markdown} />
@@ -860,8 +1018,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     if (section === "staged" && selectedStagedDetail) {
       return (
         <SectionCard
-          title={selectedStagedDetail.detectedName || "暂存项详情"}
-          subtitle="查看解析结果、错误信息和 SKILL.md 预览"
+          title={selectedStagedDetail.detectedName || "Staged source detail"}
+          subtitle="Inspect parse results, source metadata, and previewed markdown before installing."
           actions={
             <div className="flex gap-2">
               <button
@@ -869,14 +1027,14 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 onClick={() => void parseStagedSources([selectedStagedDetail.id])}
                 type="button"
               >
-                重新解析
+                Re-parse
               </button>
               <button
                 className="rounded-full bg-moss px-3 py-2 text-sm font-medium text-ink-950 transition hover:brightness-110"
                 onClick={() => void installStagedSources([selectedStagedDetail.id])}
                 type="button"
               >
-                安装
+                Install
               </button>
             </div>
           }
@@ -896,13 +1054,13 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               </div>
               <p className="mt-3">{selectedStagedDetail.detectedDescription || selectedStagedDetail.sourceValue}</p>
               <div className="mt-4 space-y-1 text-xs text-ink-200/60">
-                <p>来源地址：{selectedStagedDetail.sourceValue}</p>
-                <p>归档文件：{selectedStagedDetail.archivePath || "尚未生成"}</p>
-                <p>Skill 根目录：{selectedStagedDetail.skillRootPath || "尚未识别"}</p>
-                {selectedStagedDetail.errorMessage ? <p>错误信息：{selectedStagedDetail.errorMessage}</p> : null}
+                <p>Source value: {selectedStagedDetail.sourceValue}</p>
+                <p>Archive path: {selectedStagedDetail.archivePath || "Not generated yet"}</p>
+                <p>Skill root: {selectedStagedDetail.skillRootPath || "Not detected yet"}</p>
+                {selectedStagedDetail.errorMessage ? <p>Error: {selectedStagedDetail.errorMessage}</p> : null}
               </div>
             </div>
-            <MarkdownViewer markdown={selectedStagedDetail.markdown} emptyMessage="当前暂存项还没有可展示的 SKILL.md 预览。" />
+            <MarkdownViewer markdown={selectedStagedDetail.markdown} emptyMessage="No SKILL.md preview is available for this staged item yet." />
           </div>
         </SectionCard>
       );
@@ -910,14 +1068,14 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
     if (section === "logs" && selectedLog) {
       return (
-        <SectionCard title="日志详情" subtitle={selectedLog.message}>
+        <SectionCard title="Log detail" subtitle={selectedLog.message}>
           <div className="space-y-4 rounded-3xl border border-white/10 bg-black/20 p-4 text-sm text-ink-100/80">
             <p className={cn("font-medium", logTone(selectedLog))}>{selectedLog.level.toUpperCase()}</p>
-            <p>{selectedLog.detail || "没有更多细节。"} </p>
+            <p>{selectedLog.detail || "No extra detail."}</p>
             <div className="space-y-1 text-xs text-ink-200/60">
-              <p>类型：{selectedLog.type}</p>
-              <p>关联对象：{selectedLog.relatedId || "无"}</p>
-              <p>时间：{formatRelativeTime(selectedLog.createdAt)}</p>
+              <p>Type: {selectedLog.type}</p>
+              <p>Related ID: {selectedLog.relatedId || "None"}</p>
+              <p>Time: {formatRelativeTime(selectedLog.createdAt)}</p>
             </div>
           </div>
         </SectionCard>
@@ -925,28 +1083,29 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     }
 
     return (
-      <SectionCard title="工作台说明" subtitle="当前页的关键提示和建议操作">
+      <SectionCard title="Workspace notes" subtitle="A quick guide for the current MVP flow.">
         <div className="space-y-4">
           <div className="rounded-3xl border border-white/10 bg-black/20 p-4 text-sm text-ink-100/80">
             <div className="flex items-center gap-2 text-white">
               <Sparkles className="h-4 w-4 text-signal" />
-              <p className="font-medium">当前阶段聚焦 MVP 主链路</p>
+              <p className="font-medium">Main MVP path</p>
             </div>
             <p className="mt-3">
-              先完成「导入 -&gt; 暂存 -&gt; 安装 -&gt; 浏览」闭环，再继续强化冲突处理、卸载与更复杂的远程来源。
+              Import -&gt; stage -&gt; install -&gt; browse. The new project directory cards complement that flow by
+              exposing local hidden-provider skill folders.
             </p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-black/20 p-4 text-sm text-ink-100/80">
-            <p className="font-medium text-white">建议下一步</p>
+            <p className="font-medium text-white">Recommended next steps</p>
             <ul className="mt-3 space-y-2 text-ink-200/75">
-              <li>1. 在导入页放入一个本地 ZIP，确认识别和暂存正常。</li>
-              <li>2. 在暂存区执行解析或安装，查看状态流转。</li>
-              <li>3. 在已安装页验证 `SKILL.md` 详情与目录打开能力。</li>
+              <li>1. Configure the install directory in Settings if it is still empty.</li>
+              <li>2. Click a provider card such as Codex to inspect project-local skills.</li>
+              <li>3. Drop a ZIP archive into Import and verify the staging flow.</li>
             </ul>
           </div>
           {!isDesktop ? (
             <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">
-              当前页面运行在浏览器回退模式，桌面能力（文件对话框、本地目录打开、SQLite 数据）只有在 Electron 桌面壳里可用。
+              This page is running in browser fallback mode. File dialogs, SQLite data, and folder opening only work inside the Electron desktop shell.
             </div>
           ) : null}
         </div>
@@ -961,21 +1120,19 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
           <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-signal/18 via-transparent to-ember/10 p-5">
             <p className="text-xs uppercase tracking-[0.3em] text-signal/80">Control Your Skills</p>
             <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white">Skill Manager</h1>
-            <p className="mt-2 text-sm text-ink-200/70">
-              面向本地优先工作流的桌面 Skill 安装与管理台。
-            </p>
+            <p className="mt-2 text-sm text-ink-200/70">A desktop workbench for local-first skill import, inspection, and installation.</p>
           </div>
 
           <nav className="mt-6 space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = item.section === section;
+              const active = item.section === section;
               return (
                 <Link
                   key={item.section}
                   className={cn(
                     "flex items-center justify-between rounded-2xl border px-4 py-3 text-sm transition",
-                    isActive
+                    active
                       ? "border-signal/30 bg-signal/15 text-white"
                       : "border-white/10 bg-white/5 text-ink-200/80 hover:bg-white/10"
                   )}
@@ -985,11 +1142,11 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     <Icon className="h-4 w-4" />
                     {item.label}
                   </span>
-                  {item.section === "staged" && pending ? (
-                    <span className="rounded-full bg-signal/15 px-2 py-0.5 text-xs text-signal">{pending}</span>
+                  {item.section === "staged" && pendingCount ? (
+                    <span className="rounded-full bg-signal/15 px-2 py-0.5 text-xs text-signal">{pendingCount}</span>
                   ) : null}
-                  {item.section === "logs" && failures ? (
-                    <span className="rounded-full bg-ember/15 px-2 py-0.5 text-xs text-ember">{failures}</span>
+                  {item.section === "logs" && failureCount ? (
+                    <span className="rounded-full bg-ember/15 px-2 py-0.5 text-xs text-ember">{failureCount}</span>
                   ) : null}
                 </Link>
               );
@@ -999,11 +1156,12 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
           <div className="mt-6 space-y-3 rounded-[28px] border border-white/10 bg-black/20 p-4 text-sm text-ink-200/75">
             <div className="flex items-center gap-2 text-white">
               <Database className="h-4 w-4 text-signal" />
-              数据与运行
+              Runtime
             </div>
-            <p>开发数据：仓库下 `data/`</p>
-            <p>生产数据：Electron `userData`</p>
-            <p>当前安装目录：{snapshot?.settings.installDir || "加载中..."}</p>
+            <p>Dev data: repository `data/`</p>
+            <p>Prod data: Electron `userData`</p>
+            <p>Frontend port: `3211`</p>
+            <p>Install dir: {snapshot?.settings.installDir || "Not configured yet"}</p>
           </div>
         </aside>
 
@@ -1027,7 +1185,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 >
                   <span className="flex items-center gap-2">
                     <RefreshCcw className="h-4 w-4" />
-                    刷新
+                    Refresh
                   </span>
                 </button>
                 <button
@@ -1037,7 +1195,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 >
                   <span className="flex items-center gap-2">
                     <FolderOpen className="h-4 w-4" />
-                    打开安装目录
+                    Open install folder
                   </span>
                 </button>
               </div>
@@ -1045,7 +1203,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
             <div className="mt-4 grid gap-3 xl:grid-cols-[1.4fr,auto] xl:items-center">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-ink-200/80">
-                <span className="text-ink-200/55">当前默认安装目录：</span> {snapshot?.settings.installDir || "加载中..."}
+                <span className="text-ink-200/55">Default install directory:</span>{" "}
+                {snapshot?.settings.installDir || "Not configured yet"}
               </div>
               {busyLabel ? (
                 <div className="inline-flex items-center gap-2 rounded-full border border-signal/30 bg-signal/10 px-4 py-2 text-sm text-signal">
@@ -1056,18 +1215,14 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             </div>
 
             {notice ? (
-              <div className="mt-3 rounded-2xl border border-moss/20 bg-moss/10 px-4 py-3 text-sm text-moss">
-                {notice}
-              </div>
+              <div className="mt-3 rounded-2xl border border-moss/20 bg-moss/10 px-4 py-3 text-sm text-moss">{notice}</div>
             ) : null}
             {error ? (
-              <div className="mt-3 rounded-2xl border border-ember/20 bg-ember/10 px-4 py-3 text-sm text-ember">
-                {error}
-              </div>
+              <div className="mt-3 rounded-2xl border border-ember/20 bg-ember/10 px-4 py-3 text-sm text-ember">{error}</div>
             ) : null}
           </header>
 
-          <div className="grid flex-1 gap-6 p-6 2xl:grid-cols-[minmax(0,1.35fr),400px]">
+          <div className="grid flex-1 gap-6 p-6 2xl:grid-cols-[minmax(0,1.35fr),420px]">
             <main className="space-y-6">{renderPrimarySection()}</main>
             <aside className="space-y-6">{renderDetailPanel()}</aside>
           </div>

@@ -5,7 +5,7 @@ import { app, BrowserWindow } from "electron";
 import { registerIpcHandlers } from "./ipc";
 import { SkillManagerBackend } from "./skill-manager-backend";
 
-const RENDERER_URL = "http://127.0.0.1:3000";
+const RENDERER_URL = "http://127.0.0.1:3211";
 
 function createWindow() {
   const window = new BrowserWindow({

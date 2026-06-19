@@ -29,6 +29,7 @@ const fallbackSnapshot: SkillManagerSnapshot = {
   settings: fallbackSettings,
   stagedSources: [],
   installedSkills: [],
+  workspaceSkillSources: [],
   logs: [],
   summary: {
     installedCount: 0,
@@ -47,7 +48,9 @@ const fallbackSnapshot: SkillManagerSnapshot = {
   }
 };
 
-function unavailableResult<T>(message = "当前页面未运行在 Electron 桌面壳内。"): OperationResult<T> {
+function unavailableResult<T>(
+  message = "This page is not running inside the Electron desktop shell."
+): OperationResult<T> {
   return {
     ok: false,
     error: message
@@ -71,7 +74,7 @@ const browserFallbackApi: SkillManagerApi = {
     exists: false,
     writable: false,
     created: false,
-    error: "当前页面未运行在 Electron 桌面壳内。"
+    error: "This page is not running inside the Electron desktop shell."
   }),
   openPath: async () => unavailableResult<void>(),
   pickArchiveFile: async () => ({ ok: true, data: null }),
@@ -91,5 +94,5 @@ export function isDesktopApiAvailable() {
 }
 
 export function formatLogLine(log: LogRecord) {
-  return `${log.level.toUpperCase()} · ${log.message}`;
+  return `${log.level.toUpperCase()} | ${log.message}`;
 }

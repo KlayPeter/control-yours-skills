@@ -6,7 +6,8 @@ import type {
   InstalledSkillDetail,
   SaveSettingsInput,
   SkillManagerSnapshot,
-  StagedSourceDetail
+  StagedSourceDetail,
+  WorkspaceSkillProviderKey
 } from "@shared/contracts";
 
 import { getSkillManagerApi } from "@/lib/electron-api";
@@ -17,6 +18,8 @@ export function useSkillManager(initialSkillId?: string) {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(initialSkillId || null);
   const [selectedStagedId, setSelectedStagedId] = useState<string | null>(null);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+  const [selectedWorkspaceSourceKey, setSelectedWorkspaceSourceKey] =
+    useState<WorkspaceSkillProviderKey | null>(null);
   const [selectedSkillDetail, setSelectedSkillDetail] = useState<InstalledSkillDetail | null>(null);
   const [selectedStagedDetail, setSelectedStagedDetail] = useState<StagedSourceDetail | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
@@ -26,6 +29,19 @@ export function useSkillManager(initialSkillId?: string) {
   const refresh = useCallback(async () => {
     const nextSnapshot = await api.getSnapshot();
     setSnapshot(nextSnapshot);
+
+    setSelectedWorkspaceSourceKey((current) => {
+      if (current && nextSnapshot.workspaceSkillSources.some((source) => source.key === current)) {
+        return current;
+      }
+
+      return (
+        nextSnapshot.workspaceSkillSources.find((source) => source.exists && source.skillCount > 0)?.key ||
+        nextSnapshot.workspaceSkillSources.find((source) => source.exists)?.key ||
+        null
+      );
+    });
+
     return nextSnapshot;
   }, [api]);
 
@@ -42,7 +58,7 @@ export function useSkillManager(initialSkillId?: string) {
         setSelectedSkillId(skillId);
       } else {
         setSelectedSkillDetail(null);
-        setError(result.error || "读取 Skill 详情失败。");
+        setError(result.error || "Failed to load the selected skill.");
       }
     },
     [api]
@@ -61,7 +77,7 @@ export function useSkillManager(initialSkillId?: string) {
         setSelectedStagedId(stagedId);
       } else {
         setSelectedStagedDetail(null);
-        setError(result.error || "读取暂存项详情失败。");
+        setError(result.error || "Failed to load the selected staged source.");
       }
     },
     [api]
@@ -87,7 +103,7 @@ export function useSkillManager(initialSkillId?: string) {
 
         return result;
       } catch (actionError) {
-        const message = actionError instanceof Error ? actionError.message : "操作失败。";
+        const message = actionError instanceof Error ? actionError.message : "Operation failed.";
         setError(message);
         throw actionError;
       } finally {
@@ -127,114 +143,120 @@ export function useSkillManager(initialSkillId?: string) {
     selectedSkillId,
     selectedStagedId,
     selectedLogId,
+    selectedWorkspaceSourceKey,
     selectedSkillDetail,
     selectedStagedDetail,
     setNotice,
     setError,
     setSelectedLogId,
+    setSelectedWorkspaceSourceKey,
     refresh,
     loadSkillDetail,
     loadStagedDetail,
     saveSettings: (input: SaveSettingsInput) =>
-      runAction("保存设置", async () => {
+      runAction("Saving settings", async () => {
         const result = await api.saveSettings(input);
         if (!result.ok) {
-          throw new Error(result.error || "保存设置失败。");
+          throw new Error(result.error || "Failed to save settings.");
         }
 
-        setNotice("设置已保存。");
+        setNotice("Settings saved.");
         return result.data;
       }),
     validateDirectory: (targetPath: string) => api.validateDirectory(targetPath),
     importLocalArchive: (filePath: string) =>
-      runAction("导入 ZIP", async () => {
+      runAction("Importing ZIP", async () => {
         const result = await api.importLocalArchive(filePath);
         if (!result.ok) {
-          throw new Error(result.error || "导入 ZIP 失败。");
+          throw new Error(result.error || "Failed to import the ZIP archive.");
         }
 
         if (result.data) {
           await loadStagedDetail(result.data.id);
         }
-        setNotice("ZIP 已导入并完成基础识别。");
+
+        setNotice("ZIP archive imported and parsed.");
         return result.data;
       }),
     addRemoteSource: (url: string) =>
-      runAction("加入远程来源", async () => {
+      runAction("Adding remote source", async () => {
         const result = await api.addRemoteSource(url);
         if (!result.ok) {
-          throw new Error(result.error || "加入暂存区失败。");
+          throw new Error(result.error || "Failed to add the remote source.");
         }
 
         if (result.data) {
           await loadStagedDetail(result.data.id);
         }
-        setNotice("远程来源已加入暂存区。");
+
+        setNotice("Remote source added to staging.");
         return result.data;
       }),
     parseStagedSources: (ids: string[]) =>
-      runAction("解析暂存项", async () => {
+      runAction("Parsing staged sources", async () => {
         const result = await api.parseStagedSources(ids);
         if (!result.ok) {
-          throw new Error(result.error || "解析暂存项失败。");
+          throw new Error(result.error || "Failed to parse staged sources.");
         }
 
-        setNotice("暂存项解析完成。");
+        setNotice("Staged sources parsed.");
         return result.data;
       }),
     installStagedSources: (ids: string[]) =>
-      runAction("安装 Skill", async () => {
+      runAction("Installing skills", async () => {
         const result = await api.installStagedSources(ids);
         if (!result.ok) {
-          throw new Error(result.error || "安装 Skill 失败。");
+          throw new Error(result.error || "Failed to install staged skills.");
         }
 
         if (result.data && result.data.length > 0) {
           await loadSkillDetail(result.data[0].id);
         }
-        setNotice("所选暂存项已执行安装。");
+
+        setNotice("Selected staged skills installed.");
         return result.data;
       }),
     removeStagedSources: (ids: string[]) =>
-      runAction("删除暂存项", async () => {
+      runAction("Removing staged sources", async () => {
         const result = await api.removeStagedSources(ids);
         if (!result.ok) {
-          throw new Error(result.error || "删除暂存项失败。");
+          throw new Error(result.error || "Failed to remove staged sources.");
         }
 
-        setNotice("已删除所选暂存项。");
+        setNotice("Selected staged sources removed.");
         return result.data;
       }),
     clearStagedSources: () =>
-      runAction("清空暂存区", async () => {
+      runAction("Clearing staging area", async () => {
         const result = await api.clearStagedSources();
         if (!result.ok) {
-          throw new Error(result.error || "清空暂存区失败。");
+          throw new Error(result.error || "Failed to clear the staging area.");
         }
 
         setSelectedStagedDetail(null);
         setSelectedStagedId(null);
-        setNotice("暂存区已清空。");
+        setNotice("Staging area cleared.");
         return result.data;
       }),
     openPath: async (targetPath: string) => {
       const result = await api.openPath(targetPath);
       if (!result.ok) {
-        setError(result.error || "打开目录失败。");
+        setError(result.error || "Failed to open the target path.");
       }
+
       return result;
     },
     pickArchiveFile: async () => api.pickArchiveFile(),
     pickDirectory: async (initialPath?: string) => api.pickDirectory(initialPath),
     rescanInstalledSkill: (skillId: string) =>
-      runAction("重新扫描 Skill", async () => {
+      runAction("Rescanning skill", async () => {
         const result = await api.rescanInstalledSkill(skillId);
         if (!result.ok || !result.data) {
-          throw new Error(result.error || "重新扫描失败。");
+          throw new Error(result.error || "Failed to rescan the selected skill.");
         }
 
         await loadSkillDetail(skillId);
-        setNotice("Skill 信息已重新扫描。");
+        setNotice("Skill rescanned.");
         return result.data;
       })
   };

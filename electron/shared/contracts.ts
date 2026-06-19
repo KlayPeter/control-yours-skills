@@ -60,6 +60,27 @@ export interface InstalledSkillDetail extends InstalledSkillRecord {
   exists: boolean;
 }
 
+export type WorkspaceSkillProviderKey = "codex" | "claude" | "agent" | "agents";
+
+export interface WorkspaceSkillEntry {
+  id: string;
+  name: string;
+  description: string | null;
+  relativePath: string;
+  rootPath: string;
+  skillMdPath: string;
+}
+
+export interface WorkspaceSkillSource {
+  key: WorkspaceSkillProviderKey;
+  label: string;
+  directoryName: string;
+  path: string;
+  exists: boolean;
+  skillCount: number;
+  skills: WorkspaceSkillEntry[];
+}
+
 export interface LogRecord {
   id: string;
   type: LogType;
@@ -91,6 +112,7 @@ export interface SkillManagerSnapshot {
   settings: SettingsRecord;
   stagedSources: StagedSourceRecord[];
   installedSkills: InstalledSkillRecord[];
+  workspaceSkillSources: WorkspaceSkillSource[];
   logs: LogRecord[];
   summary: AppSummary;
   runtime: RuntimeInfo;

@@ -7,3 +7,4 @@ dist-electron/
 .npm-cache/
 tsconfig.tsbuildinfo
 npm-debug.log*
+.norgore
