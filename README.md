@@ -1,16 +1,16 @@
 # Control Your Skills
 
-`Control Your Skills` 是一个本地优先的桌面端 Skill Manager，目标是把项目里的 skills、ZIP 导入来源、远程仓库来源和已安装 skills 统一放到一个工作台里管理。
+`Control Your Skills` 是一个本地优先的桌面端 Skill Manager，用来统一管理项目里的 skills、本地 ZIP 导入来源、远程仓库来源，以及已经安装的 skills。
 
-当前项目已经提供一个可运行的 MVP，包含这些能力：
+当前 MVP 已经具备这些能力：
 
 - Electron + Next.js 桌面工作台
 - SQLite 本地数据存储
-- 本地 ZIP 导入、解析 `SKILL.md`、进入 staging 后安装
-- GitHub 仓库 / 远程 ZIP 先暂存再解析
+- 本地 ZIP 导入并解析 `SKILL.md`
+- GitHub 仓库 / 远程 ZIP 进入 staging 后再解析与安装
 - 扫描项目根目录下的 `.codex`、`.claude`、`.agent`、`.agents`
-- 点击 provider 卡片查看该目录下面识别到的 skills
-- 设置默认安装目录、临时目录、冲突策略
+- 点击 provider 卡片查看该目录下识别到的 skills
+- 设置默认安装目录、临时目录和冲突策略
 - 查看日志、安装记录、失败记录
 
 ## 环境要求
@@ -25,7 +25,7 @@
 npm install
 ```
 
-如果系统盘空间紧张，建议把 npm 缓存和临时目录切到项目盘：
+如果系统盘空间紧张，项目现在会优先把 Electron 缓存放到仓库里的 `.electron-cache/`，并建议把 npm 缓存和临时目录也切到项目盘：
 
 ```powershell
 $env:npm_config_cache='F:\personal\poject\control-your-skills\.npm-cache'
@@ -52,6 +52,12 @@ npm run dev
 
 ```bash
 npm run dev:web
+```
+
+只检查并补齐 Electron 二进制：
+
+```bash
+npm run electron:ensure
 ```
 
 生产构建：
