@@ -31,6 +31,9 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:rescan-installed-skill", (_event, id: string) =>
     backend.rescanInstalledSkill(id)
   );
+  ipcMain.handle("skill-manager:export-installed-skill", (_event, input) =>
+    backend.exportInstalledSkill(input)
+  );
   ipcMain.handle("skill-manager:save-settings", (_event, input: SaveSettingsInput) =>
     backend.saveSettings(input)
   );

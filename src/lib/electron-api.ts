@@ -2,6 +2,7 @@
 
 import type {
   DirectoryValidationResult,
+  ExportInstalledSkillInput,
   InstalledSkillDetail,
   LogRecord,
   OperationResult,
@@ -19,8 +20,17 @@ function nowIso() {
 const fallbackSettings: SettingsRecord = {
   installDir: "Desktop shell required",
   tempDir: "Desktop shell required",
+  projectDirs: [],
   conflictPolicy: "rename",
   theme: "dark",
+  locale: "en",
+  ai: {
+    enabled: true,
+    provider: "deepseek",
+    baseUrl: "https://api.deepseek.com",
+    apiKey: "",
+    model: "deepseek-v4-pro"
+  },
   createdAt: nowIso(),
   updatedAt: nowIso()
 };
@@ -29,7 +39,9 @@ const fallbackSnapshot: SkillManagerSnapshot = {
   settings: fallbackSettings,
   stagedSources: [],
   installedSkills: [],
+  importedProjects: [],
   workspaceSkillSources: [],
+  systemSkillSources: [],
   logs: [],
   summary: {
     installedCount: 0,
@@ -42,9 +54,18 @@ const fallbackSnapshot: SkillManagerSnapshot = {
   runtime: {
     isDevelopment: true,
     appRoot: typeof window === "undefined" ? "" : window.location.origin,
+    rendererUrl: typeof window === "undefined" ? "" : window.location.origin,
     dataRoot: "Desktop shell required",
     databasePath: "Desktop shell required",
-    logsRoot: "Desktop shell required"
+    logsRoot: "Desktop shell required",
+    platform: "unknown",
+    homeDir: "Desktop shell required",
+    environment: {
+      os: "unknown",
+      arch: "unknown",
+      shell: "unknown",
+      tools: []
+    }
   }
 };
 
@@ -68,6 +89,10 @@ const browserFallbackApi: SkillManagerApi = {
   getStagedSourceDetail: async () => unavailableResult<StagedSourceDetail>(),
   getInstalledSkillDetail: async () => unavailableResult<InstalledSkillDetail>(),
   rescanInstalledSkill: async () => unavailableResult<InstalledSkillDetail>(),
+  exportInstalledSkill: async (_input: ExportInstalledSkillInput) => {
+    void _input;
+    return unavailableResult<string>();
+  },
   saveSettings: async () => unavailableResult<SettingsRecord>(),
   validateDirectory: async (targetPath: string): Promise<DirectoryValidationResult> => ({
     path: targetPath,

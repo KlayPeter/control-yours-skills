@@ -4,12 +4,52 @@ export type SourceStatus = "pending" | "processing" | "ready" | "installed" | "e
 export type LogLevel = "info" | "warning" | "error";
 export type LogType = "system" | "settings" | "staged" | "install";
 export type ThemePreference = "dark";
+export type Locale = "zh-CN" | "en";
+export type AiProvider = "deepseek";
+export type AnalysisMethod = "rules" | "ai" | "rules+ai";
+export type InstallStrategyType = "archiveCopy" | "command" | "manual";
+
+export interface AiSettings {
+  enabled: boolean;
+  provider: AiProvider;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+export interface DetectedTool {
+  name: string;
+  available: boolean;
+  command: string | null;
+}
+
+export interface EnvironmentInfo {
+  os: string;
+  arch: string;
+  shell: string;
+  tools: DetectedTool[];
+}
+
+export interface InstallStrategy {
+  type: InstallStrategyType;
+  title: string;
+  reason: string | null;
+  command: string | null;
+  workingDirectory: string | null;
+  manualSteps: string[];
+  requiredTools: string[];
+  supportedPlatforms: string[];
+  canAutoInstall: boolean;
+}
 
 export interface SettingsRecord {
   installDir: string;
   tempDir: string;
+  projectDirs: string[];
   conflictPolicy: ConflictPolicy;
   theme: ThemePreference;
+  locale: Locale;
+  ai: AiSettings;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,6 +73,11 @@ export interface StagedSourceRecord {
   skillRootPath: string | null;
   skillMdPath: string | null;
   installPath: string | null;
+  analysisMethod: AnalysisMethod | null;
+  analysisSummary: string | null;
+  installStrategy: InstallStrategy | null;
+  readmeUrl: string | null;
+  readmeExcerpt: string | null;
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
@@ -60,7 +105,8 @@ export interface InstalledSkillDetail extends InstalledSkillRecord {
   exists: boolean;
 }
 
-export type WorkspaceSkillProviderKey = "codex" | "claude" | "agent" | "agents";
+export type WorkspaceSkillProviderKey = "codex" | "claude" | "agents";
+export type WorkspaceSkillSourceScope = "project" | "system";
 
 export interface WorkspaceSkillEntry {
   id: string;
@@ -72,13 +118,23 @@ export interface WorkspaceSkillEntry {
 }
 
 export interface WorkspaceSkillSource {
+  id: string;
   key: WorkspaceSkillProviderKey;
+  scope: WorkspaceSkillSourceScope;
   label: string;
   directoryName: string;
   path: string;
   exists: boolean;
   skillCount: number;
   skills: WorkspaceSkillEntry[];
+}
+
+export interface ImportedProjectRecord {
+  id: string;
+  name: string;
+  path: string;
+  skillCount: number;
+  sources: WorkspaceSkillSource[];
 }
 
 export interface LogRecord {
@@ -103,25 +159,39 @@ export interface AppSummary {
 export interface RuntimeInfo {
   isDevelopment: boolean;
   appRoot: string;
+  rendererUrl: string;
   dataRoot: string;
   databasePath: string;
   logsRoot: string;
+  platform: string;
+  homeDir: string;
+  environment: EnvironmentInfo;
 }
 
 export interface SkillManagerSnapshot {
   settings: SettingsRecord;
   stagedSources: StagedSourceRecord[];
   installedSkills: InstalledSkillRecord[];
+  importedProjects: ImportedProjectRecord[];
   workspaceSkillSources: WorkspaceSkillSource[];
+  systemSkillSources: WorkspaceSkillSource[];
   logs: LogRecord[];
   summary: AppSummary;
   runtime: RuntimeInfo;
 }
 
+export interface ExportInstalledSkillInput {
+  skillId: string;
+  providerKey: WorkspaceSkillProviderKey;
+}
+
 export interface SaveSettingsInput {
   installDir: string;
   tempDir: string;
+  projectDirs: string[];
   conflictPolicy: ConflictPolicy;
+  locale: Locale;
+  ai: AiSettings;
 }
 
 export interface OperationResult<T> {
@@ -141,6 +211,7 @@ export interface SkillManagerApi {
   getStagedSourceDetail(id: string): Promise<OperationResult<StagedSourceDetail>>;
   getInstalledSkillDetail(id: string): Promise<OperationResult<InstalledSkillDetail>>;
   rescanInstalledSkill(id: string): Promise<OperationResult<InstalledSkillDetail>>;
+  exportInstalledSkill(input: ExportInstalledSkillInput): Promise<OperationResult<string>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;
   validateDirectory(targetPath: string): Promise<DirectoryValidationResult>;
   openPath(targetPath: string): Promise<OperationResult<void>>;

@@ -14,6 +14,7 @@ const api: SkillManagerApi = {
   getInstalledSkillDetail: (id) =>
     ipcRenderer.invoke("skill-manager:get-installed-skill-detail", id),
   rescanInstalledSkill: (id) => ipcRenderer.invoke("skill-manager:rescan-installed-skill", id),
+  exportInstalledSkill: (input) => ipcRenderer.invoke("skill-manager:export-installed-skill", input),
   saveSettings: (input) => ipcRenderer.invoke("skill-manager:save-settings", input),
   validateDirectory: (targetPath) => ipcRenderer.invoke("skill-manager:validate-directory", targetPath),
   openPath: (targetPath) => ipcRenderer.invoke("skill-manager:open-path", targetPath),

@@ -1,7 +1,13 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
-import type { WorkspaceSkillEntry, WorkspaceSkillProviderKey, WorkspaceSkillSource } from "@shared/contracts";
+import type {
+  WorkspaceSkillEntry,
+  WorkspaceSkillProviderKey,
+  WorkspaceSkillSource,
+  WorkspaceSkillSourceScope
+} from "@shared/contracts";
 
 import { extractSkillMetadata } from "./skill-parser";
 
@@ -12,7 +18,6 @@ const PROVIDERS: Array<{
 }> = [
   { key: "codex", label: "Codex", directoryName: ".codex" },
   { key: "claude", label: "Claude", directoryName: ".claude" },
-  { key: "agent", label: "Agent", directoryName: ".agent" },
   { key: "agents", label: "Agents", directoryName: ".agents" }
 ];
 
@@ -20,27 +25,45 @@ const IGNORED_DIRECTORIES = new Set(["node_modules", ".git", ".next", "dist-elec
 const MAX_SCAN_DEPTH = 4;
 
 export async function scanWorkspaceSkillSources(workspaceRoot: string): Promise<WorkspaceSkillSource[]> {
-  const sources = await Promise.all(
+  return scanSkillSources("project", workspaceRoot);
+}
+
+export async function scanSystemSkillSources(): Promise<WorkspaceSkillSource[]> {
+  return scanSkillSources("system", os.homedir());
+}
+
+function scanSkillSources(scope: WorkspaceSkillSourceScope, rootPath: string): Promise<WorkspaceSkillSource[]> {
+  return Promise.all(
     PROVIDERS.map(async (provider) => {
-      const providerPath = path.join(workspaceRoot, provider.directoryName);
-      const exists = await isDirectory(providerPath);
-      const skills = exists ? await collectSkills(providerPath, providerPath, 0) : [];
+      const providerPath = path.join(rootPath, provider.directoryName);
+      const skillsRoot = path.join(providerPath, "skills");
+      const exists = await isDirectory(skillsRoot);
+      const skills = exists ? await collectSkills(skillsRoot, skillsRoot, 0) : [];
 
       skills.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 
       return {
+        id: `${scope}:${provider.key}`,
         key: provider.key,
+        scope,
         label: provider.label,
         directoryName: provider.directoryName,
-        path: providerPath,
+        path: skillsRoot,
         exists,
         skillCount: skills.length,
         skills
       } satisfies WorkspaceSkillSource;
     })
   );
+}
 
-  return sources;
+export function resolveSystemProviderSkillPath(providerKey: WorkspaceSkillProviderKey, homeDir: string) {
+  const provider = PROVIDERS.find((entry) => entry.key === providerKey);
+  if (!provider) {
+    return null;
+  }
+
+  return path.join(homeDir, provider.directoryName, "skills");
 }
 
 async function collectSkills(

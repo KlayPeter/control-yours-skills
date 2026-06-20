@@ -1,4 +1,5 @@
 import path from "node:path";
+import os from "node:os";
 
 export interface RuntimePaths {
   appRoot: string;
@@ -9,6 +10,7 @@ export interface RuntimePaths {
   cacheRoot: string;
   logsRoot: string;
   isDevelopment: boolean;
+  homeDir: string;
 }
 
 export function resolveRuntimePaths(userDataPath: string): RuntimePaths {
@@ -24,6 +26,7 @@ export function resolveRuntimePaths(userDataPath: string): RuntimePaths {
     tempRoot: path.join(dataRoot, "temp"),
     cacheRoot: path.join(dataRoot, "cache"),
     logsRoot: path.join(dataRoot, "logs"),
-    isDevelopment
+    isDevelopment,
+    homeDir: os.homedir()
   };
 }

@@ -16,10 +16,19 @@ function createDefaultSettings(paths: RuntimePaths): SettingsRecord {
   return {
     installDir: "",
     tempDir: "",
+    projectDirs: [],
     conflictPolicy: "rename",
     theme: "dark",
+    locale: "zh-CN",
+    ai: {
+      enabled: true,
+      provider: "deepseek",
+      baseUrl: "https://api.deepseek.com",
+      apiKey: "",
+      model: "deepseek-v4-pro",
+    },
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
 }
 
@@ -39,8 +48,16 @@ export function createDatabase(paths: RuntimePaths) {
       id integer primary key check (id = 1),
       install_dir text not null,
       temp_dir text not null,
+      project_dir text not null default '',
+      project_dirs text not null default '[]',
       conflict_policy text not null,
       theme text not null,
+      locale text not null default 'zh-CN',
+      ai_provider text not null default 'deepseek',
+      ai_enabled integer not null default 1,
+      ai_base_url text not null default 'https://api.deepseek.com',
+      ai_api_key text not null default '',
+      ai_model text not null default 'deepseek-v4-pro',
       created_at text not null,
       updated_at text not null
     );
@@ -56,6 +73,11 @@ export function createDatabase(paths: RuntimePaths) {
       skill_root_path text,
       skill_md_path text,
       install_path text,
+      analysis_method text,
+      analysis_summary text,
+      install_strategy text,
+      readme_url text,
+      readme_excerpt text,
       error_message text,
       created_at text not null,
       updated_at text not null
@@ -89,20 +111,128 @@ export function createDatabase(paths: RuntimePaths) {
     .prepare("select count(*) as total from settings where id = 1")
     .get() as { total: number };
 
+  const settingsColumns = database
+    .prepare("pragma table_info(settings)")
+    .all() as Array<{ name: string }>;
+  if (!settingsColumns.some((column) => column.name === "locale")) {
+    database.exec(
+      "alter table settings add column locale text not null default 'zh-CN';",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "project_dir")) {
+    database.exec(
+      "alter table settings add column project_dir text not null default '';",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "project_dirs")) {
+    database.exec(
+      "alter table settings add column project_dirs text not null default '[]';",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "ai_provider")) {
+    database.exec(
+      "alter table settings add column ai_provider text not null default 'deepseek';",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "ai_enabled")) {
+    database.exec(
+      "alter table settings add column ai_enabled integer not null default 1;",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "ai_base_url")) {
+    database.exec(
+      "alter table settings add column ai_base_url text not null default 'https://api.deepseek.com';",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "ai_api_key")) {
+    database.exec(
+      "alter table settings add column ai_api_key text not null default '';",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "ai_model")) {
+    database.exec(
+      "alter table settings add column ai_model text not null default 'deepseek-v4-pro';",
+    );
+  }
+
+  const stagedColumns = database
+    .prepare("pragma table_info(staged_sources)")
+    .all() as Array<{ name: string }>;
+  if (!stagedColumns.some((column) => column.name === "analysis_method")) {
+    database.exec(
+      "alter table staged_sources add column analysis_method text;",
+    );
+  }
+  if (!stagedColumns.some((column) => column.name === "analysis_summary")) {
+    database.exec(
+      "alter table staged_sources add column analysis_summary text;",
+    );
+  }
+  if (!stagedColumns.some((column) => column.name === "install_strategy")) {
+    database.exec(
+      "alter table staged_sources add column install_strategy text;",
+    );
+  }
+  if (!stagedColumns.some((column) => column.name === "readme_url")) {
+    database.exec("alter table staged_sources add column readme_url text;");
+  }
+  if (!stagedColumns.some((column) => column.name === "readme_excerpt")) {
+    database.exec("alter table staged_sources add column readme_excerpt text;");
+  }
+
   if (existingSettings.total === 0) {
     const defaults = createDefaultSettings(paths);
     database
       .prepare(
         `
           insert into settings (
-            id, install_dir, temp_dir, conflict_policy, theme, created_at, updated_at
+            id, install_dir, temp_dir, project_dir, project_dirs, conflict_policy, theme, locale,
+            ai_provider, ai_enabled, ai_base_url, ai_api_key, ai_model, created_at, updated_at
           )
           values (
-            1, @installDir, @tempDir, @conflictPolicy, @theme, @createdAt, @updatedAt
+            1, @installDir, @tempDir, '', @projectDirs, @conflictPolicy, @theme, @locale,
+            @aiProvider, @aiEnabled, @aiBaseUrl, @aiApiKey, @aiModel, @createdAt, @updatedAt
           )
-        `
+        `,
       )
-      .run(defaults);
+      .run({
+        ...defaults,
+        projectDirs: JSON.stringify(defaults.projectDirs),
+        aiProvider: defaults.ai.provider,
+        aiEnabled: defaults.ai.enabled ? 1 : 0,
+        aiBaseUrl: defaults.ai.baseUrl,
+        aiApiKey: defaults.ai.apiKey,
+        aiModel: defaults.ai.model,
+      });
+  } else {
+    const existingProjectData = database
+      .prepare("select project_dir, project_dirs from settings where id = 1")
+      .get() as { project_dir: string; project_dirs: string };
+
+    if (
+      (!existingProjectData.project_dirs ||
+        existingProjectData.project_dirs === "[]") &&
+      existingProjectData.project_dir
+    ) {
+      database
+        .prepare("update settings set project_dirs = ? where id = 1")
+        .run(JSON.stringify([existingProjectData.project_dir]));
+    }
+
+    database
+      .prepare(
+        `
+          update settings
+          set
+            ai_provider = coalesce(nullif(ai_provider, ''), 'deepseek'),
+            ai_enabled = coalesce(ai_enabled, 1),
+            ai_base_url = coalesce(nullif(ai_base_url, ''), 'https://api.deepseek.com'),
+            ai_api_key = case when ai_api_key = '' then 'xxx' else ai_api_key end,
+            ai_model = coalesce(nullif(ai_model, ''), 'deepseek-v4-pro')
+          where id = 1
+        `,
+      )
+      .run();
   }
 
   return database;

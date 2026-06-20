@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type {
   InstalledSkillDetail,
+  Locale,
   SaveSettingsInput,
   SkillManagerSnapshot,
   StagedSourceDetail,
@@ -12,32 +13,140 @@ import type {
 
 import { getSkillManagerApi } from "@/lib/electron-api";
 
+const copy: Record<
+  Locale,
+  {
+    failedToLoadSelectedSkill: string;
+    failedToLoadSelectedStagedSource: string;
+    operationFailed: string;
+    busySavingSettings: string;
+    busyImportingZip: string;
+    busyAddingRemoteSource: string;
+    busyParsingStagedSources: string;
+    busyInstallingSkills: string;
+    busyRemovingStagedSources: string;
+    busyClearingStagingArea: string;
+    busyRescanningSkill: string;
+    busyExportingSkill: string;
+    settingsSaved: string;
+    failedToSaveSettings: string;
+    zipImportedAndParsed: string;
+    failedToImportZip: string;
+    remoteSourceAddedToStaging: string;
+    failedToAddRemoteSource: string;
+    stagedSourcesParsed: string;
+    failedToParseStagedSources: string;
+    stagedSkillsInstalled: string;
+    failedToInstallStagedSkills: string;
+    stagedSourcesRemoved: string;
+    failedToRemoveStagedSources: string;
+    stagingAreaCleared: string;
+    failedToClearStagingArea: string;
+    failedToOpenTargetPath: string;
+    skillRescanned: string;
+    failedToRescanSkill: string;
+    skillExported: string;
+    failedToExportSkill: string;
+  }
+> = {
+  "zh-CN": {
+    failedToLoadSelectedSkill: "加载所选技能失败。",
+    failedToLoadSelectedStagedSource: "加载所选暂存来源失败。",
+    operationFailed: "操作失败。",
+    busySavingSettings: "正在保存设置",
+    busyImportingZip: "正在导入 ZIP",
+    busyAddingRemoteSource: "正在添加远程来源",
+    busyParsingStagedSources: "正在解析暂存来源",
+    busyInstallingSkills: "正在安装技能",
+    busyRemovingStagedSources: "正在移除暂存来源",
+    busyClearingStagingArea: "正在清空暂存区",
+    busyRescanningSkill: "正在重新扫描技能",
+    busyExportingSkill: "正在导出技能",
+    settingsSaved: "设置已保存。",
+    failedToSaveSettings: "保存设置失败。",
+    zipImportedAndParsed: "ZIP 已导入并解析。",
+    failedToImportZip: "导入 ZIP 失败。",
+    remoteSourceAddedToStaging: "远程来源已加入暂存区。",
+    failedToAddRemoteSource: "添加远程来源失败。",
+    stagedSourcesParsed: "暂存来源已解析。",
+    failedToParseStagedSources: "解析暂存来源失败。",
+    stagedSkillsInstalled: "所选暂存技能已安装。",
+    failedToInstallStagedSkills: "安装暂存技能失败。",
+    stagedSourcesRemoved: "所选暂存来源已移除。",
+    failedToRemoveStagedSources: "移除暂存来源失败。",
+    stagingAreaCleared: "暂存区已清空。",
+    failedToClearStagingArea: "清空暂存区失败。",
+    failedToOpenTargetPath: "打开目标路径失败。",
+    skillRescanned: "技能已重新扫描。",
+    failedToRescanSkill: "重新扫描所选技能失败。",
+    skillExported: "技能已导出到目标目录。",
+    failedToExportSkill: "导出技能失败。"
+  },
+  en: {
+    failedToLoadSelectedSkill: "Failed to load the selected skill.",
+    failedToLoadSelectedStagedSource: "Failed to load the selected staged source.",
+    operationFailed: "Operation failed.",
+    busySavingSettings: "Saving settings",
+    busyImportingZip: "Importing ZIP",
+    busyAddingRemoteSource: "Adding remote source",
+    busyParsingStagedSources: "Parsing staged sources",
+    busyInstallingSkills: "Installing skills",
+    busyRemovingStagedSources: "Removing staged sources",
+    busyClearingStagingArea: "Clearing staging area",
+    busyRescanningSkill: "Rescanning skill",
+    busyExportingSkill: "Exporting skill",
+    settingsSaved: "Settings saved.",
+    failedToSaveSettings: "Failed to save settings.",
+    zipImportedAndParsed: "ZIP archive imported and parsed.",
+    failedToImportZip: "Failed to import the ZIP archive.",
+    remoteSourceAddedToStaging: "Remote source added to staging.",
+    failedToAddRemoteSource: "Failed to add the remote source.",
+    stagedSourcesParsed: "Staged sources parsed.",
+    failedToParseStagedSources: "Failed to parse staged sources.",
+    stagedSkillsInstalled: "Selected staged skills installed.",
+    failedToInstallStagedSkills: "Failed to install staged skills.",
+    stagedSourcesRemoved: "Selected staged sources removed.",
+    failedToRemoveStagedSources: "Failed to remove staged sources.",
+    stagingAreaCleared: "Staging area cleared.",
+    failedToClearStagingArea: "Failed to clear the staging area.",
+    failedToOpenTargetPath: "Failed to open the target path.",
+    skillRescanned: "Skill rescanned.",
+    failedToRescanSkill: "Failed to rescan the selected skill.",
+    skillExported: "Skill exported to the target directory.",
+    failedToExportSkill: "Failed to export the skill."
+  }
+};
+
 export function useSkillManager(initialSkillId?: string) {
   const api = useMemo(() => getSkillManagerApi(), []);
   const [snapshot, setSnapshot] = useState<SkillManagerSnapshot | null>(null);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(initialSkillId || null);
   const [selectedStagedId, setSelectedStagedId] = useState<string | null>(null);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
-  const [selectedWorkspaceSourceKey, setSelectedWorkspaceSourceKey] =
-    useState<WorkspaceSkillProviderKey | null>(null);
+  const [selectedWorkspaceSourceId, setSelectedWorkspaceSourceId] = useState<string | null>(null);
   const [selectedSkillDetail, setSelectedSkillDetail] = useState<InstalledSkillDetail | null>(null);
   const [selectedStagedDetail, setSelectedStagedDetail] = useState<StagedSourceDetail | null>(null);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const locale = snapshot?.settings.locale || "zh-CN";
+  const t = copy[locale];
 
   const refresh = useCallback(async () => {
     const nextSnapshot = await api.getSnapshot();
     setSnapshot(nextSnapshot);
 
-    setSelectedWorkspaceSourceKey((current) => {
-      if (current && nextSnapshot.workspaceSkillSources.some((source) => source.key === current)) {
+    setSelectedWorkspaceSourceId((current) => {
+      const allSources = [...nextSnapshot.systemSkillSources, ...nextSnapshot.workspaceSkillSources];
+      if (current && allSources.some((source) => source.id === current)) {
         return current;
       }
 
       return (
-        nextSnapshot.workspaceSkillSources.find((source) => source.exists && source.skillCount > 0)?.key ||
-        nextSnapshot.workspaceSkillSources.find((source) => source.exists)?.key ||
+        nextSnapshot.workspaceSkillSources.find((source) => source.exists && source.skillCount > 0)?.id ||
+        nextSnapshot.workspaceSkillSources.find((source) => source.exists)?.id ||
+        nextSnapshot.systemSkillSources.find((source) => source.exists && source.skillCount > 0)?.id ||
+        nextSnapshot.systemSkillSources.find((source) => source.exists)?.id ||
         null
       );
     });
@@ -58,10 +167,10 @@ export function useSkillManager(initialSkillId?: string) {
         setSelectedSkillId(skillId);
       } else {
         setSelectedSkillDetail(null);
-        setError(result.error || "Failed to load the selected skill.");
+        setError(result.error || t.failedToLoadSelectedSkill);
       }
     },
-    [api]
+    [api, t.failedToLoadSelectedSkill]
   );
 
   const loadStagedDetail = useCallback(
@@ -77,10 +186,10 @@ export function useSkillManager(initialSkillId?: string) {
         setSelectedStagedId(stagedId);
       } else {
         setSelectedStagedDetail(null);
-        setError(result.error || "Failed to load the selected staged source.");
+        setError(result.error || t.failedToLoadSelectedStagedSource);
       }
     },
-    [api]
+    [api, t.failedToLoadSelectedStagedSource]
   );
 
   const runAction = useCallback(
@@ -103,14 +212,14 @@ export function useSkillManager(initialSkillId?: string) {
 
         return result;
       } catch (actionError) {
-        const message = actionError instanceof Error ? actionError.message : "Operation failed.";
+        const message = actionError instanceof Error ? actionError.message : t.operationFailed;
         setError(message);
         throw actionError;
       } finally {
         setBusyLabel(null);
       }
     },
-    [loadSkillDetail, loadStagedDetail, refresh, selectedSkillId, selectedStagedId]
+    [loadSkillDetail, loadStagedDetail, refresh, selectedSkillId, selectedStagedId, t.operationFailed]
   );
 
   useEffect(() => {
@@ -143,105 +252,109 @@ export function useSkillManager(initialSkillId?: string) {
     selectedSkillId,
     selectedStagedId,
     selectedLogId,
-    selectedWorkspaceSourceKey,
+    selectedWorkspaceSourceId,
     selectedSkillDetail,
     selectedStagedDetail,
     setNotice,
     setError,
     setSelectedLogId,
-    setSelectedWorkspaceSourceKey,
+    setSelectedWorkspaceSourceId,
+    clearSelectedStagedDetail: () => {
+      setSelectedStagedDetail(null);
+      setSelectedStagedId(null);
+    },
     refresh,
     loadSkillDetail,
     loadStagedDetail,
     saveSettings: (input: SaveSettingsInput) =>
-      runAction("Saving settings", async () => {
+      runAction(t.busySavingSettings, async () => {
         const result = await api.saveSettings(input);
         if (!result.ok) {
-          throw new Error(result.error || "Failed to save settings.");
+          throw new Error(result.error || t.failedToSaveSettings);
         }
 
-        setNotice("Settings saved.");
+        setNotice(t.settingsSaved);
         return result.data;
       }),
     validateDirectory: (targetPath: string) => api.validateDirectory(targetPath),
     importLocalArchive: (filePath: string) =>
-      runAction("Importing ZIP", async () => {
+      runAction(t.busyImportingZip, async () => {
         const result = await api.importLocalArchive(filePath);
         if (!result.ok) {
-          throw new Error(result.error || "Failed to import the ZIP archive.");
+          throw new Error(result.error || t.failedToImportZip);
         }
 
         if (result.data) {
           await loadStagedDetail(result.data.id);
         }
 
-        setNotice("ZIP archive imported and parsed.");
+        setNotice(t.zipImportedAndParsed);
         return result.data;
       }),
     addRemoteSource: (url: string) =>
-      runAction("Adding remote source", async () => {
+      runAction(t.busyAddingRemoteSource, async () => {
         const result = await api.addRemoteSource(url);
         if (!result.ok) {
-          throw new Error(result.error || "Failed to add the remote source.");
+          throw new Error(result.error || t.failedToAddRemoteSource);
         }
 
         if (result.data) {
           await loadStagedDetail(result.data.id);
         }
 
-        setNotice("Remote source added to staging.");
+        setNotice(t.remoteSourceAddedToStaging);
         return result.data;
       }),
     parseStagedSources: (ids: string[]) =>
-      runAction("Parsing staged sources", async () => {
+      runAction(t.busyParsingStagedSources, async () => {
         const result = await api.parseStagedSources(ids);
         if (!result.ok) {
-          throw new Error(result.error || "Failed to parse staged sources.");
+          throw new Error(result.error || t.failedToParseStagedSources);
         }
 
-        setNotice("Staged sources parsed.");
+        setNotice(t.stagedSourcesParsed);
         return result.data;
       }),
     installStagedSources: (ids: string[]) =>
-      runAction("Installing skills", async () => {
+      runAction(t.busyInstallingSkills, async () => {
         const result = await api.installStagedSources(ids);
         if (!result.ok) {
-          throw new Error(result.error || "Failed to install staged skills.");
+          throw new Error(result.error || t.failedToInstallStagedSkills);
         }
 
         if (result.data && result.data.length > 0) {
           await loadSkillDetail(result.data[0].id);
         }
 
-        setNotice("Selected staged skills installed.");
+        setNotice(t.stagedSkillsInstalled);
         return result.data;
       }),
     removeStagedSources: (ids: string[]) =>
-      runAction("Removing staged sources", async () => {
+      runAction(t.busyRemovingStagedSources, async () => {
         const result = await api.removeStagedSources(ids);
         if (!result.ok) {
-          throw new Error(result.error || "Failed to remove staged sources.");
+          throw new Error(result.error || t.failedToRemoveStagedSources);
         }
 
-        setNotice("Selected staged sources removed.");
+        setNotice(t.stagedSourcesRemoved);
         return result.data;
       }),
     clearStagedSources: () =>
-      runAction("Clearing staging area", async () => {
+      runAction(t.busyClearingStagingArea, async () => {
         const result = await api.clearStagedSources();
         if (!result.ok) {
-          throw new Error(result.error || "Failed to clear the staging area.");
+          throw new Error(result.error || t.failedToClearStagingArea);
         }
 
         setSelectedStagedDetail(null);
         setSelectedStagedId(null);
-        setNotice("Staging area cleared.");
+        setNotice(t.stagingAreaCleared);
         return result.data;
       }),
     openPath: async (targetPath: string) => {
       const result = await api.openPath(targetPath);
       if (!result.ok) {
-        setError(result.error || "Failed to open the target path.");
+        setError(result.error || t.failedToOpenTargetPath);
       }
 
       return result;
@@ -249,14 +362,24 @@ export function useSkillManager(initialSkillId?: string) {
     pickArchiveFile: async () => api.pickArchiveFile(),
     pickDirectory: async (initialPath?: string) => api.pickDirectory(initialPath),
     rescanInstalledSkill: (skillId: string) =>
-      runAction("Rescanning skill", async () => {
+      runAction(t.busyRescanningSkill, async () => {
         const result = await api.rescanInstalledSkill(skillId);
         if (!result.ok || !result.data) {
-          throw new Error(result.error || "Failed to rescan the selected skill.");
+          throw new Error(result.error || t.failedToRescanSkill);
         }
 
         await loadSkillDetail(skillId);
-        setNotice("Skill rescanned.");
+        setNotice(t.skillRescanned);
+        return result.data;
+      }),
+    exportInstalledSkill: (skillId: string, providerKey: WorkspaceSkillProviderKey) =>
+      runAction(t.busyExportingSkill, async () => {
+        const result = await api.exportInstalledSkill({ skillId, providerKey });
+        if (!result.ok) {
+          throw new Error(result.error || t.failedToExportSkill);
+        }
+
+        setNotice(t.skillExported);
         return result.data;
       })
   };

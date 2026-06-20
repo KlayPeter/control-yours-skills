@@ -16,7 +16,9 @@ async function createTempDirectory() {
 }
 
 afterEach(async () => {
-  await Promise.all(createdDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
+  await Promise.all(
+    createdDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true }))
+  );
 });
 
 describe("slugifySkillName", () => {
@@ -31,6 +33,25 @@ describe("extractSkillMetadata", () => {
     expect(metadata.name).toBe("Skill Alpha");
     expect(metadata.description).toBe("The first useful description.");
     expect(metadata.slug).toBe("skill-alpha");
+  });
+
+  it("uses frontmatter description when available", () => {
+    const metadata = extractSkillMetadata(
+      "---\nname: Frontmatter Skill\ndescription: Frontmatter summary\n---\n\n# Skill Alpha",
+      "fallback"
+    );
+
+    expect(metadata.name).toBe("Skill Alpha");
+    expect(metadata.description).toBe("Frontmatter summary");
+  });
+
+  it("skips headings and bullet lists when finding a description", () => {
+    const metadata = extractSkillMetadata(
+      "# Skill Alpha\n\n- bullet one\n- bullet two\n\nThis is the first real paragraph.\n\n## More",
+      "fallback"
+    );
+
+    expect(metadata.description).toBe("This is the first real paragraph.");
   });
 });
 
@@ -58,7 +79,34 @@ describe("detectSkillDirectory", () => {
     expect(result.rootPath).toBe(nestedDir);
   });
 
-  it("rejects archives with multiple candidate skill roots", async () => {
+  it("finds a skill deeper than one directory level", async () => {
+    const tempDir = await createTempDirectory();
+    const nestedDir = path.join(tempDir, "packages", "skills", "deep-skill");
+    await fs.mkdir(nestedDir, { recursive: true });
+    await fs.writeFile(path.join(nestedDir, "SKILL.md"), "# Deep Skill\n\nDeep description", "utf8");
+
+    const result = await detectSkillDirectory(tempDir);
+
+    expect(result.name).toBe("Deep Skill");
+    expect(result.rootPath).toBe(nestedDir);
+  });
+
+  it("prefers skills/<name>/SKILL.md when multiple candidates exist", async () => {
+    const tempDir = await createTempDirectory();
+    const docsDir = path.join(tempDir, "docs");
+    const skillsDir = path.join(tempDir, "skills", "ppt-master");
+    await fs.mkdir(docsDir, { recursive: true });
+    await fs.mkdir(skillsDir, { recursive: true });
+    await fs.writeFile(path.join(docsDir, "SKILL.md"), "# Docs Skill", "utf8");
+    await fs.writeFile(path.join(skillsDir, "SKILL.md"), "# Real Skill\n\nActual description", "utf8");
+
+    const result = await detectSkillDirectory(tempDir);
+
+    expect(result.name).toBe("Real Skill");
+    expect(result.rootPath).toBe(skillsDir);
+  });
+
+  it("rejects archives with ambiguous candidate skill roots", async () => {
     const tempDir = await createTempDirectory();
     const firstDir = path.join(tempDir, "skill-a");
     const secondDir = path.join(tempDir, "skill-b");
@@ -67,6 +115,6 @@ describe("detectSkillDirectory", () => {
     await fs.writeFile(path.join(firstDir, "SKILL.md"), "# Skill A", "utf8");
     await fs.writeFile(path.join(secondDir, "SKILL.md"), "# Skill B", "utf8");
 
-    await expect(detectSkillDirectory(tempDir)).rejects.toThrow("多个可能的 Skill 根目录");
+    await expect(detectSkillDirectory(tempDir)).rejects.toThrow("Multiple SKILL.md candidates were found");
   });
 });
