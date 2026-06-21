@@ -6,7 +6,8 @@ import type {
   WorkspaceSkillEntry,
   WorkspaceSkillProviderKey,
   WorkspaceSkillSource,
-  WorkspaceSkillSourceScope
+  WorkspaceSkillSourceScope,
+  WorkspaceTreeNode
 } from "@shared/contracts";
 
 import { extractSkillMetadata } from "./skill-parser";
@@ -23,6 +24,7 @@ const PROVIDERS: Array<{
 
 const IGNORED_DIRECTORIES = new Set(["node_modules", ".git", ".next", "dist-electron", "dist"]);
 const MAX_SCAN_DEPTH = 4;
+const MAX_PROJECT_TREE_DEPTH = 6;
 
 export async function scanWorkspaceSkillSources(workspaceRoot: string): Promise<WorkspaceSkillSource[]> {
   return scanSkillSources("project", workspaceRoot);
@@ -30,6 +32,10 @@ export async function scanWorkspaceSkillSources(workspaceRoot: string): Promise<
 
 export async function scanSystemSkillSources(): Promise<WorkspaceSkillSource[]> {
   return scanSkillSources("system", os.homedir());
+}
+
+export async function scanProjectTree(projectRoot: string): Promise<WorkspaceTreeNode[]> {
+  return scanProjectTreeDirectory(projectRoot, projectRoot, 0);
 }
 
 function scanSkillSources(scope: WorkspaceSkillSourceScope, rootPath: string): Promise<WorkspaceSkillSource[]> {
@@ -51,7 +57,8 @@ function scanSkillSources(scope: WorkspaceSkillSourceScope, rootPath: string): P
         path: skillsRoot,
         exists,
         skillCount: skills.length,
-        skills
+        skills,
+        tree: buildWorkspaceTree(skillsRoot, skills)
       } satisfies WorkspaceSkillSource;
     })
   );
@@ -107,6 +114,150 @@ async function collectSkills(
   }
 
   return [...discovered.values()];
+}
+
+function buildWorkspaceTree(providerRoot: string, skills: WorkspaceSkillEntry[]): WorkspaceTreeNode[] {
+  const root: WorkspaceTreeNode[] = [];
+
+  for (const skill of skills) {
+    const normalizedRelativePath = normalizeRelativePath(path.relative(providerRoot, skill.rootPath) || ".");
+    const segments = normalizedRelativePath === "." ? [] : normalizedRelativePath.split("/");
+    insertSkillNode(root, skill, segments, providerRoot, ".");
+  }
+
+  return sortTreeNodes(root);
+}
+
+async function scanProjectTreeDirectory(
+  projectRoot: string,
+  currentPath: string,
+  depth: number
+): Promise<WorkspaceTreeNode[]> {
+  if (depth > MAX_PROJECT_TREE_DEPTH) {
+    return [];
+  }
+
+  const entries = await fs.readdir(currentPath, { withFileTypes: true });
+  const nodes: WorkspaceTreeNode[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || IGNORED_DIRECTORIES.has(entry.name)) {
+      continue;
+    }
+
+    const absolutePath = path.join(currentPath, entry.name);
+    const relativePath = normalizeRelativePath(path.relative(projectRoot, absolutePath) || ".");
+    const skillMdPath = path.join(absolutePath, "SKILL.md");
+
+    if (await isFile(skillMdPath)) {
+      const markdown = await fs.readFile(skillMdPath, "utf8");
+      const metadata = extractSkillMetadata(markdown, entry.name);
+      const skill: WorkspaceSkillEntry = {
+        id: `${relativePath}:${skillMdPath}`,
+        name: metadata.name,
+        description: metadata.description,
+        relativePath,
+        rootPath: absolutePath,
+        skillMdPath
+      };
+
+      nodes.push({
+        id: `skill:${skillMdPath}`,
+        kind: "skill",
+        name: metadata.name,
+        relativePath,
+        absolutePath,
+        description: metadata.description,
+        children: [],
+        skill
+      });
+      continue;
+    }
+
+    const children = await scanProjectTreeDirectory(projectRoot, absolutePath, depth + 1);
+    nodes.push({
+      id: `folder:${absolutePath}`,
+      kind: "folder",
+      name: entry.name,
+      relativePath,
+      absolutePath,
+      description: null,
+      children
+    });
+  }
+
+  return sortTreeNodes(nodes);
+}
+
+function insertSkillNode(
+  nodes: WorkspaceTreeNode[],
+  skill: WorkspaceSkillEntry,
+  segments: string[],
+  parentAbsolutePath: string,
+  parentRelativePath: string
+) {
+  if (segments.length === 0) {
+    nodes.push({
+      id: `skill:${skill.skillMdPath}`,
+      kind: "skill",
+      name: skill.name,
+      relativePath: ".",
+      absolutePath: skill.rootPath,
+      description: skill.description,
+      children: [],
+      skill
+    });
+    return;
+  }
+
+  const [segment, ...rest] = segments;
+  const absolutePath = path.join(parentAbsolutePath, segment);
+  const relativePath = parentRelativePath === "." ? segment : `${parentRelativePath}/${segment}`;
+
+  if (rest.length === 0) {
+    nodes.push({
+      id: `skill:${skill.skillMdPath}`,
+      kind: "skill",
+      name: skill.name,
+      relativePath,
+      absolutePath: skill.rootPath,
+      description: skill.description,
+      children: [],
+      skill
+    });
+    return;
+  }
+
+  let folderNode = nodes.find((node) => node.kind === "folder" && node.absolutePath === absolutePath);
+  if (!folderNode) {
+    folderNode = {
+      id: `folder:${absolutePath}`,
+      kind: "folder",
+      name: segment,
+      relativePath,
+      absolutePath,
+      description: null,
+      children: []
+    };
+    nodes.push(folderNode);
+  }
+
+  insertSkillNode(folderNode.children, skill, rest, absolutePath, relativePath);
+}
+
+function sortTreeNodes(nodes: WorkspaceTreeNode[]): WorkspaceTreeNode[] {
+  return nodes
+    .map((node) => ({
+      ...node,
+      children: sortTreeNodes(node.children)
+    }))
+    .sort((left, right) => {
+      if (left.kind !== right.kind) {
+        return left.kind === "folder" ? -1 : 1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
 }
 
 function normalizeRelativePath(relativePath: string) {

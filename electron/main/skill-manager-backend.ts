@@ -13,6 +13,8 @@ import type {
   EnvironmentInfo,
   ExportInstalledSkillInput,
   ImportedProjectRecord,
+  InstallWorkspaceSkillInput,
+  InstallStagedSourcesInput,
   DirectoryValidationResult,
   InstallStrategy,
   InstalledSkillDetail,
@@ -20,6 +22,7 @@ import type {
   LogRecord,
   OperationResult,
   SaveSettingsInput,
+  SkillCategoryRecord,
   SettingsRecord,
   SkillManagerSnapshot,
   SourceType,
@@ -35,7 +38,12 @@ import { detectEnvironment, hasRequiredTools } from "./utils/environment";
 import { analyzeRemoteSource, parseInstallStrategy, requiresArchiveExtraction, serializeInstallStrategy } from "./utils/remote-analysis";
 import { detectSkillDirectory, slugifySkillName } from "./utils/skill-parser";
 import { detectSourceType, resolveGitHubArchiveUrl, validateRemoteSource } from "./utils/source-url";
-import { resolveSystemProviderSkillPath, scanSystemSkillSources, scanWorkspaceSkillSources } from "./utils/workspace-sources";
+import {
+  resolveSystemProviderSkillPath,
+  scanProjectTree,
+  scanSystemSkillSources,
+  scanWorkspaceSkillSources
+} from "./utils/workspace-sources";
 
 const execFileAsync = promisify(execFile);
 
@@ -44,6 +52,8 @@ interface SettingsRow {
   temp_dir: string;
   project_dir: string;
   project_dirs: string;
+  skill_categories: string;
+  default_skill_category: string;
   conflict_policy: SettingsRecord["conflictPolicy"];
   theme: SettingsRecord["theme"];
   locale: SettingsRecord["locale"];
@@ -82,6 +92,7 @@ interface InstalledRow {
   name: string;
   slug: string;
   description: string | null;
+  category: string | null;
   install_path: string;
   skill_md_path: string;
   source_type: SourceType;
@@ -124,11 +135,31 @@ function parseProjectDirs(projectDirsRaw: string, legacyProjectDir: string) {
   return legacy ? [legacy] : [];
 }
 
+function parseStringList(raw: string, fallbackValue = "") {
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return [...new Set(parsed.map((item) => String(item).trim()).filter(Boolean))];
+    }
+  } catch {
+    // Ignore malformed persisted values and fall back below.
+  }
+
+  const legacy = fallbackValue.trim();
+  return legacy ? [legacy] : [];
+}
+
+function normalizeCategoryName(value: string) {
+  return value.trim().replace(/[\\/]+/g, "-").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
 function toSettingsRecord(row: SettingsRow): SettingsRecord {
   return {
     installDir: row.install_dir,
     tempDir: row.temp_dir,
     projectDirs: parseProjectDirs(row.project_dirs, row.project_dir),
+    skillCategories: parseStringList(row.skill_categories),
+    defaultSkillCategory: row.default_skill_category,
     conflictPolicy: row.conflict_policy,
     theme: row.theme,
     locale: row.locale,
@@ -173,6 +204,7 @@ function toInstalledRecord(row: InstalledRow): InstalledSkillRecord {
     name: row.name,
     slug: row.slug,
     description: row.description,
+    category: row.category,
     installPath: row.install_path,
     skillMdPath: row.skill_md_path,
     sourceType: row.source_type,
@@ -230,7 +262,9 @@ export class SkillManagerBackend {
     const environment = await this.getEnvironmentInfo();
     const stagedSources = this.listStagedSources();
     const installedSkills = this.listInstalledSkills();
+    const installCategories = await this.listInstallCategories(settings, installedSkills);
     const importedProjects = await this.getImportedProjects(settings.projectDirs);
+    const workspaceTree = settings.installDir.trim() ? await scanProjectTree(settings.installDir.trim()) : [];
     const workspaceSkillSources = importedProjects.flatMap((project) => project.sources);
     const systemSkillSources = await this.getSystemSkillSources();
     const logs = this.listLogs();
@@ -261,7 +295,9 @@ export class SkillManagerBackend {
       settings,
       stagedSources,
       installedSkills,
+      installCategories,
       importedProjects,
+      workspaceTree,
       workspaceSkillSources,
       systemSkillSources,
       logs,
@@ -418,10 +454,13 @@ export class SkillManagerBackend {
     return { ok: true, data: parsedRecords };
   }
 
-  async installStagedSources(ids: string[]): Promise<OperationResult<InstalledSkillRecord[]>> {
+  async installStagedSources(input: InstallStagedSourcesInput): Promise<OperationResult<InstalledSkillRecord[]>> {
     const settings = this.getSettings();
     const installRoot = settings.installDir.trim();
     const environment = await this.getEnvironmentInfo();
+    const ids = input.ids;
+    const selectedCategory = this.resolveInstallCategory(input.category || settings.defaultSkillCategory);
+    const installBaseDir = selectedCategory ? path.join(installRoot, selectedCategory) : installRoot;
 
     if (!installRoot) {
       await this.writeLog(
@@ -438,7 +477,7 @@ export class SkillManagerBackend {
       };
     }
 
-    const validation = await this.validateDirectory(installRoot);
+    const validation = await this.validateDirectory(installBaseDir);
     if (!validation.writable) {
       return {
         ok: false,
@@ -516,7 +555,7 @@ export class SkillManagerBackend {
 
       try {
         const slug = slugifySkillName(staged.detectedName || path.basename(staged.skillRootPath));
-        const installPath = await this.resolveInstallPath(installRoot, slug, settings.conflictPolicy);
+        const installPath = await this.resolveInstallPath(installBaseDir, slug, settings.conflictPolicy);
         await this.writeLog(
           "install",
           "info",
@@ -540,6 +579,7 @@ export class SkillManagerBackend {
           name: staged.detectedName || slug,
           slug,
           description: staged.detectedDescription,
+          category: selectedCategory || null,
           installPath,
           skillMdPath: path.join(installPath, "SKILL.md"),
           sourceType: staged.sourceType,
@@ -712,10 +752,133 @@ export class SkillManagerBackend {
     }
   }
 
+  async installWorkspaceSkill(input: InstallWorkspaceSkillInput): Promise<OperationResult<string>> {
+    const settings = this.getSettings();
+    const targetRoot = resolveSystemProviderSkillPath(input.providerKey, this.paths.homeDir);
+    if (!targetRoot) {
+      return { ok: false, error: "The selected provider is not supported." };
+    }
+
+    const validation = await this.validateDirectory(targetRoot);
+    if (!validation.writable) {
+      return { ok: false, error: validation.error || "The provider skill directory is not writable." };
+    }
+
+    const normalizedSourceRoot = path.resolve(input.sourceRoot);
+    const normalizedSkillRoot = path.resolve(input.skillRootPath);
+    const relativePath = path.relative(normalizedSourceRoot, normalizedSkillRoot);
+
+    if (
+      !relativePath ||
+      relativePath.startsWith("..") ||
+      path.isAbsolute(relativePath) ||
+      !fs.existsSync(path.join(normalizedSkillRoot, "SKILL.md"))
+    ) {
+      return { ok: false, error: "The selected workspace skill path is invalid." };
+    }
+
+    try {
+      const metadata = await detectSkillDirectory(normalizedSkillRoot);
+      const exportPath = await this.resolveInstallPath(targetRoot, metadata.slug, settings.conflictPolicy);
+
+      if (settings.conflictPolicy === "overwrite") {
+        await fsp.rm(exportPath, { recursive: true, force: true });
+      }
+
+      await this.ensureDirectory(path.dirname(exportPath));
+      await fsp.cp(normalizedSkillRoot, exportPath, {
+        recursive: true,
+        force: false
+      });
+
+      const record: InstalledSkillRecord = {
+        id: randomUUID(),
+        name: metadata.name,
+        slug: metadata.slug,
+        description: metadata.description,
+        category: null,
+        installPath: exportPath,
+        skillMdPath: path.join(exportPath, "SKILL.md"),
+        sourceType: "localZip",
+        sourceValue: normalizedSkillRoot,
+        installedAt: nowIso(),
+        updatedAt: nowIso()
+      };
+
+      this.database.prepare("delete from installed_skills where install_path = ?").run(exportPath);
+      this.database
+        .prepare(
+          `
+            insert into installed_skills (
+              id, name, slug, description, category, install_path, skill_md_path, source_type, source_value, installed_at, updated_at
+            ) values (
+              @id, @name, @slug, @description, @category, @installPath, @skillMdPath, @sourceType, @sourceValue, @installedAt, @updatedAt
+            )
+          `
+        )
+        .run(record);
+
+      await this.writeLog(
+        "install",
+        "info",
+        `Installed workspace skill to ${input.providerKey}`,
+        `${normalizedSkillRoot} -> ${exportPath}`,
+        record.id
+      );
+
+      return { ok: true, data: exportPath };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to install the workspace skill.";
+      await this.writeLog("install", "error", "Failed to install the workspace skill.", message, normalizedSkillRoot);
+      return { ok: false, error: message };
+    }
+  }
+
+  async createSkillCategory(name: string): Promise<OperationResult<SkillCategoryRecord>> {
+    const settings = this.getSettings();
+    const installDir = settings.installDir.trim();
+    const normalizedName = this.resolveInstallCategory(name);
+
+    if (!installDir) {
+      return { ok: false, error: "Please configure a default install directory before creating categories." };
+    }
+
+    if (!normalizedName) {
+      return { ok: false, error: "Category name cannot be empty." };
+    }
+
+    const categoryPath = path.join(installDir, normalizedName);
+    const validation = await this.validateDirectory(categoryPath);
+    if (!validation.writable) {
+      return { ok: false, error: validation.error || "The category directory is not writable." };
+    }
+
+    const nextCategories = [...new Set([...settings.skillCategories, normalizedName])];
+    await this.persistSettings({
+      ...settings,
+      skillCategories: nextCategories,
+      defaultSkillCategory: settings.defaultSkillCategory || normalizedName
+    });
+
+    await this.writeLog("settings", "info", "Created skill category.", categoryPath, null);
+
+    return {
+      ok: true,
+      data: {
+        id: normalizedName,
+        name: normalizedName,
+        path: categoryPath,
+        skillCount: this.listInstalledSkills().filter((skill) => skill.category === normalizedName).length
+      }
+    };
+  }
+
   async saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>> {
     const installDir = input.installDir.trim();
     const tempDir = input.tempDir.trim();
     const projectDirs = [...new Set(input.projectDirs.map((item) => item.trim()).filter(Boolean))];
+    const skillCategories = [...new Set(input.skillCategories.map((item) => this.resolveInstallCategory(item)).filter(Boolean))];
+    const defaultSkillCategory = this.resolveInstallCategory(input.defaultSkillCategory);
 
     if (installDir) {
       const installValidation = await this.validateDirectory(installDir);
@@ -731,46 +894,29 @@ export class SkillManagerBackend {
       }
     }
 
-    this.database
-      .prepare(
-        `
-          update settings
-          set
-            install_dir = ?,
-            temp_dir = ?,
-            project_dir = ?,
-            project_dirs = ?,
-            conflict_policy = ?,
-            locale = ?,
-            ai_provider = ?,
-            ai_enabled = ?,
-            ai_base_url = ?,
-            ai_api_key = ?,
-            ai_model = ?,
-            updated_at = ?
-          where id = 1
-        `
-      )
-      .run(
-        installDir,
-        tempDir,
-        projectDirs[0] || "",
-        JSON.stringify(projectDirs),
-        input.conflictPolicy,
-        input.locale,
-        input.ai.provider,
-        input.ai.enabled ? 1 : 0,
-        input.ai.baseUrl.trim(),
-        input.ai.apiKey,
-        input.ai.model.trim(),
-        nowIso()
-      );
+    if (installDir) {
+      for (const category of skillCategories) {
+        const categoryValidation = await this.validateDirectory(path.join(installDir, category));
+        if (!categoryValidation.writable) {
+          return { ok: false, error: categoryValidation.error || `The category directory is not writable: ${category}` };
+        }
+      }
+    }
+
+    await this.persistSettings({
+      ...input,
+      installDir,
+      tempDir,
+      projectDirs,
+      skillCategories,
+      defaultSkillCategory: defaultSkillCategory && skillCategories.includes(defaultSkillCategory) ? defaultSkillCategory : ""
+    });
 
     await this.writeLog(
       "settings",
       "info",
       "Saved skill manager settings.",
-      `${installDir} | ${tempDir || this.paths.tempRoot} | ${projectDirs.join(" | ") || "(no project imported)"}`,
+      `${installDir} | ${tempDir || this.paths.tempRoot} | ${projectDirs.join(" | ") || "(no project imported)"} | categories: ${skillCategories.join(", ") || "(none)"}`,
       null
     );
 
@@ -880,6 +1026,31 @@ export class SkillManagerBackend {
     return rows.map(toInstalledRecord);
   }
 
+  private async listInstallCategories(
+    settings: SettingsRecord,
+    installedSkills: InstalledSkillRecord[]
+  ): Promise<SkillCategoryRecord[]> {
+    const installDir = settings.installDir.trim();
+    if (!installDir) {
+      return [];
+    }
+
+    const discovered = new Set(settings.skillCategories.map((item) => this.resolveInstallCategory(item)).filter(Boolean));
+    for (const skill of installedSkills) {
+      if (skill.category) {
+        discovered.add(skill.category);
+      }
+    }
+
+    const categories = [...discovered];
+    return categories.map((category) => ({
+      id: category,
+      name: category,
+      path: path.join(installDir, category),
+      skillCount: installedSkills.filter((skill) => skill.category === category).length
+    }));
+  }
+
   private listLogs() {
     const rows = this.database
       .prepare("select * from logs order by created_at desc limit 80")
@@ -893,13 +1064,15 @@ export class SkillManagerBackend {
       projectDirs.map(async (projectDir) => {
         const sources = await scanWorkspaceSkillSources(projectDir);
         const skillCount = sources.reduce((total, source) => total + source.skillCount, 0);
+        const tree = await scanProjectTree(projectDir);
 
         return {
           id: projectDir,
           name: path.basename(projectDir) || projectDir,
           path: projectDir,
           skillCount,
-          sources
+          sources,
+          tree
         } satisfies ImportedProjectRecord;
       })
     );
@@ -1100,6 +1273,53 @@ export class SkillManagerBackend {
     return resolveConfiguredOrFallbackPath(settings.tempDir, this.paths.tempRoot);
   }
 
+  private resolveInstallCategory(value: string) {
+    return normalizeCategoryName(value);
+  }
+
+  private async persistSettings(input: SaveSettingsInput) {
+    this.database
+      .prepare(
+        `
+          update settings
+          set
+            install_dir = ?,
+            temp_dir = ?,
+            project_dir = ?,
+            project_dirs = ?,
+            skill_categories = ?,
+            default_skill_category = ?,
+            conflict_policy = ?,
+            theme = ?,
+            locale = ?,
+            ai_provider = ?,
+            ai_enabled = ?,
+            ai_base_url = ?,
+            ai_api_key = ?,
+            ai_model = ?,
+            updated_at = ?
+          where id = 1
+        `
+      )
+      .run(
+        input.installDir,
+        input.tempDir,
+        input.projectDirs[0] || "",
+        JSON.stringify(input.projectDirs),
+        JSON.stringify(input.skillCategories),
+        input.defaultSkillCategory,
+        input.conflictPolicy,
+        input.theme,
+        input.locale,
+        input.ai.provider,
+        input.ai.enabled ? 1 : 0,
+        input.ai.baseUrl.trim(),
+        input.ai.apiKey,
+        input.ai.model.trim(),
+        nowIso()
+      );
+  }
+
   private async getEnvironmentInfo() {
     if (!this.environmentCache) {
       this.environmentCache = await detectEnvironment();
@@ -1188,6 +1408,7 @@ export class SkillManagerBackend {
         name: staged.detectedName || parsed.name || slug,
         slug,
         description: staged.detectedDescription || parsed.description,
+        category: null,
         installPath,
         skillMdPath: path.join(installPath, "SKILL.md"),
         sourceType: staged.sourceType,
@@ -1201,9 +1422,9 @@ export class SkillManagerBackend {
         .prepare(
           `
             insert into installed_skills (
-              id, name, slug, description, install_path, skill_md_path, source_type, source_value, installed_at, updated_at
+              id, name, slug, description, category, install_path, skill_md_path, source_type, source_value, installed_at, updated_at
             ) values (
-              @id, @name, @slug, @description, @installPath, @skillMdPath, @sourceType, @sourceValue, @installedAt, @updatedAt
+              @id, @name, @slug, @description, @category, @installPath, @skillMdPath, @sourceType, @sourceValue, @installedAt, @updatedAt
             )
           `
         )

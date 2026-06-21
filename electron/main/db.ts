@@ -17,8 +17,10 @@ function createDefaultSettings(paths: RuntimePaths): SettingsRecord {
     installDir: "",
     tempDir: "",
     projectDirs: [],
+    skillCategories: [],
+    defaultSkillCategory: "",
     conflictPolicy: "rename",
-    theme: "dark",
+    theme: "light",
     locale: "zh-CN",
     ai: {
       enabled: true,
@@ -50,6 +52,8 @@ export function createDatabase(paths: RuntimePaths) {
       temp_dir text not null,
       project_dir text not null default '',
       project_dirs text not null default '[]',
+      skill_categories text not null default '[]',
+      default_skill_category text not null default '',
       conflict_policy text not null,
       theme text not null,
       locale text not null default 'zh-CN',
@@ -88,6 +92,7 @@ export function createDatabase(paths: RuntimePaths) {
       name text not null,
       slug text not null,
       description text,
+      category text,
       install_path text not null unique,
       skill_md_path text not null,
       source_type text not null,
@@ -127,6 +132,16 @@ export function createDatabase(paths: RuntimePaths) {
   if (!settingsColumns.some((column) => column.name === "project_dirs")) {
     database.exec(
       "alter table settings add column project_dirs text not null default '[]';",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "skill_categories")) {
+    database.exec(
+      "alter table settings add column skill_categories text not null default '[]';",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "default_skill_category")) {
+    database.exec(
+      "alter table settings add column default_skill_category text not null default '';",
     );
   }
   if (!settingsColumns.some((column) => column.name === "ai_provider")) {
@@ -179,6 +194,12 @@ export function createDatabase(paths: RuntimePaths) {
   if (!stagedColumns.some((column) => column.name === "readme_excerpt")) {
     database.exec("alter table staged_sources add column readme_excerpt text;");
   }
+  const installedColumns = database
+    .prepare("pragma table_info(installed_skills)")
+    .all() as Array<{ name: string }>;
+  if (!installedColumns.some((column) => column.name === "category")) {
+    database.exec("alter table installed_skills add column category text;");
+  }
 
   if (existingSettings.total === 0) {
     const defaults = createDefaultSettings(paths);
@@ -186,11 +207,11 @@ export function createDatabase(paths: RuntimePaths) {
       .prepare(
         `
           insert into settings (
-            id, install_dir, temp_dir, project_dir, project_dirs, conflict_policy, theme, locale,
+            id, install_dir, temp_dir, project_dir, project_dirs, skill_categories, default_skill_category, conflict_policy, theme, locale,
             ai_provider, ai_enabled, ai_base_url, ai_api_key, ai_model, created_at, updated_at
           )
           values (
-            1, @installDir, @tempDir, '', @projectDirs, @conflictPolicy, @theme, @locale,
+            1, @installDir, @tempDir, '', @projectDirs, @skillCategories, @defaultSkillCategory, @conflictPolicy, @theme, @locale,
             @aiProvider, @aiEnabled, @aiBaseUrl, @aiApiKey, @aiModel, @createdAt, @updatedAt
           )
         `,
@@ -198,6 +219,7 @@ export function createDatabase(paths: RuntimePaths) {
       .run({
         ...defaults,
         projectDirs: JSON.stringify(defaults.projectDirs),
+        skillCategories: JSON.stringify(defaults.skillCategories),
         aiProvider: defaults.ai.provider,
         aiEnabled: defaults.ai.enabled ? 1 : 0,
         aiBaseUrl: defaults.ai.baseUrl,
@@ -224,6 +246,8 @@ export function createDatabase(paths: RuntimePaths) {
         `
           update settings
           set
+            skill_categories = coalesce(nullif(skill_categories, ''), '[]'),
+            default_skill_category = coalesce(default_skill_category, ''),
             ai_provider = coalesce(nullif(ai_provider, ''), 'deepseek'),
             ai_enabled = coalesce(ai_enabled, 1),
             ai_base_url = coalesce(nullif(ai_base_url, ''), 'https://api.deepseek.com'),

@@ -6,6 +6,8 @@ import type { DropzoneState } from "react-dropzone";
 import { useEffect, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import {
+  ChevronDown,
+  ChevronRight,
   Eye,
   FolderOpen,
   LoaderCircle,
@@ -13,6 +15,7 @@ import {
   RefreshCcw,
   Search,
   ShieldAlert,
+  SunMoon,
   Trash2,
   UploadCloud,
   X
@@ -25,11 +28,14 @@ import type {
   InstallStrategy,
   LogRecord,
   SaveSettingsInput,
+  SkillCategoryRecord,
   SkillManagerSnapshot,
   SourceStatus,
   StagedSourceDetail,
   StagedSourceRecord,
-  WorkspaceSkillSource
+  WorkspaceSkillProviderKey,
+  WorkspaceSkillSource,
+  WorkspaceTreeNode
 } from "@shared/contracts";
 
 import { MarkdownViewer } from "@/components/markdown-viewer";
@@ -169,7 +175,7 @@ function SourceBadge({
         : t.sourceBadgeRemoteZip;
 
   return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs uppercase tracking-[0.16em] text-ink-200/70">
+    <span className="app-surface-subtle rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.16em] app-text-soft">
       {label}
     </span>
   );
@@ -188,7 +194,7 @@ function StrategyBadge({ strategy }: { strategy: InstallStrategy | null }) {
         : "Archive";
 
   return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs uppercase tracking-[0.16em] text-ink-200/70">
+    <span className="app-surface-subtle rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.16em] app-text-soft">
       {label}
     </span>
   );
@@ -210,12 +216,12 @@ function DetailList({
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.16em] text-ink-200/50">{title}</p>
+        <p className="text-xs uppercase tracking-[0.16em] app-text-soft">{title}</p>
         <CopyButton label={copyLabel || "复制"} value={items.join("\n")} />
       </div>
       <div className="mt-2 space-y-2">
         {items.map((item, index) => (
-          <p key={`${title}-${index}`} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ink-100/85">
+          <p key={`${title}-${index}`} className="app-surface-subtle rounded-2xl px-3 py-2 text-sm app-text">
             {item}
           </p>
         ))}
@@ -239,8 +245,8 @@ function SectionCard({
     <section className="app-panel p-6 sm:p-7">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
-          <h2 className="text-xl font-semibold tracking-tight text-white">{title}</h2>
-          {subtitle ? <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-200/70">{subtitle}</p> : null}
+          <h2 className="text-xl font-semibold tracking-tight app-text">{title}</h2>
+          {subtitle ? <p className="mt-2 max-w-2xl text-sm leading-6 app-text-soft">{subtitle}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2 lg:justify-end">{actions}</div> : null}
       </div>
@@ -258,11 +264,11 @@ function EmptyState({
 }) {
   return (
     <div className="app-empty-state">
-      <div className="app-empty-orb mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-white/10 text-white/80">
+      <div className="app-empty-orb mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-white/10 app-text-soft">
         <Search className="h-5 w-5" />
       </div>
-      <p className="mt-5 text-lg font-semibold tracking-tight text-white">{title}</p>
-      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-200/70">{description}</p>
+      <p className="mt-5 text-lg font-semibold tracking-tight app-text">{title}</p>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 app-text-soft">{description}</p>
     </div>
   );
 }
@@ -316,6 +322,139 @@ function IconActionButton({
     >
       <Icon className="h-4 w-4" />
     </button>
+  );
+}
+
+function ProviderInstallButtons({
+  onInstall
+}: {
+  onInstall: (providerKey: WorkspaceSkillProviderKey) => void;
+}) {
+  const providers: WorkspaceSkillProviderKey[] = ["codex", "claude", "agents"];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {providers.map((providerKey) => (
+        <button
+          key={providerKey}
+          className="app-button px-3 text-xs"
+          onClick={() => onInstall(providerKey)}
+          type="button"
+        >
+          {providerMonogram(providerKey)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function WorkspaceTree({
+  nodes,
+  projectRoot,
+  onOpenPath,
+  onInstallWorkspaceSkill,
+  emptyMessage
+}: {
+  nodes: WorkspaceTreeNode[];
+  projectRoot: string;
+  onOpenPath: (path: string) => AsyncActionResult;
+  onInstallWorkspaceSkill: (
+    sourceRoot: string,
+    skillRootPath: string,
+    providerKey: WorkspaceSkillProviderKey
+  ) => AsyncActionResult;
+  emptyMessage: string;
+}) {
+  if (nodes.length === 0) {
+    return <div className="rounded-2xl border border-dashed border-white/15 bg-black/10 px-4 py-6 text-sm app-text-soft">{emptyMessage}</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {nodes.map((node) => (
+        <WorkspaceTreeNodeRow
+          key={node.id}
+          node={node}
+          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+          onOpenPath={onOpenPath}
+          projectRoot={projectRoot}
+        />
+      ))}
+    </div>
+  );
+}
+
+function WorkspaceTreeNodeRow({
+  node,
+  projectRoot,
+  onOpenPath,
+  onInstallWorkspaceSkill
+}: {
+  node: WorkspaceTreeNode;
+  projectRoot: string;
+  onOpenPath: (path: string) => AsyncActionResult;
+  onInstallWorkspaceSkill: (
+    sourceRoot: string,
+    skillRootPath: string,
+    providerKey: WorkspaceSkillProviderKey
+  ) => AsyncActionResult;
+}) {
+  const [open, setOpen] = useState(true);
+  const isFolder = node.kind === "folder";
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/10">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-3 text-left",
+            !isFolder && "cursor-default"
+          )}
+          onClick={() => {
+            if (isFolder) {
+              setOpen((current) => !current);
+            }
+          }}
+          type="button"
+        >
+          {isFolder ? (
+            open ? <ChevronDown className="h-4 w-4 app-text-soft" /> : <ChevronRight className="h-4 w-4 app-text-soft" />
+          ) : (
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-moss/15 text-[10px] text-moss">S</span>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium app-text">{node.name}</p>
+            <p className="mt-1 truncate text-xs app-text-soft">{node.relativePath}</p>
+            {node.description ? <p className="mt-1 line-clamp-2 text-xs app-text-soft">{node.description}</p> : null}
+          </div>
+        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <IconActionButton icon={FolderOpen} label="打开目录" onClick={() => void onOpenPath(node.absolutePath)} />
+          {node.kind === "skill" && node.skill ? (
+            <ProviderInstallButtons
+              onInstall={(providerKey) => {
+                void onInstallWorkspaceSkill(projectRoot, node.skill!.rootPath, providerKey);
+              }}
+            />
+          ) : null}
+        </div>
+      </div>
+      {isFolder && open && node.children.length ? (
+        <div className="border-t border-white/10 px-3 py-3">
+          <div className="space-y-2 pl-4">
+            {node.children.map((child) => (
+              <WorkspaceTreeNodeRow
+                key={child.id}
+                node={child}
+                onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+                onOpenPath={onOpenPath}
+                projectRoot={projectRoot}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -443,8 +582,8 @@ export function OverviewSection({
   onImportProject,
   onRemoveProject,
   onOpenPath,
-  onOpenSkillsFromOverview,
-  onOpenLogsFromOverview
+  onOpenLogsFromOverview,
+  onInstallWorkspaceSkill
 }: {
   snapshot: SkillManagerSnapshot;
   installPathConfigured: boolean;
@@ -454,8 +593,12 @@ export function OverviewSection({
   onImportProject: () => AsyncActionResult;
   onRemoveProject: (projectPath: string) => AsyncActionResult;
   onOpenPath: (path: string) => AsyncActionResult;
-  onOpenSkillsFromOverview: (skillId: string) => AsyncActionResult;
   onOpenLogsFromOverview: (logId: string) => void;
+  onInstallWorkspaceSkill: (
+    sourceRoot: string,
+    skillRootPath: string,
+    providerKey: WorkspaceSkillProviderKey
+  ) => AsyncActionResult;
 }) {
   return (
     <div className="space-y-6">
@@ -528,9 +671,9 @@ export function OverviewSection({
               <div key={project.id} className="app-card overflow-hidden">
                 <div className="p-5">
                   <div className="min-w-0">
-                    <p className="font-medium text-white">{project.name}</p>
-                    <p className="mt-2 break-all text-sm leading-6 text-ink-200/70">{project.path}</p>
-                    <p className="mt-2 text-xs text-ink-200/55">
+                    <p className="font-medium app-text">{project.name}</p>
+                    <p className="mt-2 break-all text-sm leading-6 app-text-soft">{project.path}</p>
+                    <p className="mt-2 text-xs app-text-soft">
                       {t.skillCount}: {project.skillCount}
                     </p>
                   </div>
@@ -558,31 +701,17 @@ export function OverviewSection({
       </SectionCard>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <SectionCard title={t.recentInstalls} subtitle={t.recentInstallsSubtitle}>
-          {snapshot.summary.recentInstalls.length ? (
-            <div className="space-y-3">
-              {snapshot.summary.recentInstalls.map((skill) => (
-                <button
-                  key={skill.id}
-                  className="w-full rounded-2xl border border-white/10 bg-black/20 p-4 text-left transition hover:border-signal/30 hover:bg-white/5"
-                  onClick={() => void onOpenSkillsFromOverview(skill.id)}
-                  type="button"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-medium text-white">{skill.name}</p>
-                    <SourceBadge source={skill.sourceType} t={t} />
-                  </div>
-                  <p className="mt-2 text-sm text-ink-200/75">
-                    {skill.description || t.noDescriptionExtractedForSkill}
-                  </p>
-                  <p className="mt-3 text-xs text-ink-200/55">
-                    <RelativeTimeText value={skill.installedAt} />
-                  </p>
-                </button>
-              ))}
-            </div>
+        <SectionCard title="工作区目录树" subtitle="浏览当前工作区目录结构，并识别可安装的 Skill 文件夹。">
+          {snapshot.workspaceTree.length ? (
+            <WorkspaceTree
+              emptyMessage="当前工作区下还没有识别到 Skill 文件夹。"
+              nodes={snapshot.workspaceTree}
+              onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+              onOpenPath={onOpenPath}
+              projectRoot={snapshot.settings.installDir}
+            />
           ) : (
-            <EmptyState description={t.noInstallRecordsYetDescription} title={t.noInstallRecordsYet} />
+            <EmptyState description="当前工作区下还没有可展示的目录或 Skill。" title="工作区目录树" />
           )}
         </SectionCard>
 
@@ -598,10 +727,10 @@ export function OverviewSection({
                 >
                   <div className="flex items-center gap-3">
                     <ShieldAlert className="h-4 w-4 text-ember" />
-                    <p className="font-medium text-white">{log.message}</p>
+                    <p className="font-medium app-text">{log.message}</p>
                   </div>
-                  <p className="mt-2 line-clamp-3 text-sm text-ink-200/75">{log.detail || t.noExtraDetail}</p>
-                  <p className="mt-3 text-xs text-ink-200/55">
+                  <p className="mt-2 line-clamp-3 text-sm app-text-soft">{log.detail || t.noExtraDetail}</p>
+                  <p className="mt-3 text-xs app-text-soft">
                     <RelativeTimeText value={log.createdAt} />
                   </p>
                 </button>
@@ -627,7 +756,9 @@ export function ImportSection({
   selectedStagedId,
   onOpenStagedDetail,
   onParseStaged,
-  onRemoveStaged
+  onRemoveStaged,
+  selectedCategory,
+  onCategoryChange
 }: {
   t: TranslationDictionary;
   dropzone: DropzoneState;
@@ -640,6 +771,8 @@ export function ImportSection({
   onOpenStagedDetail: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
+  selectedCategory: string;
+  onCategoryChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -655,8 +788,8 @@ export function ImportSection({
         >
           <input {...dropzone.getInputProps()} />
           <UploadCloud className="mx-auto h-10 w-10 text-signal" />
-          <p className="mt-4 text-lg font-medium text-white">{t.localZipDropTitle}</p>
-          <p className="mt-2 text-sm text-ink-200/70">{t.localZipDropHelp}</p>
+          <p className="mt-4 text-lg font-medium app-text">{t.localZipDropTitle}</p>
+          <p className="mt-2 text-sm app-text-soft">{t.localZipDropHelp}</p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button
               className="app-button"
@@ -670,13 +803,13 @@ export function ImportSection({
       </SectionCard>
 
       <SectionCard title={t.addRemoteSource} subtitle={t.addRemoteSourceSubtitle}>
-        <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
-          <label className="block text-sm font-medium text-white" htmlFor="remote-url">
+        <div className="app-surface-subtle rounded-3xl p-4">
+          <label className="block text-sm font-medium app-text" htmlFor="remote-url">
             {t.remoteSourceLabel}
           </label>
           <div className="mt-3 flex flex-col gap-3 lg:flex-row">
             <input
-              className="h-12 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition placeholder:text-ink-200/40 focus:border-signal/45"
+              className="app-input h-12 flex-1 rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
               id="remote-url"
               onChange={(event) => onRemoteUrlChange(event.target.value)}
               placeholder={t.remoteSourcePlaceholder}
@@ -693,6 +826,23 @@ export function ImportSection({
         </div>
       </SectionCard>
 
+      <SectionCard title="安装分类" subtitle="新导入的 skill 默认会安装到这里。">
+        <div className="app-surface-subtle rounded-3xl p-4">
+          <select
+            className="app-input h-10 w-full rounded-2xl px-4 text-sm outline-none focus:border-signal/45"
+            onChange={(event) => onCategoryChange(event.target.value)}
+            value={selectedCategory}
+          >
+            <option value="">默认根目录</option>
+            {snapshot.installCategories.map((category) => (
+              <option key={category.id} value={category.name}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </SectionCard>
+
       <SectionCard title={t.stagedSources} subtitle={t.stagedSourcesSubtitle}>
         {snapshot.stagedSources.length ? (
           <div className="space-y-3">
@@ -703,17 +853,17 @@ export function ImportSection({
                   "overflow-hidden rounded-[28px] border transition",
                   selectedStagedId === item.id
                     ? "border-signal/45 bg-signal/10"
-                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
+                    : "app-surface hover:border-white/20 hover:bg-white/5"
                 )}
               >
                 <button className="w-full px-5 py-5 text-left" onClick={() => void onOpenStagedDetail(item.id)} type="button">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-white">{item.detectedName || item.sourceValue}</p>
+                        <p className="font-medium app-text">{item.detectedName || item.sourceValue}</p>
                         <SourceBadge source={item.sourceType} t={t} />
                       </div>
-                      <p className="mt-2 text-sm text-ink-200/75">
+                      <p className="mt-2 text-sm app-text-soft">
                         {item.detectedDescription || item.analysisSummary || item.errorMessage || t.waitingForMetadataParsing}
                       </p>
                     </div>
@@ -721,8 +871,8 @@ export function ImportSection({
                   </div>
                 </button>
 
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-black/10 px-5 py-4">
-                  <p className="text-xs text-ink-200/55">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-4">
+                  <p className="text-xs app-text-soft">
                     <RelativeTimeText value={item.updatedAt} />
                   </p>
                   <div className="flex flex-wrap justify-end gap-2">
@@ -827,7 +977,7 @@ export function StagedSection({
                   "w-full rounded-3xl border p-4 text-left transition",
                   selectedStagedId === item.id
                     ? "border-signal/45 bg-signal/10"
-                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
+                    : "app-surface hover:border-white/20 hover:bg-white/5"
                 )}
                 onClick={() => void onLoadStagedDetail(item.id)}
                 type="button"
@@ -836,24 +986,24 @@ export function StagedSection({
                   <div className="flex items-start gap-3">
                     <input
                       checked={selectedStageIds.includes(item.id)}
-                      className="mt-1 h-4 w-4 rounded border-white/20 bg-black/30"
+                      className="mt-1 h-4 w-4 rounded app-input"
                       onChange={() => onToggleStageSelection(item.id)}
                       onClick={(event) => event.stopPropagation()}
                       type="checkbox"
                     />
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-white">{item.detectedName || item.sourceValue}</p>
+                        <p className="font-medium app-text">{item.detectedName || item.sourceValue}</p>
                         <SourceBadge source={item.sourceType} t={t} />
                       </div>
-                      <p className="mt-2 text-sm text-ink-200/75">
+                      <p className="mt-2 text-sm app-text-soft">
                         {item.detectedDescription || item.errorMessage || t.waitingForMetadataParsing}
                       </p>
                     </div>
                   </div>
                   <StatusIndicator status={item.status} t={t} />
                 </div>
-                <p className="mt-3 text-xs text-ink-200/55">
+                <p className="mt-3 text-xs app-text-soft">
                   <RelativeTimeText value={item.updatedAt} />
                 </p>
               </button>
@@ -874,7 +1024,10 @@ export function SkillsSection({
   searchValue,
   onSearchValueChange,
   onLoadSkillDetail,
-  onOpenPath
+  onOpenPath,
+  categories,
+  selectedCategory,
+  onCategoryChange
 }: {
   t: TranslationDictionary;
   installedSkills: InstalledSkillRecord[];
@@ -883,18 +1036,35 @@ export function SkillsSection({
   onSearchValueChange: (value: string) => void;
   onLoadSkillDetail: (id: string) => AsyncActionResult;
   onOpenPath: (path: string) => AsyncActionResult;
+  categories: SkillCategoryRecord[];
+  selectedCategory: string;
+  onCategoryChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-6">
       <SectionCard title={t.installedSkills}>
-        <div className="app-search-shell mb-5 flex items-center gap-3">
-          <Search className="h-4 w-4 text-ink-200/65" />
-          <input
-            className="h-12 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-ink-200/40"
-            onChange={(event) => onSearchValueChange(event.target.value)}
-            placeholder={t.searchPlaceholder}
-            value={searchValue}
-          />
+        <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr),220px]">
+          <div className="app-search-shell flex items-center gap-3">
+            <Search className="h-4 w-4 app-text-soft" />
+            <input
+              className="h-10 flex-1 bg-transparent text-sm app-text outline-none placeholder:app-text-soft"
+              onChange={(event) => onSearchValueChange(event.target.value)}
+              placeholder={t.searchPlaceholder}
+              value={searchValue}
+            />
+          </div>
+          <select
+            className="app-input h-10 rounded-2xl px-4 text-sm outline-none focus:border-signal/45"
+            onChange={(event) => onCategoryChange(event.target.value)}
+            value={selectedCategory}
+          >
+            <option value="">全部分类</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.name}>
+                {category.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {installedSkills.length ? (
@@ -906,7 +1076,7 @@ export function SkillsSection({
                   "overflow-hidden rounded-[28px] border transition",
                   selectedSkillId === skill.id
                     ? "border-moss/45 bg-moss/10"
-                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
+                    : "app-surface hover:border-white/20 hover:bg-white/5"
                 )}
               >
                 <div className="p-5">
@@ -916,16 +1086,17 @@ export function SkillsSection({
                     type="button"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-semibold tracking-tight text-white">{skill.name}</p>
+                      <p className="text-base font-semibold tracking-tight app-text">{skill.name}</p>
                       <SourceBadge source={skill.sourceType} t={t} />
+                      {skill.category ? <span className="app-tag normal-case tracking-normal">{skill.category}</span> : null}
                     </div>
                     <p className="mt-3 text-sm leading-6 text-ink-200/72">
                       {skill.description || t.noDescriptionAvailable}
                     </p>
                   </button>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-black/10 px-5 py-4">
-                  <p className="text-xs text-ink-200/55">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-4">
+                  <p className="text-xs app-text-soft">
                     <RelativeTimeText value={skill.installedAt} />
                   </p>
                   <div className="flex flex-wrap justify-end gap-2">
@@ -1015,7 +1186,10 @@ export function SettingsSection({
   onPickTempDir,
   onValidateTempDir,
   onSaveSettings,
-  onOpenPath
+  onOpenPath,
+  onCreateCategory,
+  newCategoryName,
+  onNewCategoryNameChange
 }: {
   snapshot: SkillManagerSnapshot;
   t: TranslationDictionary;
@@ -1027,18 +1201,21 @@ export function SettingsSection({
   onValidateTempDir: () => AsyncActionResult;
   onSaveSettings: () => AsyncActionResult;
   onOpenPath: (path: string) => AsyncActionResult;
+  onCreateCategory: () => AsyncActionResult;
+  newCategoryName: string;
+  onNewCategoryNameChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-6">
       <SectionCard title={t.settingsTitle} subtitle={t.settingsSubtitle}>
-        <div className="space-y-5 rounded-3xl border border-white/10 bg-black/20 p-5">
+        <div className="app-surface space-y-4 rounded-3xl p-4">
           <div>
-            <label className="block text-sm font-medium text-white" htmlFor="install-dir">
+            <label className="block text-sm font-medium app-text" htmlFor="install-dir">
               {t.defaultInstallDirectory}
             </label>
-            <div className="mt-3 flex flex-col gap-3 xl:flex-row">
+            <div className="mt-2 flex flex-col gap-2 xl:flex-row">
               <input
-                className="h-12 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition placeholder:text-ink-200/40 focus:border-signal/45"
+                className="app-input h-10 flex-1 rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
                 id="install-dir"
                 onChange={(event) =>
                   setSettingsDraft((current) => ({
@@ -1050,14 +1227,14 @@ export function SettingsSection({
                 value={settingsDraft.installDir}
               />
               <button
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                className="app-button rounded-2xl px-4 py-2"
                 onClick={() => void onPickInstallDir()}
                 type="button"
               >
                 {t.choose}
               </button>
               <button
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                className="app-button rounded-2xl px-4 py-2"
                 onClick={() => void onValidateInstallDir()}
                 type="button"
               >
@@ -1067,12 +1244,12 @@ export function SettingsSection({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white" htmlFor="temp-dir">
+            <label className="block text-sm font-medium app-text" htmlFor="temp-dir">
               {t.tempDirectory}
             </label>
-            <div className="mt-3 flex flex-col gap-3 xl:flex-row">
+            <div className="mt-2 flex flex-col gap-2 xl:flex-row">
               <input
-                className="h-12 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition placeholder:text-ink-200/40 focus:border-signal/45"
+                className="app-input h-10 flex-1 rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
                 id="temp-dir"
                 onChange={(event) =>
                   setSettingsDraft((current) => ({
@@ -1084,14 +1261,14 @@ export function SettingsSection({
                 value={settingsDraft.tempDir}
               />
               <button
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                className="app-button rounded-2xl px-4 py-2"
                 onClick={() => void onPickTempDir()}
                 type="button"
               >
                 {t.choose}
               </button>
               <button
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                className="app-button rounded-2xl px-4 py-2"
                 onClick={() => void onValidateTempDir()}
                 type="button"
               >
@@ -1101,11 +1278,88 @@ export function SettingsSection({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white" htmlFor="conflict-policy">
+            <label className="block text-sm font-medium app-text">技能分类</label>
+            <div className="mt-2 flex flex-col gap-2 xl:flex-row">
+              <input
+                className="app-input h-10 flex-1 rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
+                onChange={(event) => onNewCategoryNameChange(event.target.value)}
+                placeholder="例如 video"
+                value={newCategoryName}
+              />
+              <button
+                className="app-button rounded-2xl px-4 py-2"
+                onClick={() => void onCreateCategory()}
+                type="button"
+              >
+                创建分类
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {settingsDraft.skillCategories.length ? (
+                settingsDraft.skillCategories.map((category) => (
+                  <button
+                    key={category}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-sm transition",
+                      settingsDraft.defaultSkillCategory === category
+                        ? "border-signal/40 bg-signal/15 text-signal"
+                        : "app-surface-subtle app-text-soft"
+                    )}
+                    onClick={() =>
+                      setSettingsDraft((current) => ({
+                        ...current,
+                        defaultSkillCategory: category
+                      }))
+                    }
+                    type="button"
+                  >
+                    {category}
+                  </button>
+                ))
+              ) : (
+                <p className="text-sm app-text-soft">还没有分类，创建后就可以把 skill 放到对应目录。</p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium app-text">主题</label>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                className={cn(
+                  "inline-flex h-10 items-center gap-2 rounded-2xl border px-4 text-sm transition",
+                  settingsDraft.theme === "light"
+                    ? "border-signal/40 bg-signal/15 text-signal"
+                    : "app-surface-subtle app-text-soft"
+                )}
+                onClick={() => setSettingsDraft((current) => ({ ...current, theme: "light" }))}
+                type="button"
+              >
+                <SunMoon className="h-4 w-4" />
+                浅色
+              </button>
+              <button
+                className={cn(
+                  "inline-flex h-10 items-center gap-2 rounded-2xl border px-4 text-sm transition",
+                  settingsDraft.theme === "dark"
+                    ? "border-signal/40 bg-signal/15 text-signal"
+                    : "app-surface-subtle app-text-soft"
+                )}
+                onClick={() => setSettingsDraft((current) => ({ ...current, theme: "dark" }))}
+                type="button"
+              >
+                <SunMoon className="h-4 w-4" />
+                深色
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium app-text" htmlFor="conflict-policy">
               {t.conflictPolicy}
             </label>
             <select
-              className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none focus:border-signal/45"
+              className="app-input mt-2 h-10 w-full rounded-2xl px-4 text-sm outline-none focus:border-signal/45"
               id="conflict-policy"
               onChange={(event) =>
                 setSettingsDraft((current) => ({
@@ -1122,11 +1376,11 @@ export function SettingsSection({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white" htmlFor="locale">
+            <label className="block text-sm font-medium app-text" htmlFor="locale">
               {t.interfaceLanguage}
             </label>
             <select
-              className="mt-3 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none focus:border-signal/45"
+              className="app-input mt-2 h-10 w-full rounded-2xl px-4 text-sm outline-none focus:border-signal/45"
               id="locale"
               onChange={(event) =>
                 setSettingsDraft((current) => ({
@@ -1141,14 +1395,14 @@ export function SettingsSection({
             </select>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-            <p className="text-sm font-medium text-white">AI</p>
-            <p className="mt-1 text-sm text-ink-200/70">
+          <div className="app-surface-subtle rounded-3xl p-4">
+            <p className="text-sm font-medium app-text">AI</p>
+            <p className="mt-1 text-sm app-text-soft">
               配置用于远程仓库识别和总结的 AI 服务。
             </p>
 
             <div className="mt-4 grid gap-4">
-              <label className="flex items-center gap-3 text-sm text-white">
+              <label className="flex items-center gap-3 text-sm app-text">
                 <input
                   checked={settingsDraft.ai.enabled}
                   className="h-4 w-4 rounded border-white/20 bg-black/30"
@@ -1167,11 +1421,11 @@ export function SettingsSection({
               </label>
 
               <div>
-                <label className="block text-sm font-medium text-white" htmlFor="ai-provider">
+                <label className="block text-sm font-medium app-text" htmlFor="ai-provider">
                   提供方
                 </label>
                 <input
-                  className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition focus:border-signal/45"
+                  className="app-input mt-2 h-10 w-full rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
                   id="ai-provider"
                   onChange={(event) =>
                     setSettingsDraft((current) => ({
@@ -1187,11 +1441,11 @@ export function SettingsSection({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white" htmlFor="ai-base-url">
+                <label className="block text-sm font-medium app-text" htmlFor="ai-base-url">
                   接口地址
                 </label>
                 <input
-                  className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition focus:border-signal/45"
+                  className="app-input mt-2 h-10 w-full rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
                   id="ai-base-url"
                   onChange={(event) =>
                     setSettingsDraft((current) => ({
@@ -1207,11 +1461,11 @@ export function SettingsSection({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white" htmlFor="ai-model">
+                <label className="block text-sm font-medium app-text" htmlFor="ai-model">
                   模型
                 </label>
                 <input
-                  className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition focus:border-signal/45"
+                  className="app-input mt-2 h-10 w-full rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
                   id="ai-model"
                   onChange={(event) =>
                     setSettingsDraft((current) => ({
@@ -1227,11 +1481,11 @@ export function SettingsSection({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white" htmlFor="ai-api-key">
+                <label className="block text-sm font-medium app-text" htmlFor="ai-api-key">
                   API Key
                 </label>
                 <input
-                  className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition focus:border-signal/45"
+                  className="app-input mt-2 h-10 w-full rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
                   id="ai-api-key"
                   onChange={(event) =>
                     setSettingsDraft((current) => ({
@@ -1302,14 +1556,19 @@ export function WorkspacePrimarySection({
   onOpenStagedDetail,
   onLoadSkillDetail,
   onSelectLog,
-  onOpenSkillsFromOverview,
   onOpenLogsFromOverview,
+  onInstallWorkspaceSkill,
   onSearchValueChange,
   onPickInstallDir,
   onValidateInstallDir,
   onPickTempDir,
   onValidateTempDir,
-  onSaveSettings
+  onSaveSettings,
+  onCreateCategory,
+  newCategoryName,
+  onNewCategoryNameChange,
+  selectedCategory,
+  onCategoryChange
 }: {
   section: WorkspaceSection;
   snapshot: SkillManagerSnapshot | null;
@@ -1341,19 +1600,28 @@ export function WorkspacePrimarySection({
   onOpenStagedDetail: (id: string) => AsyncActionResult;
   onLoadSkillDetail: (id: string) => AsyncActionResult;
   onSelectLog: (logId: string) => void;
-  onOpenSkillsFromOverview: (skillId: string) => AsyncActionResult;
   onOpenLogsFromOverview: (logId: string) => void;
+  onInstallWorkspaceSkill: (
+    sourceRoot: string,
+    skillRootPath: string,
+    providerKey: WorkspaceSkillProviderKey
+  ) => AsyncActionResult;
   onSearchValueChange: (value: string) => void;
   onPickInstallDir: () => AsyncActionResult;
   onValidateInstallDir: () => AsyncActionResult;
   onPickTempDir: () => AsyncActionResult;
   onValidateTempDir: () => AsyncActionResult;
   onSaveSettings: () => AsyncActionResult;
+  onCreateCategory: () => AsyncActionResult;
+  newCategoryName: string;
+  onNewCategoryNameChange: (value: string) => void;
+  selectedCategory: string;
+  onCategoryChange: (value: string) => void;
 }) {
   if (!snapshot) {
     return (
       <SectionCard title={t.loadingWorkspace} subtitle={t.loadingWorkspaceSubtitle}>
-        <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-ink-200/70">
+        <div className="app-surface rounded-3xl p-5 text-sm app-text-soft">
           {t.loadingWorkspaceBody}
         </div>
       </SectionCard>
@@ -1369,8 +1637,8 @@ export function WorkspacePrimarySection({
           onOpenLogsFromOverview={onOpenLogsFromOverview}
           onOpenPath={onOpenPath}
           onOpenProjectModal={onOpenProjectModal}
-          onOpenSkillsFromOverview={onOpenSkillsFromOverview}
           onOpenSystemSourceModal={onOpenSystemSourceModal}
+          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
           onRemoveProject={onRemoveProject}
           snapshot={snapshot}
           t={t}
@@ -1380,6 +1648,7 @@ export function WorkspacePrimarySection({
       return (
         <ImportSection
           dropzone={dropzone}
+          onCategoryChange={onCategoryChange}
           onImportZip={onImportZip}
           onOpenStagedDetail={onOpenStagedDetail}
           onParseStaged={onParseStaged}
@@ -1387,6 +1656,7 @@ export function WorkspacePrimarySection({
           onRemoteAction={onRemoteAction}
           onRemoteUrlChange={onRemoteUrlChange}
           remoteUrl={remoteUrl}
+          selectedCategory={selectedCategory}
           selectedStagedId={selectedStagedId}
           snapshot={snapshot}
           t={t}
@@ -1409,11 +1679,14 @@ export function WorkspacePrimarySection({
     case "skills":
       return (
         <SkillsSection
+          categories={snapshot.installCategories}
           installedSkills={installedSkills}
+          onCategoryChange={onCategoryChange}
           onLoadSkillDetail={onLoadSkillDetail}
           onOpenPath={onOpenPath}
           onSearchValueChange={onSearchValueChange}
           searchValue={searchValue}
+          selectedCategory={selectedCategory}
           selectedSkillId={selectedSkillId}
           t={t}
         />
@@ -1423,6 +1696,9 @@ export function WorkspacePrimarySection({
     case "settings":
       return (
         <SettingsSection
+          newCategoryName={newCategoryName}
+          onCreateCategory={onCreateCategory}
+          onNewCategoryNameChange={onNewCategoryNameChange}
           onOpenPath={onOpenPath}
           onPickInstallDir={onPickInstallDir}
           onPickTempDir={onPickTempDir}
@@ -1480,7 +1756,7 @@ export function WorkspaceDetailPanel({
         }
       >
         <div className="space-y-4">
-          <div className="rounded-3xl border border-white/10 bg-black/20 p-4 text-sm text-ink-100/80">
+          <div className="app-surface-subtle rounded-3xl p-4 text-sm app-text">
             <div className="flex flex-wrap items-center gap-2">
               <SourceBadge source={selectedSkillDetail.sourceType} t={t} />
               <span className="rounded-full border border-moss/25 bg-moss/10 px-2.5 py-1 text-xs uppercase tracking-[0.16em] text-moss">
@@ -1488,7 +1764,8 @@ export function WorkspaceDetailPanel({
               </span>
             </div>
             <p className="mt-3">{selectedSkillDetail.description || t.noDescriptionExtractedForSkill}</p>
-            <div className="mt-4 space-y-1 text-xs text-ink-200/60">
+            <div className="mt-4 space-y-1 text-xs app-text-soft">
+              {selectedSkillDetail.category ? <p>分类: {selectedSkillDetail.category}</p> : null}
               <p>{t.installPath}: {selectedSkillDetail.installPath}</p>
               <p>
                 {t.installedAt}: <RelativeTimeText value={selectedSkillDetail.installedAt} />
@@ -1529,7 +1806,7 @@ export function WorkspaceDetailPanel({
         }
       >
         <div className="space-y-4">
-          <div className="rounded-3xl border border-white/10 bg-black/20 p-4 text-sm text-ink-100/80">
+          <div className="app-surface-subtle rounded-3xl p-4 text-sm app-text">
             <div className="flex flex-wrap items-center gap-2">
               <SourceBadge source={selectedStagedDetail.sourceType} t={t} />
               <StrategyBadge strategy={selectedStagedDetail.installStrategy} />
@@ -1547,10 +1824,10 @@ export function WorkspaceDetailPanel({
                 远程来源当前只做识别和说明，不会直接安装。
               </div>
             ) : null}
-            <p className="mt-3 text-base text-white">
+            <p className="mt-3 text-base app-text">
               {selectedStagedDetail.detectedDescription || selectedStagedDetail.sourceValue}
             </p>
-            <div className="mt-4 space-y-2 text-xs text-ink-200/60">
+            <div className="mt-4 space-y-2 text-xs app-text-soft">
               <p>{t.sourceValue}: {selectedStagedDetail.sourceValue}</p>
               <p>{t.archivePath}: {selectedStagedDetail.archivePath || t.archivePathPending}</p>
               <p>{t.skillRoot}: {selectedStagedDetail.skillRootPath || t.skillRootPending}</p>
@@ -1596,7 +1873,7 @@ export function WorkspaceDetailPanel({
   if (section === "logs" && selectedLog) {
     return (
       <SectionCard title={t.logDetail} subtitle={selectedLog.message}>
-        <div className="space-y-4 rounded-3xl border border-white/10 bg-black/20 p-4 text-sm text-ink-100/80">
+        <div className="app-surface-subtle space-y-4 rounded-3xl p-4 text-sm app-text">
           <p className={cn("font-medium", logTone(selectedLog))}>
             {selectedLog.level === "error"
               ? t.logLevelError
@@ -1605,7 +1882,7 @@ export function WorkspaceDetailPanel({
                 : t.logLevelInfo}
           </p>
           <p>{selectedLog.detail || t.noExtraDetail}</p>
-          <div className="space-y-1 text-xs text-ink-200/60">
+          <div className="space-y-1 text-xs app-text-soft">
             <p>{t.logType}: {logTypeLabel(selectedLog, t)}</p>
             <p>{t.relatedId}: {selectedLog.relatedId || t.none}</p>
             <p>

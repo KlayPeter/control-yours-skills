@@ -7,7 +7,10 @@ import { useDropzone } from "react-dropzone";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  ChevronDown,
+  ChevronRight,
   CheckCircle2,
+  FolderPlus,
   FolderOpen,
   HardDriveDownload,
   LayoutDashboard,
@@ -20,7 +23,14 @@ import {
   X
 } from "lucide-react";
 
-import type { ImportedProjectRecord, Locale, SaveSettingsInput, WorkspaceSkillSource } from "@shared/contracts";
+import type {
+  ImportedProjectRecord,
+  Locale,
+  SaveSettingsInput,
+  WorkspaceSkillProviderKey,
+  WorkspaceSkillSource,
+  WorkspaceTreeNode
+} from "@shared/contracts";
 
 import {
   SourceViewerModal,
@@ -362,6 +372,109 @@ function navLabel(section: WorkspaceSection, t: TranslationDictionary) {
   return sectionTitle(section, t);
 }
 
+function headerPathValue(section: WorkspaceSection, snapshot: ReturnType<typeof useSkillManager>["snapshot"], t: TranslationDictionary) {
+  if (!snapshot) {
+    return t.notConfiguredYet;
+  }
+
+  return snapshot.settings.installDir || t.notConfiguredYet;
+}
+
+function readCachedTheme(): "light" | "dark" {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  const cached = window.localStorage.getItem("control-your-skills-theme");
+  return cached === "dark" ? "dark" : "light";
+}
+
+function SidebarWorkspaceTree({
+  rootLabel,
+  rootPath,
+  nodes,
+  onOpenPath
+}: {
+  rootLabel: string;
+  rootPath: string;
+  nodes: WorkspaceTreeNode[];
+  onOpenPath: (path: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/10">
+      <button
+        className="flex w-full items-center gap-3 px-3 py-3 text-left"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        {open ? <ChevronDown className="h-4 w-4 app-text-soft" /> : <ChevronRight className="h-4 w-4 app-text-soft" />}
+        <span className="app-sidebar-project-icon">
+          <FolderOpen className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium app-text">{rootLabel}</span>
+          <span className="mt-1 block truncate text-xs app-text-soft">{rootPath}</span>
+        </span>
+      </button>
+      {open ? (
+        <div className="border-t border-white/10 px-2 py-2">
+          <div className="space-y-1">
+            {nodes.map((node) => (
+              <SidebarWorkspaceTreeNode key={node.id} node={node} onOpenPath={onOpenPath} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SidebarWorkspaceTreeNode({
+  node,
+  onOpenPath
+}: {
+  node: WorkspaceTreeNode;
+  onOpenPath: (path: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isFolder = node.kind === "folder";
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 rounded-xl px-2 py-2 hover:bg-white/5">
+        <button
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          onClick={() => {
+            if (isFolder) {
+              setOpen((current) => !current);
+            } else {
+              onOpenPath(node.absolutePath);
+            }
+          }}
+          type="button"
+        >
+          {isFolder ? (
+            open ? <ChevronDown className="h-3.5 w-3.5 app-text-soft" /> : <ChevronRight className="h-3.5 w-3.5 app-text-soft" />
+          ) : (
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-moss/15 text-[9px] text-moss">S</span>
+          )}
+          <span className="truncate text-sm app-text">{node.name}</span>
+        </button>
+        <span className="shrink-0 text-xs app-text-soft">{isFolder ? "Folder" : "Skill"}</span>
+      </div>
+      {isFolder && open && node.children.length ? (
+        <div className="ml-4 border-l border-white/10 pl-2">
+          {node.children.map((child) => (
+            <SidebarWorkspaceTreeNode key={child.id} node={child} onOpenPath={onOpenPath} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const router = useRouter();
   const {
@@ -369,6 +482,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     busyLabel,
     notice,
     error,
+    isRefreshing,
     selectedSkillId,
     selectedStagedId,
     selectedLogId,
@@ -392,16 +506,23 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     openPath,
     pickArchiveFile,
     pickDirectory,
-    rescanInstalledSkill
+    rescanInstalledSkill,
+    createSkillCategory,
+    installWorkspaceSkill
   } = useSkillManager(initialSkillId);
   const [remoteUrl, setRemoteUrl] = useState("");
   const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
   const [searchValue, setSearchValue] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
   const [settingsDraft, setSettingsDraft] = useState<SaveSettingsInput>({
     installDir: "",
     tempDir: "",
     projectDirs: [],
+    skillCategories: [],
+    defaultSkillCategory: "",
     conflictPolicy: "rename",
+    theme: readCachedTheme(),
     locale: "zh-CN",
     ai: {
       enabled: true,
@@ -422,24 +543,30 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const t = translations[locale];
   const selectedLog = snapshot?.logs.find((item) => item.id === selectedLogId) || null;
   const installPathConfigured = Boolean(snapshot?.settings.installDir.trim());
+  const headerPath = headerPathValue(section, snapshot, t);
   const installedSkills = useMemo(() => {
     if (!snapshot) {
       return [];
     }
 
     const term = searchValue.trim().toLowerCase();
-    if (!term) {
-      return snapshot.installedSkills;
-    }
-
     return snapshot.installedSkills.filter((skill) => {
+      const matchesCategory = !selectedCategoryFilter || skill.category === selectedCategoryFilter;
+      if (!matchesCategory) {
+        return false;
+      }
+
+      if (!term) {
+        return true;
+      }
+
       return (
         skill.name.toLowerCase().includes(term) ||
         skill.slug.toLowerCase().includes(term) ||
         skill.description?.toLowerCase().includes(term)
       );
     });
-  }, [searchValue, snapshot]);
+  }, [searchValue, selectedCategoryFilter, snapshot]);
 
   useEffect(() => {
     if (!snapshot) {
@@ -450,7 +577,10 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
       installDir: snapshot.settings.installDir || "",
       tempDir: snapshot.settings.tempDir || "",
       projectDirs: snapshot.settings.projectDirs || [],
+      skillCategories: snapshot.settings.skillCategories || [],
+      defaultSkillCategory: snapshot.settings.defaultSkillCategory || "",
       conflictPolicy: snapshot.settings.conflictPolicy,
+      theme: snapshot.settings.theme,
       locale: snapshot.settings.locale,
       ai: snapshot.settings.ai
     });
@@ -501,6 +631,17 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   const pendingCount = snapshot?.stagedSources.filter((item) => item.status === "pending").length || 0;
   const failureCount = snapshot?.summary.failedCount || 0;
+  const activeTheme = snapshot ? snapshot.settings.theme : settingsDraft.theme;
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    document.documentElement.dataset.theme = activeTheme;
+
+    window.localStorage.setItem("control-your-skills-theme", activeTheme);
+  }, [activeTheme]);
 
   const toggleStageSelection = (id: string) => {
     setSelectedStageIds((current) =>
@@ -530,6 +671,40 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     await updateProjectDirs(settingsDraft.projectDirs.filter((item) => item !== projectPath));
   };
 
+  const handleCreateCategory = async () => {
+    const categoryName = newCategoryName.trim();
+    if (!categoryName) {
+      return;
+    }
+
+    const created = await createSkillCategory(categoryName);
+    if (!created) {
+      return;
+    }
+
+    setSettingsDraft((current) => {
+      const nextCategories = [...new Set([...current.skillCategories, created.name])];
+      return {
+        ...current,
+        skillCategories: nextCategories,
+        defaultSkillCategory: current.defaultSkillCategory || created.name
+      };
+    });
+    setNewCategoryName("");
+  };
+
+  const handleInstallWorkspaceSkill = async (
+    sourceRoot: string,
+    skillRootPath: string,
+    providerKey: WorkspaceSkillProviderKey
+  ) => {
+    await installWorkspaceSkill({
+      sourceRoot,
+      skillRootPath,
+      providerKey
+    });
+  };
+
   const openProjectModal = (project: ImportedProjectRecord) => {
     setModalState({
       title: project.name,
@@ -554,7 +729,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
     const created = await importLocalArchive(result.data);
     if (mode === "install" && created) {
-      await installStagedSources([created.id]);
+      await installStagedSources([created.id], settingsDraft.defaultSkillCategory || undefined);
       router.push("/skills");
       return;
     }
@@ -600,7 +775,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   };
 
   const handleInstallWithProgress = async (stagedId: string) => {
-    await installStagedSources([stagedId]);
+    await installStagedSources([stagedId], settingsDraft.defaultSkillCategory || undefined);
     await refresh();
   };
 
@@ -662,6 +837,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   );
   const showDetailLayout =
     Boolean(detailPanel) && (section === "skills" || section === "staged" || section === "logs");
+  const primarySectionCategory = section === "import" ? settingsDraft.defaultSkillCategory : selectedCategoryFilter;
 
   return (
     <div className="app-shell app-grid min-h-screen bg-ink-950 text-ink-100">
@@ -751,70 +927,119 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         ) : null}
       </div>
 
-      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[292px,minmax(0,1fr)]">
+      <div className="grid min-h-screen grid-cols-1 xl:h-screen xl:grid-cols-[292px,minmax(0,1fr)] xl:overflow-hidden">
         <aside className="app-sidebar">
-          <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-signal/16 via-transparent to-ember/8 p-5">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-white/10 bg-black/20 text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+          <div className="app-sidebar-inner">
+            <div className="flex items-center gap-3 px-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-[16px] app-surface-subtle app-text shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
                 <PanelLeftOpen className="h-4 w-4" />
               </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.3em] text-signal/80">{t.appName}</p>
-                <h1 className="mt-1 text-[1.45rem] font-semibold tracking-tight text-white">{t.appTitle}</h1>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold app-text">{t.appName}</p>
+                <p className="mt-0.5 truncate text-xs app-text-soft">{t.appTitle}</p>
               </div>
             </div>
-          </div>
 
-          <nav className="mt-6 space-y-2">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = item.section === section;
-              return (
-                <Link
-                  key={item.section}
-                  className={cn(
-                    "group flex items-center justify-between rounded-[24px] border px-4 py-3.5 text-sm transition duration-200",
-                    active
-                      ? "border-signal/30 bg-signal/15 text-white shadow-[0_16px_36px_rgba(78,180,255,0.12)]"
-                      : "border-white/10 bg-white/[0.04] text-ink-200/80 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.07]"
-                  )}
-                  href={item.href}
+            <nav className="mt-6 space-y-1.5">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = item.section === section;
+                return (
+                  <Link
+                    key={item.section}
+                    className={cn("app-sidebar-nav-item", active && "app-sidebar-nav-item-active")}
+                    href={item.href}
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className={cn("app-sidebar-nav-icon", active && "app-sidebar-nav-icon-active")}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="truncate font-medium">{navLabel(item.section, t)}</span>
+                    </span>
+                    {item.section === "staged" && pendingCount ? (
+                      <span className="app-sidebar-count app-sidebar-count-signal">{pendingCount}</span>
+                    ) : null}
+                    {item.section === "logs" && failureCount ? (
+                      <span className="app-sidebar-count app-sidebar-count-danger">{failureCount}</span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <section className="mt-8 flex min-h-0 flex-1 flex-col border-t pt-5" style={{ borderColor: "var(--app-border)" }}>
+              <div className="flex items-center justify-between gap-3 px-2">
+                <p className="text-xs font-medium tracking-[0.08em] app-text-soft">{t.projectDirectories}</p>
+                <button
+                  aria-label={t.importProject}
+                  className="app-sidebar-ghost-button"
+                  onClick={() => void handleImportProject()}
+                  title={t.importProject}
+                  type="button"
                 >
-                  <span className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-2xl border transition",
-                        active
-                          ? "border-white/10 bg-white/10"
-                          : "border-white/10 bg-black/20 text-ink-200/70 group-hover:border-white/20 group-hover:text-white"
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="font-medium">{navLabel(item.section, t)}</span>
-                  </span>
-                  {item.section === "staged" && pendingCount ? (
-                    <span className="rounded-full bg-signal/15 px-2 py-0.5 text-xs text-signal">
-                      {pendingCount}
-                    </span>
-                  ) : null}
-                  {item.section === "logs" && failureCount ? (
-                    <span className="rounded-full bg-ember/15 px-2 py-0.5 text-xs text-ember">
-                      {failureCount}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </nav>
+                  <FolderPlus className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="app-scrollbar-hidden mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+                {snapshot?.importedProjects.length ? (
+                  snapshot.importedProjects.map((project) => (
+                    <div key={project.id} className="app-sidebar-project-row">
+                      <button
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        onClick={() => openProjectModal(project)}
+                        type="button"
+                      >
+                        <span className="app-sidebar-project-icon">
+                          <FolderOpen className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium app-text">{project.name}</span>
+                          <span className="mt-1 block truncate text-xs app-text-soft">
+                            {t.skillCount} {project.skillCount}
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        aria-label={`${t.openFolder}: ${project.name}`}
+                        className="app-sidebar-ghost-button shrink-0"
+                        onClick={() => void openPath(project.path)}
+                        title={t.openFolder}
+                        type="button"
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-sm app-text-soft">{t.notConfiguredYet}</div>
+                )}
+              </div>
+
+              <div className="app-scrollbar-hidden mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+                {snapshot?.workspaceTree.length ? (
+                  <SidebarWorkspaceTree
+                    nodes={snapshot.workspaceTree}
+                    onOpenPath={(targetPath) => {
+                      void openPath(targetPath);
+                    }}
+                    rootLabel="当前工作区"
+                    rootPath={snapshot.settings.installDir || t.notConfiguredYet}
+                  />
+                ) : (
+                  <div className="px-3 py-2 text-sm app-text-soft">当前工作区下还没有识别到 Skill</div>
+                )}
+              </div>
+            </section>
+          </div>
         </aside>
 
-        <div className="flex min-h-screen flex-col">
+        <div className="flex min-h-screen flex-col xl:h-screen xl:overflow-y-auto">
           <header className="app-topbar">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.28em] text-ink-200/50">{t.workspaceHeader}</p>
-                <h2 className="mt-2 text-[2rem] font-semibold tracking-tight text-white">
+                <p className="text-[11px] uppercase tracking-[0.28em] app-text-soft">{t.workspaceHeader}</p>
+                <h2 className="mt-2 text-[2rem] font-semibold tracking-tight app-text">
                   {sectionTitle(section, t)}
                 </h2>
               </div>
@@ -831,7 +1056,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   title={t.refresh}
                   type="button"
                 >
-                  <RefreshCcw className="h-4 w-4" />
+                  <RefreshCcw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
                 </button>
                 <button
                   aria-label={t.openInstallFolder}
@@ -846,8 +1071,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             </div>
 
             <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="inline-flex max-w-full items-center gap-3 rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm text-ink-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                <span className="truncate">{snapshot?.settings.installDir || t.notConfiguredYet}</span>
+              <div className="app-surface-subtle inline-flex max-w-full items-center gap-3 rounded-[24px] px-4 py-3.5 text-sm app-text-soft shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
+                <span className="truncate">{headerPath}</span>
               </div>
               {busyLabel ? (
                 <div className="inline-flex items-center gap-2 rounded-full border border-signal/30 bg-signal/10 px-4 py-2 text-sm text-signal">
@@ -858,7 +1083,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             </div>
           </header>
 
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-5">
             {showDetailLayout ? (
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr),minmax(360px,0.85fr)]">
                 <div>
@@ -878,31 +1103,33 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     }}
                     onOpenPath={openPath}
                     onOpenProjectModal={openProjectModal}
-                    onOpenSkillsFromOverview={async (skillId) => {
-                      await loadSkillDetail(skillId);
-                      router.push("/skills");
-                    }}
                     onOpenSystemSourceModal={openSystemSourceModal}
                     onParseStaged={parseStagedSources}
                     onPickInstallDir={handlePickInstallDir}
                     onPickTempDir={handlePickTempDir}
                     onRemoteAction={handleRemoteAction}
                     onRemoteUrlChange={setRemoteUrl}
+                    onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
                     onRemoveProject={handleRemoveProject}
                     onRemoveStaged={removeStagedSources}
+                    onCreateCategory={handleCreateCategory}
+                    onCategoryChange={setSelectedCategoryFilter}
                     onSaveSettings={() => saveSettings(settingsDraft)}
                     onSearchValueChange={setSearchValue}
                     onSelectLog={setSelectedLogId}
                     onToggleStageSelection={toggleStageSelection}
                     onValidateInstallDir={handleValidateInstallDir}
                     onValidateTempDir={handleValidateTempDir}
+                    newCategoryName={newCategoryName}
                     remoteUrl={remoteUrl}
                     searchValue={searchValue}
                     section={section}
+                    selectedCategory={primarySectionCategory}
                     selectedLogId={selectedLogId}
                     selectedSkillId={selectedSkillId}
                     selectedStageIds={selectedStageIds}
                     selectedStagedId={selectedStagedId}
+                    onNewCategoryNameChange={setNewCategoryName}
                     setSettingsDraft={setSettingsDraft}
                     settingsDraft={settingsDraft}
                     snapshot={snapshot}
@@ -929,31 +1156,33 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   }}
                   onOpenPath={openPath}
                   onOpenProjectModal={openProjectModal}
-                  onOpenSkillsFromOverview={async (skillId) => {
-                    await loadSkillDetail(skillId);
-                    router.push("/skills");
-                  }}
                   onOpenSystemSourceModal={openSystemSourceModal}
                   onParseStaged={parseStagedSources}
                   onPickInstallDir={handlePickInstallDir}
                   onPickTempDir={handlePickTempDir}
                   onRemoteAction={handleRemoteAction}
                   onRemoteUrlChange={setRemoteUrl}
+                  onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
                   onRemoveProject={handleRemoveProject}
                   onRemoveStaged={removeStagedSources}
+                  onCreateCategory={handleCreateCategory}
+                  onCategoryChange={setSelectedCategoryFilter}
                   onSaveSettings={() => saveSettings(settingsDraft)}
                   onSearchValueChange={setSearchValue}
                   onSelectLog={setSelectedLogId}
                   onToggleStageSelection={toggleStageSelection}
                   onValidateInstallDir={handleValidateInstallDir}
                   onValidateTempDir={handleValidateTempDir}
+                  newCategoryName={newCategoryName}
                   remoteUrl={remoteUrl}
                   searchValue={searchValue}
                   section={section}
+                  selectedCategory={primarySectionCategory}
                   selectedLogId={selectedLogId}
                   selectedSkillId={selectedSkillId}
                   selectedStageIds={selectedStageIds}
                   selectedStagedId={selectedStagedId}
+                  onNewCategoryNameChange={setNewCategoryName}
                   setSettingsDraft={setSettingsDraft}
                   settingsDraft={settingsDraft}
                   snapshot={snapshot}

@@ -4,6 +4,7 @@ import type {
   DirectoryValidationResult,
   ExportInstalledSkillInput,
   InstalledSkillDetail,
+  InstallWorkspaceSkillInput,
   LogRecord,
   OperationResult,
   SettingsRecord,
@@ -21,8 +22,10 @@ const fallbackSettings: SettingsRecord = {
   installDir: "Desktop shell required",
   tempDir: "Desktop shell required",
   projectDirs: [],
+  skillCategories: [],
+  defaultSkillCategory: "",
   conflictPolicy: "rename",
-  theme: "dark",
+  theme: "light",
   locale: "en",
   ai: {
     enabled: true,
@@ -39,7 +42,9 @@ const fallbackSnapshot: SkillManagerSnapshot = {
   settings: fallbackSettings,
   stagedSources: [],
   installedSkills: [],
+  installCategories: [],
   importedProjects: [],
+  workspaceTree: [],
   workspaceSkillSources: [],
   systemSkillSources: [],
   logs: [],
@@ -93,6 +98,11 @@ const browserFallbackApi: SkillManagerApi = {
     void _input;
     return unavailableResult<string>();
   },
+  installWorkspaceSkill: async (_input: InstallWorkspaceSkillInput) => {
+    void _input;
+    return unavailableResult<string>();
+  },
+  createSkillCategory: async () => unavailableResult(),
   saveSettings: async () => unavailableResult<SettingsRecord>(),
   validateDirectory: async (targetPath: string): Promise<DirectoryValidationResult> => ({
     path: targetPath,

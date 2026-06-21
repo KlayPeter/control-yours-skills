@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 
-import type { SaveSettingsInput } from "@shared/contracts";
+import type { InstallStagedSourcesInput, SaveSettingsInput } from "@shared/contracts";
 
 import type { SkillManagerBackend } from "./skill-manager-backend";
 
@@ -15,8 +15,8 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:parse-staged-sources", (_event, ids: string[]) =>
     backend.parseStagedSources(ids)
   );
-  ipcMain.handle("skill-manager:install-staged-sources", (_event, ids: string[]) =>
-    backend.installStagedSources(ids)
+  ipcMain.handle("skill-manager:install-staged-sources", (_event, input: InstallStagedSourcesInput) =>
+    backend.installStagedSources(input)
   );
   ipcMain.handle("skill-manager:remove-staged-sources", (_event, ids: string[]) =>
     backend.removeStagedSources(ids)
@@ -33,6 +33,12 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   );
   ipcMain.handle("skill-manager:export-installed-skill", (_event, input) =>
     backend.exportInstalledSkill(input)
+  );
+  ipcMain.handle("skill-manager:install-workspace-skill", (_event, input) =>
+    backend.installWorkspaceSkill(input)
+  );
+  ipcMain.handle("skill-manager:create-skill-category", (_event, name: string) =>
+    backend.createSkillCategory(name)
   );
   ipcMain.handle("skill-manager:save-settings", (_event, input: SaveSettingsInput) =>
     backend.saveSettings(input)

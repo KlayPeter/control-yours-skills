@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type {
+  InstallWorkspaceSkillInput,
   InstalledSkillDetail,
   Locale,
   SaveSettingsInput,
@@ -28,6 +29,8 @@ const copy: Record<
     busyClearingStagingArea: string;
     busyRescanningSkill: string;
     busyExportingSkill: string;
+    busyRefreshingWorkspace: string;
+    busyInstallingWorkspaceSkill: string;
     settingsSaved: string;
     failedToSaveSettings: string;
     zipImportedAndParsed: string;
@@ -47,6 +50,8 @@ const copy: Record<
     failedToRescanSkill: string;
     skillExported: string;
     failedToExportSkill: string;
+    workspaceSkillInstalled: string;
+    failedToInstallWorkspaceSkill: string;
   }
 > = {
   "zh-CN": {
@@ -62,6 +67,8 @@ const copy: Record<
     busyClearingStagingArea: "正在清空暂存区",
     busyRescanningSkill: "正在重新扫描技能",
     busyExportingSkill: "正在导出技能",
+    busyRefreshingWorkspace: "正在刷新工作区",
+    busyInstallingWorkspaceSkill: "正在安装工作区技能",
     settingsSaved: "设置已保存。",
     failedToSaveSettings: "保存设置失败。",
     zipImportedAndParsed: "ZIP 已导入并解析。",
@@ -80,7 +87,9 @@ const copy: Record<
     skillRescanned: "技能已重新扫描。",
     failedToRescanSkill: "重新扫描所选技能失败。",
     skillExported: "技能已导出到目标目录。",
-    failedToExportSkill: "导出技能失败。"
+    failedToExportSkill: "导出技能失败。",
+    workspaceSkillInstalled: "工作区技能已安装到系统目录。",
+    failedToInstallWorkspaceSkill: "安装工作区技能失败。"
   },
   en: {
     failedToLoadSelectedSkill: "Failed to load the selected skill.",
@@ -95,6 +104,8 @@ const copy: Record<
     busyClearingStagingArea: "Clearing staging area",
     busyRescanningSkill: "Rescanning skill",
     busyExportingSkill: "Exporting skill",
+    busyRefreshingWorkspace: "Refreshing workspace",
+    busyInstallingWorkspaceSkill: "Installing workspace skill",
     settingsSaved: "Settings saved.",
     failedToSaveSettings: "Failed to save settings.",
     zipImportedAndParsed: "ZIP archive imported and parsed.",
@@ -113,7 +124,9 @@ const copy: Record<
     skillRescanned: "Skill rescanned.",
     failedToRescanSkill: "Failed to rescan the selected skill.",
     skillExported: "Skill exported to the target directory.",
-    failedToExportSkill: "Failed to export the skill."
+    failedToExportSkill: "Failed to export the skill.",
+    workspaceSkillInstalled: "Workspace skill installed to the system directory.",
+    failedToInstallWorkspaceSkill: "Failed to install the workspace skill."
   }
 };
 
@@ -129,29 +142,35 @@ export function useSkillManager(initialSkillId?: string) {
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const locale = snapshot?.settings.locale || "zh-CN";
   const t = copy[locale];
 
   const refresh = useCallback(async () => {
-    const nextSnapshot = await api.getSnapshot();
-    setSnapshot(nextSnapshot);
+    setIsRefreshing(true);
+    try {
+      const nextSnapshot = await api.getSnapshot();
+      setSnapshot(nextSnapshot);
 
-    setSelectedWorkspaceSourceId((current) => {
-      const allSources = [...nextSnapshot.systemSkillSources, ...nextSnapshot.workspaceSkillSources];
-      if (current && allSources.some((source) => source.id === current)) {
-        return current;
-      }
+      setSelectedWorkspaceSourceId((current) => {
+        const allSources = [...nextSnapshot.systemSkillSources, ...nextSnapshot.workspaceSkillSources];
+        if (current && allSources.some((source) => source.id === current)) {
+          return current;
+        }
 
-      return (
-        nextSnapshot.workspaceSkillSources.find((source) => source.exists && source.skillCount > 0)?.id ||
-        nextSnapshot.workspaceSkillSources.find((source) => source.exists)?.id ||
-        nextSnapshot.systemSkillSources.find((source) => source.exists && source.skillCount > 0)?.id ||
-        nextSnapshot.systemSkillSources.find((source) => source.exists)?.id ||
-        null
-      );
-    });
+        return (
+          nextSnapshot.workspaceSkillSources.find((source) => source.exists && source.skillCount > 0)?.id ||
+          nextSnapshot.workspaceSkillSources.find((source) => source.exists)?.id ||
+          nextSnapshot.systemSkillSources.find((source) => source.exists && source.skillCount > 0)?.id ||
+          nextSnapshot.systemSkillSources.find((source) => source.exists)?.id ||
+          null
+        );
+      });
 
-    return nextSnapshot;
+      return nextSnapshot;
+    } finally {
+      setIsRefreshing(false);
+    }
   }, [api]);
 
   const loadSkillDetail = useCallback(
@@ -249,6 +268,7 @@ export function useSkillManager(initialSkillId?: string) {
     busyLabel,
     notice,
     error,
+    isRefreshing,
     selectedSkillId,
     selectedStagedId,
     selectedLogId,
@@ -269,6 +289,16 @@ export function useSkillManager(initialSkillId?: string) {
     saveSettings: (input: SaveSettingsInput) =>
       runAction(t.busySavingSettings, async () => {
         const result = await api.saveSettings(input);
+        if (!result.ok) {
+          throw new Error(result.error || t.failedToSaveSettings);
+        }
+
+        setNotice(t.settingsSaved);
+        return result.data;
+      }),
+    createSkillCategory: (name: string) =>
+      runAction(t.busySavingSettings, async () => {
+        const result = await api.createSkillCategory(name);
         if (!result.ok) {
           throw new Error(result.error || t.failedToSaveSettings);
         }
@@ -315,9 +345,9 @@ export function useSkillManager(initialSkillId?: string) {
         setNotice(t.stagedSourcesParsed);
         return result.data;
       }),
-    installStagedSources: (ids: string[]) =>
+    installStagedSources: (ids: string[], category?: string | null) =>
       runAction(t.busyInstallingSkills, async () => {
-        const result = await api.installStagedSources(ids);
+        const result = await api.installStagedSources({ ids, category });
         if (!result.ok) {
           throw new Error(result.error || t.failedToInstallStagedSkills);
         }
@@ -380,6 +410,16 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.skillExported);
+        return result.data;
+      }),
+    installWorkspaceSkill: (input: InstallWorkspaceSkillInput) =>
+      runAction(t.busyInstallingWorkspaceSkill, async () => {
+        const result = await api.installWorkspaceSkill(input);
+        if (!result.ok) {
+          throw new Error(result.error || t.failedToInstallWorkspaceSkill);
+        }
+
+        setNotice(t.workspaceSkillInstalled);
         return result.data;
       })
   };

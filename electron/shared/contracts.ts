@@ -3,7 +3,7 @@ export type SourceType = "localZip" | "githubRepo" | "remoteZip";
 export type SourceStatus = "pending" | "processing" | "ready" | "installed" | "error";
 export type LogLevel = "info" | "warning" | "error";
 export type LogType = "system" | "settings" | "staged" | "install";
-export type ThemePreference = "dark";
+export type ThemePreference = "light" | "dark";
 export type Locale = "zh-CN" | "en";
 export type AiProvider = "deepseek";
 export type AnalysisMethod = "rules" | "ai" | "rules+ai";
@@ -47,6 +47,8 @@ export interface SettingsRecord {
   installDir: string;
   tempDir: string;
   projectDirs: string[];
+  skillCategories: string[];
+  defaultSkillCategory: string;
   conflictPolicy: ConflictPolicy;
   theme: ThemePreference;
   locale: Locale;
@@ -93,6 +95,7 @@ export interface InstalledSkillRecord {
   name: string;
   slug: string;
   description: string | null;
+  category: string | null;
   installPath: string;
   skillMdPath: string;
   sourceType: SourceType;
@@ -108,6 +111,7 @@ export interface InstalledSkillDetail extends InstalledSkillRecord {
 
 export type WorkspaceSkillProviderKey = "codex" | "claude" | "agents";
 export type WorkspaceSkillSourceScope = "project" | "system";
+export type WorkspaceTreeNodeKind = "folder" | "skill";
 
 export interface WorkspaceSkillEntry {
   id: string;
@@ -116,6 +120,17 @@ export interface WorkspaceSkillEntry {
   relativePath: string;
   rootPath: string;
   skillMdPath: string;
+}
+
+export interface WorkspaceTreeNode {
+  id: string;
+  kind: WorkspaceTreeNodeKind;
+  name: string;
+  relativePath: string;
+  absolutePath: string;
+  description: string | null;
+  children: WorkspaceTreeNode[];
+  skill?: WorkspaceSkillEntry;
 }
 
 export interface WorkspaceSkillSource {
@@ -128,6 +143,7 @@ export interface WorkspaceSkillSource {
   exists: boolean;
   skillCount: number;
   skills: WorkspaceSkillEntry[];
+  tree: WorkspaceTreeNode[];
 }
 
 export interface ImportedProjectRecord {
@@ -136,6 +152,7 @@ export interface ImportedProjectRecord {
   path: string;
   skillCount: number;
   sources: WorkspaceSkillSource[];
+  tree: WorkspaceTreeNode[];
 }
 
 export interface LogRecord {
@@ -157,6 +174,13 @@ export interface AppSummary {
   recentFailures: LogRecord[];
 }
 
+export interface SkillCategoryRecord {
+  id: string;
+  name: string;
+  path: string;
+  skillCount: number;
+}
+
 export interface RuntimeInfo {
   isDevelopment: boolean;
   appRoot: string;
@@ -173,7 +197,9 @@ export interface SkillManagerSnapshot {
   settings: SettingsRecord;
   stagedSources: StagedSourceRecord[];
   installedSkills: InstalledSkillRecord[];
+  installCategories: SkillCategoryRecord[];
   importedProjects: ImportedProjectRecord[];
+  workspaceTree: WorkspaceTreeNode[];
   workspaceSkillSources: WorkspaceSkillSource[];
   systemSkillSources: WorkspaceSkillSource[];
   logs: LogRecord[];
@@ -186,13 +212,27 @@ export interface ExportInstalledSkillInput {
   providerKey: WorkspaceSkillProviderKey;
 }
 
+export interface InstallWorkspaceSkillInput {
+  sourceRoot: string;
+  skillRootPath: string;
+  providerKey: WorkspaceSkillProviderKey;
+}
+
 export interface SaveSettingsInput {
   installDir: string;
   tempDir: string;
   projectDirs: string[];
+  skillCategories: string[];
+  defaultSkillCategory: string;
   conflictPolicy: ConflictPolicy;
+  theme: ThemePreference;
   locale: Locale;
   ai: AiSettings;
+}
+
+export interface InstallStagedSourcesInput {
+  ids: string[];
+  category?: string | null;
 }
 
 export interface OperationResult<T> {
@@ -206,13 +246,15 @@ export interface SkillManagerApi {
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
   addRemoteSource(url: string): Promise<OperationResult<StagedSourceRecord>>;
   parseStagedSources(ids: string[]): Promise<OperationResult<StagedSourceRecord[]>>;
-  installStagedSources(ids: string[]): Promise<OperationResult<InstalledSkillRecord[]>>;
+  installStagedSources(input: InstallStagedSourcesInput): Promise<OperationResult<InstalledSkillRecord[]>>;
   removeStagedSources(ids: string[]): Promise<OperationResult<number>>;
   clearStagedSources(): Promise<OperationResult<number>>;
   getStagedSourceDetail(id: string): Promise<OperationResult<StagedSourceDetail>>;
   getInstalledSkillDetail(id: string): Promise<OperationResult<InstalledSkillDetail>>;
   rescanInstalledSkill(id: string): Promise<OperationResult<InstalledSkillDetail>>;
   exportInstalledSkill(input: ExportInstalledSkillInput): Promise<OperationResult<string>>;
+  installWorkspaceSkill(input: InstallWorkspaceSkillInput): Promise<OperationResult<string>>;
+  createSkillCategory(name: string): Promise<OperationResult<SkillCategoryRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;
   validateDirectory(targetPath: string): Promise<DirectoryValidationResult>;
   openPath(targetPath: string): Promise<OperationResult<void>>;
