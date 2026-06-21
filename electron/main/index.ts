@@ -3,11 +3,12 @@ import path from "node:path";
 import { app, BrowserWindow } from "electron";
 
 import { registerIpcHandlers } from "./ipc";
+import { startProductionRenderer } from "./production-server";
 import { SkillManagerBackend } from "./skill-manager-backend";
 
-const RENDERER_URL = process.env.ELECTRON_RENDERER_URL || "http://127.0.0.1:3211";
+const isDevelopment = process.env.NODE_ENV !== "production";
 
-function createWindow() {
+function createWindow(rendererUrl: string) {
   const window = new BrowserWindow({
     width: 1560,
     height: 980,
@@ -23,9 +24,9 @@ function createWindow() {
     }
   });
 
-  void window.loadURL(RENDERER_URL);
+  void window.loadURL(rendererUrl);
 
-  if (process.env.NODE_ENV !== "production") {
+  if (isDevelopment) {
     window.webContents.openDevTools({ mode: "detach" });
   }
 }
@@ -33,13 +34,24 @@ function createWindow() {
 async function bootstrap() {
   await app.whenReady();
 
+  const productionRenderer = isDevelopment ? null : await startProductionRenderer();
+  const rendererUrl = isDevelopment
+    ? process.env.ELECTRON_RENDERER_URL || "http://127.0.0.1:3211"
+    : productionRenderer!.url;
+
   const backend = new SkillManagerBackend(app.getPath("userData"));
   registerIpcHandlers(backend);
-  createWindow();
+  createWindow(rendererUrl);
+
+  if (productionRenderer) {
+    app.on("before-quit", () => {
+      productionRenderer.child.kill();
+    });
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createWindow(rendererUrl);
     }
   });
 }

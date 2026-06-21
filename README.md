@@ -1,31 +1,42 @@
 # Control Your Skills
 
-`Control Your Skills` 是一个本地优先的桌面端 Skill Manager，用来统一管理项目里的 skills、本地 ZIP 导入来源、远程仓库来源，以及已经安装的 skills。
+`Control Your Skills` is a local-first desktop Skill Manager built with Electron, Next.js, and TypeScript. It helps you review, stage, and install skills from local ZIP files, GitHub repositories, remote ZIP sources, and workspace skill directories.
 
-当前 MVP 已经具备这些能力：
+## Download
 
-- Electron + Next.js 桌面工作台
-- SQLite 本地数据存储
-- 本地 ZIP 导入并解析 `SKILL.md`
-- GitHub 仓库 / 远程 ZIP 进入 staging 后再解析与安装
-- 扫描项目根目录下的 `.codex`、`.claude`、`.agent`、`.agents`
-- 点击 provider 卡片查看该目录下识别到的 skills
-- 设置默认安装目录、临时目录和冲突策略
-- 查看日志、安装记录、失败记录
+- [Latest Release](https://github.com/KlayPeter/control-yours-skills/releases/latest)
 
-## 环境要求
+For normal users, open the latest GitHub Release and download the Windows installer:
 
+- `Control Your Skills-Setup-<version>.exe`
+
+After download, run the installer and follow the setup wizard.
+
+## Features
+
+- Electron desktop workspace for skill management
+- SQLite local data storage
+- Local ZIP import with `SKILL.md` parsing
+- GitHub repository and remote ZIP analysis before installation
+- Workspace provider scanning for `.codex`, `.claude`, `.agent`, and `.agents`
+- Installed skill export, logs, staging, and installation history
+
+## Requirements
+
+- Windows
 - Node.js 24+
 - npm 11+
-- Windows PowerShell
+- PowerShell
 
-## 安装依赖
+## Local Development
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-如果系统盘空间紧张，项目现在会优先把 Electron 缓存放到仓库里的 `.electron-cache/`，并建议把 npm 缓存和临时目录也切到项目盘：
+If disk space is tight, you can keep npm, temp, and Electron caches inside the repo:
 
 ```powershell
 $env:npm_config_cache='F:\personal\poject\control-your-skills\.npm-cache'
@@ -34,74 +45,68 @@ $env:TMP='F:\personal\poject\control-your-skills\.tmp'
 npm install
 ```
 
-## 启动项目
-
-开发模式：
+Run the app in development mode:
 
 ```bash
 npm run dev
 ```
 
-这个命令会同时启动：
+This starts:
 
-- Next.js 开发服务：`http://127.0.0.1:3211`
-- Electron main / preload 构建监听
-- Electron 桌面窗口
+- Next.js dev server at `http://127.0.0.1:3211`
+- Electron main/preload watch build
+- Electron desktop window
 
-只启动前端开发服务：
+Useful commands:
 
 ```bash
 npm run dev:web
-```
-
-只检查并补齐 Electron 二进制：
-
-```bash
 npm run electron:ensure
+npm run build
+npm run test
 ```
 
-生产构建：
+## Build A Windows Installer
+
+Create a local Windows installer:
 
 ```bash
 npm run build
+npm run dist:win
 ```
 
-只启动构建后的前端服务：
+The generated installer will be written to:
+
+```text
+release/
+```
+
+## Publish A GitHub Release
+
+This repository includes a GitHub Actions workflow at `.github/workflows/release.yml`.
+
+Release flow:
+
+1. Update the version in `package.json`.
+2. Commit and push your changes.
+3. Create a Git tag like `v0.1.0`.
+4. Push the tag:
 
 ```bash
-npm run start:web
+git push origin v0.1.0
 ```
 
-## 使用说明
+GitHub Actions will then:
 
-1. 第一次启动后，先到 `Settings` 配置默认安装目录。
-2. 如果 `tempDir` 留空，程序会使用应用内部的临时目录。
-3. 在 `Import` 页面可以导入本地 ZIP，或者添加 GitHub / 远程 ZIP 来源。
-4. 在 `Overview` 和 `Import` 页面可以点击 `Codex`、`Claude`、`Agent`、`Agents` 卡片，查看项目中现有的 skills。
-5. 在 `Staging` 页面完成解析、安装、删除等操作。
+- install dependencies
+- build the app bundle
+- build the Electron app
+- generate the Windows NSIS installer
+- publish the installer to GitHub Releases
 
-## 校验命令
+## Notes
 
-类型检查：
-
-```bash
-npm run typecheck
-```
-
-Lint：
-
-```bash
-npm run lint
-```
-
-完整检查：
-
-```bash
-npm run check
-```
-
-测试：
-
-```bash
-npm test
-```
+- The release workflow currently targets Windows only.
+- Release publishing uses the built-in `GITHUB_TOKEN`.
+- The packaged app starts its bundled Next.js standalone server automatically in production.
+- If local Windows packaging fails with a symbolic link permission error from `winCodeSign`, run the build terminal as Administrator or enable Windows Developer Mode. GitHub Actions is the recommended path for public releases.
