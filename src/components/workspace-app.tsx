@@ -6,25 +6,21 @@ import type { Route } from "next";
 import { useDropzone } from "react-dropzone";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Database,
+  AlertCircle,
+  CheckCircle2,
   FolderOpen,
   HardDriveDownload,
   LayoutDashboard,
   LoaderCircle,
   Logs,
+  PanelLeftOpen,
   RefreshCcw,
   Settings2,
-  UploadCloud
+  UploadCloud,
+  X
 } from "lucide-react";
 
-import type {
-  ImportedProjectRecord,
-  Locale,
-  LogRecord,
-  SaveSettingsInput,
-  StagedSourceRecord,
-  WorkspaceSkillSource
-} from "@shared/contracts";
+import type { ImportedProjectRecord, Locale, SaveSettingsInput, WorkspaceSkillSource } from "@shared/contracts";
 
 import {
   SourceViewerModal,
@@ -33,7 +29,6 @@ import {
 } from "@/components/workspace-app-sections";
 import { useSkillManager } from "@/hooks/use-skill-manager";
 import { cn } from "@/lib/cn";
-import { isDesktopApiAvailable } from "@/lib/electron-api";
 
 type WorkspaceSection = "overview" | "import" | "staged" | "skills" | "logs" | "settings";
 type TranslationDictionary = Record<string, string>;
@@ -316,7 +311,7 @@ const enTranslations: TranslationDictionary = {
   installedAt: "Installed at",
   noDescriptionExtractedForSkill: "No description extracted yet.",
   stagedSourceDetail: "Staged source detail",
-  stagedSourceDetailSubtitle: "Review parse results and preview before installing.",
+  stagedSourceDetailSubtitle: "Review recognition results, installation guidance, and preview content.",
   reparse: "Reparse",
   install: "Install",
   sourceValue: "Source value",
@@ -365,19 +360,6 @@ function sectionTitle(section: WorkspaceSection, t: TranslationDictionary) {
 
 function navLabel(section: WorkspaceSection, t: TranslationDictionary) {
   return sectionTitle(section, t);
-}
-
-function formatRendererLocation(rendererUrl: string, t: TranslationDictionary) {
-  if (!rendererUrl) {
-    return t.unavailable;
-  }
-
-  try {
-    const parsed = new URL(rendererUrl);
-    return parsed.port || parsed.host || rendererUrl;
-  } catch {
-    return rendererUrl;
-  }
 }
 
 export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
@@ -435,23 +417,10 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     sources: WorkspaceSkillSource[];
   } | null>(null);
   const [stagedModalOpen, setStagedModalOpen] = useState(false);
-  const [installModalState, setInstallModalState] = useState<{
-    stagedId: string;
-    title: string;
-    method: string;
-  } | null>(null);
 
-  const [hasMounted, setHasMounted] = useState(false);
   const locale = snapshot?.settings.locale || settingsDraft.locale;
   const t = translations[locale];
   const selectedLog = snapshot?.logs.find((item) => item.id === selectedLogId) || null;
-  const installLogs = useMemo(() => {
-    if (!snapshot || !installModalState) {
-      return [] as LogRecord[];
-    }
-
-    return snapshot.logs.filter((log) => log.relatedId === installModalState.stagedId);
-  }, [installModalState, snapshot]);
   const installPathConfigured = Boolean(snapshot?.settings.installDir.trim());
   const installedSkills = useMemo(() => {
     if (!snapshot) {
@@ -473,10 +442,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   }, [searchValue, snapshot]);
 
   useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  useEffect(() => {
     if (!snapshot) {
       return;
     }
@@ -491,7 +456,29 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     });
   }, [snapshot]);
 
-  const isDesktop = hasMounted && isDesktopApiAvailable();
+  useEffect(() => {
+    if (!notice) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setNotice(null);
+    }, 2600);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notice, setNotice]);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setError(null);
+    }, 4200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [error, setError]);
 
   const dropzone = useDropzone({
     accept: {
@@ -578,7 +565,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     }
   };
 
-  const handleRemoteAction = async (mode: "staged" | "install") => {
+  const handleRemoteAction = async () => {
     if (!remoteUrl.trim()) {
       setError(t.enterRemoteSourceUrl);
       return;
@@ -605,33 +592,16 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
       return;
     }
 
-    if (mode === "install") {
-      setInstallModalState({
-        stagedId: created.id,
-        title: selectedStagedDetail?.detectedName || created.sourceValue,
-        method: selectedStagedDetail?.installStrategy?.title || "Installing"
-      });
-      await installStagedSources([created.id]);
-      await refresh();
-      router.push("/skills");
-      return;
-    }
+  };
+
+  const openStagedDetailModal = async (stagedId: string) => {
+    await loadStagedDetail(stagedId);
+    setStagedModalOpen(true);
   };
 
   const handleInstallWithProgress = async (stagedId: string) => {
-    const detail = snapshot?.stagedSources.find((item) => item.id === stagedId);
-    setInstallModalState({
-      stagedId,
-      title: detail?.detectedName || detail?.sourceValue || stagedId,
-      method: detail?.installStrategy?.title || "Installing"
-    });
-
-    try {
-      await installStagedSources([stagedId]);
-      await refresh();
-    } catch {
-      await refresh();
-    }
+    await installStagedSources([stagedId]);
+    await refresh();
   };
 
   const handleInstallManyWithProgress = async (ids: string[]) => {
@@ -694,7 +664,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     Boolean(detailPanel) && (section === "skills" || section === "staged" || section === "logs");
 
   return (
-    <div className="min-h-screen bg-ink-950 text-ink-100">
+    <div className="app-shell app-grid min-h-screen bg-ink-950 text-ink-100">
       <SourceViewerModal
         onClose={() => setModalState(null)}
         onOpenPath={(targetPath) => void openPath(targetPath)}
@@ -716,7 +686,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 <p className="mt-1 text-sm text-ink-200/70">{t.stagedSourceDetailSubtitle}</p>
               </div>
               <button
-                className="rounded-full border border-white/10 bg-white/5 p-2 text-white transition hover:bg-white/10"
+                className="app-icon-button"
                 onClick={() => {
                   setStagedModalOpen(false);
                   clearSelectedStagedDetail();
@@ -744,55 +714,55 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         </div>
       ) : null}
 
-      {installModalState ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4">
-          <div className="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/10 bg-ink-950 shadow-panel">
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
-              <div>
-                <h3 className="text-xl font-semibold text-white">{installModalState.title}</h3>
-                <p className="mt-1 text-sm text-ink-200/70">Installing via: {installModalState.method}</p>
-              </div>
+
+      <div className="pointer-events-none fixed bottom-5 right-5 z-40 flex w-[min(24rem,calc(100vw-2.5rem))] flex-col gap-3">
+        {notice ? (
+          <div className="pointer-events-auto overflow-hidden rounded-2xl border border-moss/30 bg-ink-950/95 shadow-2xl backdrop-blur">
+            <div className="flex items-start gap-3 px-4 py-3 text-sm text-moss">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="min-w-0 flex-1">{notice}</div>
               <button
-                className="rounded-full border border-white/10 bg-white/5 p-2 text-white transition hover:bg-white/10"
-                onClick={() => setInstallModalState(null)}
+                aria-label="Dismiss notification"
+                className="rounded-full p-1 text-moss/70 transition hover:bg-white/10 hover:text-moss"
+                onClick={() => setNotice(null)}
                 type="button"
               >
-                ×
+                <X className="h-4 w-4" />
               </button>
             </div>
+          </div>
+        ) : null}
 
-            <div className="space-y-4 px-6 py-5">
-              <div className="rounded-2xl border border-signal/20 bg-signal/10 px-4 py-3 text-sm text-signal">
-                {busyLabel || "Waiting for install result"}
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-black/30 p-4">
-                <div className="mb-3 text-sm font-medium text-white">Terminal Log</div>
-                <div className="max-h-[360px] space-y-2 overflow-y-auto rounded-2xl bg-black px-4 py-3 font-mono text-xs text-ink-100">
-                  {installLogs.length ? (
-                    installLogs.map((log) => (
-                      <div key={log.id}>
-                        <div className="text-ink-200/60">{new Date(log.createdAt).toLocaleTimeString()}</div>
-                        <div className="text-white">{log.message}</div>
-                        {log.detail ? <pre className="whitespace-pre-wrap text-ink-200/80">{log.detail}</pre> : null}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-ink-200/60">No install logs yet.</div>
-                  )}
-                </div>
-              </div>
+        {error ? (
+          <div className="pointer-events-auto overflow-hidden rounded-2xl border border-ember/30 bg-ink-950/95 shadow-2xl backdrop-blur">
+            <div className="flex items-start gap-3 px-4 py-3 text-sm text-ember">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="min-w-0 flex-1">{error}</div>
+              <button
+                aria-label="Dismiss error"
+                className="rounded-full p-1 text-ember/70 transition hover:bg-white/10 hover:text-ember"
+                onClick={() => setError(null)}
+                type="button"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
-      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[272px,minmax(0,1fr)]">
-        <aside className="border-b border-white/10 bg-black/25 p-5 backdrop-blur xl:border-b-0 xl:border-r">
-          <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-signal/18 via-transparent to-ember/10 p-5">
-            <p className="text-xs uppercase tracking-[0.3em] text-signal/80">{t.appName}</p>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white">{t.appTitle}</h1>
-            <p className="mt-2 text-sm text-ink-200/70">{t.appDescription}</p>
+      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[292px,minmax(0,1fr)]">
+        <aside className="app-sidebar">
+          <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-signal/16 via-transparent to-ember/8 p-5">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-white/10 bg-black/20 text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+                <PanelLeftOpen className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.3em] text-signal/80">{t.appName}</p>
+                <h1 className="mt-1 text-[1.45rem] font-semibold tracking-tight text-white">{t.appTitle}</h1>
+              </div>
+            </div>
           </div>
 
           <nav className="mt-6 space-y-2">
@@ -803,16 +773,25 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 <Link
                   key={item.section}
                   className={cn(
-                    "flex items-center justify-between rounded-2xl border px-4 py-3 text-sm transition",
+                    "group flex items-center justify-between rounded-[24px] border px-4 py-3.5 text-sm transition duration-200",
                     active
-                      ? "border-signal/30 bg-signal/15 text-white"
-                      : "border-white/10 bg-white/5 text-ink-200/80 hover:bg-white/10"
+                      ? "border-signal/30 bg-signal/15 text-white shadow-[0_16px_36px_rgba(78,180,255,0.12)]"
+                      : "border-white/10 bg-white/[0.04] text-ink-200/80 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.07]"
                   )}
                   href={item.href}
                 >
                   <span className="flex items-center gap-3">
-                    <Icon className="h-4 w-4" />
-                    {navLabel(item.section, t)}
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-2xl border transition",
+                        active
+                          ? "border-white/10 bg-white/10"
+                          : "border-white/10 bg-black/20 text-ink-200/70 group-hover:border-white/20 group-hover:text-white"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="font-medium">{navLabel(item.section, t)}</span>
                   </span>
                   {item.section === "staged" && pendingCount ? (
                     <span className="rounded-full bg-signal/15 px-2 py-0.5 text-xs text-signal">
@@ -828,61 +807,47 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               );
             })}
           </nav>
-
-          <div className="mt-6 space-y-3 rounded-[28px] border border-white/10 bg-black/20 p-4 text-sm text-ink-200/75">
-            <div className="flex items-center gap-2 text-white">
-              <Database className="h-4 w-4 text-signal" />
-              {t.runtime}
-            </div>
-            <p>{t.runtimeDevData}</p>
-            <p>{t.runtimeProdData}</p>
-            <p>{t.runtimeFrontend}: `{formatRendererLocation(snapshot?.runtime.rendererUrl || "", t)}`</p>
-            <p>{t.runtimeInstallDir}: {snapshot?.settings.installDir || t.notConfiguredYet}</p>
-          </div>
         </aside>
 
         <div className="flex min-h-screen flex-col">
-          <header className="border-b border-white/10 bg-black/20 px-6 py-4 backdrop-blur">
+          <header className="app-topbar">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-ink-200/55">{t.workspaceHeader}</p>
-                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-ink-200/50">{t.workspaceHeader}</p>
+                <h2 className="mt-2 text-[2rem] font-semibold tracking-tight text-white">
                   {sectionTitle(section, t)}
                 </h2>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                  aria-label={t.refresh}
+                  className="app-icon-button rounded-2xl"
                   onClick={() => {
                     setNotice(null);
                     setError(null);
                     void refresh();
                   }}
+                  title={t.refresh}
                   type="button"
                 >
-                  <span className="flex items-center gap-2">
-                    <RefreshCcw className="h-4 w-4" />
-                    {t.refresh}
-                  </span>
+                  <RefreshCcw className="h-4 w-4" />
                 </button>
                 <button
-                  className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
+                  aria-label={t.openInstallFolder}
+                  className="app-icon-button rounded-2xl"
                   onClick={() => void openPath(snapshot?.settings.installDir || "")}
+                  title={t.openInstallFolder}
                   type="button"
                 >
-                  <span className="flex items-center gap-2">
-                    <FolderOpen className="h-4 w-4" />
-                    {t.openInstallFolder}
-                  </span>
+                  <FolderOpen className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 xl:grid-cols-[1.4fr,auto] xl:items-center">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-ink-200/80">
-                <span className="text-ink-200/55">{t.defaultInstallDirectoryLabel}</span>{" "}
-                {snapshot?.settings.installDir || t.notConfiguredYet}
+            <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="inline-flex max-w-full items-center gap-3 rounded-[24px] border border-white/10 bg-white/[0.04] px-4 py-3.5 text-sm text-ink-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                <span className="truncate">{snapshot?.settings.installDir || t.notConfiguredYet}</span>
               </div>
               {busyLabel ? (
                 <div className="inline-flex items-center gap-2 rounded-full border border-signal/30 bg-signal/10 px-4 py-2 text-sm text-signal">
@@ -891,22 +856,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 </div>
               ) : null}
             </div>
-
-            {notice ? (
-              <div className="mt-3 rounded-2xl border border-moss/20 bg-moss/10 px-4 py-3 text-sm text-moss">
-                {notice}
-              </div>
-            ) : null}
-            {error ? (
-              <div className="mt-3 rounded-2xl border border-ember/20 bg-ember/10 px-4 py-3 text-sm text-ember">
-                {error}
-              </div>
-            ) : null}
-            {!isDesktop ? (
-              <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                {t.browserFallbackNotice}
-              </div>
-            ) : null}
           </header>
 
           <main className="flex-1 p-6">
@@ -920,9 +869,9 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     onClearStaged={clearStagedSources}
                     onImportProject={handleImportProject}
                     onImportZip={importZipWithPicker}
-                    onInstallStaged={handleInstallManyWithProgress}
                     onLoadSkillDetail={loadSkillDetail}
                     onLoadStagedDetail={loadStagedDetail}
+                    onOpenStagedDetail={openStagedDetailModal}
                     onOpenLogsFromOverview={(logId) => {
                       setSelectedLogId(logId);
                       router.push("/logs");
@@ -970,10 +919,10 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   installedSkills={installedSkills}
                   onClearStaged={clearStagedSources}
                   onImportProject={handleImportProject}
-                    onImportZip={importZipWithPicker}
-                    onInstallStaged={handleInstallManyWithProgress}
+                  onImportZip={importZipWithPicker}
                   onLoadSkillDetail={loadSkillDetail}
                   onLoadStagedDetail={loadStagedDetail}
+                  onOpenStagedDetail={openStagedDetailModal}
                   onOpenLogsFromOverview={(logId) => {
                     setSelectedLogId(logId);
                     router.push("/logs");

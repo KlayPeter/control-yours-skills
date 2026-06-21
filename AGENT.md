@@ -1,5 +1,16 @@
 # Agent Notes
 
+Before reading files:
+
+1. Use CodeGraph MCP first.
+2. Use codegraph_explore to understand architecture.
+3. Use codegraph_impact before modifications.
+4. Avoid scanning the repository with grep.
+5. Read only files returned by CodeGraph.
+
+
+
+
 - Keep changes small and focused.
 - Use `apply_patch` for manual edits.
 - Do not overwrite user changes or run destructive git commands.

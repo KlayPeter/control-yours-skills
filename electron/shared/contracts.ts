@@ -36,6 +36,7 @@ export interface InstallStrategy {
   reason: string | null;
   command: string | null;
   workingDirectory: string | null;
+  prerequisiteSteps: string[];
   manualSteps: string[];
   requiredTools: string[];
   supportedPlatforms: string[];

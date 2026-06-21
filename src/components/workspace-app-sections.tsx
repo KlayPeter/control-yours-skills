@@ -5,7 +5,18 @@ import { formatDistanceToNowStrict, formatISO9075 } from "date-fns";
 import type { DropzoneState } from "react-dropzone";
 import { useEffect, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { Search, ShieldAlert, UploadCloud, X } from "lucide-react";
+import {
+  Eye,
+  FolderOpen,
+  LoaderCircle,
+  Plus,
+  RefreshCcw,
+  Search,
+  ShieldAlert,
+  Trash2,
+  UploadCloud,
+  X
+} from "lucide-react";
 
 import type {
   ImportedProjectRecord,
@@ -80,6 +91,26 @@ function statusLabel(status: SourceStatus, t: TranslationDictionary) {
   }
 }
 
+function StatusIndicator({
+  status,
+  t
+}: {
+  status: SourceStatus;
+  t: TranslationDictionary;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs uppercase tracking-[0.16em]",
+        statusTone(status)
+      )}
+    >
+      {status === "processing" ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : null}
+      {statusLabel(status, t)}
+    </span>
+  );
+}
+
 function providerMonogram(key: WorkspaceSkillSource["key"]) {
   switch (key) {
     case "codex":
@@ -151,15 +182,45 @@ function StrategyBadge({ strategy }: { strategy: InstallStrategy | null }) {
 
   const label =
     strategy.type === "command"
-      ? "Command"
+      ? "Guide"
       : strategy.type === "manual"
-        ? "Manual"
+        ? "Guide"
         : "Archive";
 
   return (
     <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs uppercase tracking-[0.16em] text-ink-200/70">
       {label}
     </span>
+  );
+}
+
+function DetailList({
+  title,
+  items,
+  copyLabel
+}: {
+  title: string;
+  items: string[];
+  copyLabel?: string;
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs uppercase tracking-[0.16em] text-ink-200/50">{title}</p>
+        <CopyButton label={copyLabel || "复制"} value={items.join("\n")} />
+      </div>
+      <div className="mt-2 space-y-2">
+        {items.map((item, index) => (
+          <p key={`${title}-${index}`} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ink-100/85">
+            {item}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -175,13 +236,13 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/10 to-white/5 p-5 shadow-panel backdrop-blur">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          {subtitle ? <p className="text-sm text-ink-200/75">{subtitle}</p> : null}
+    <section className="app-panel p-6 sm:p-7">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-3xl">
+          <h2 className="text-xl font-semibold tracking-tight text-white">{title}</h2>
+          {subtitle ? <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-200/70">{subtitle}</p> : null}
         </div>
-        {actions}
+        {actions ? <div className="flex flex-wrap items-center gap-2 lg:justify-end">{actions}</div> : null}
       </div>
       {children}
     </section>
@@ -196,10 +257,65 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-3xl border border-dashed border-white/15 bg-black/20 px-5 py-8 text-center">
-      <p className="text-base font-medium text-white">{title}</p>
-      <p className="mt-2 text-sm text-ink-200/70">{description}</p>
+    <div className="app-empty-state">
+      <div className="app-empty-orb mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] border border-white/10 text-white/80">
+        <Search className="h-5 w-5" />
+      </div>
+      <p className="mt-5 text-lg font-semibold tracking-tight text-white">{title}</p>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-ink-200/70">{description}</p>
     </div>
+  );
+}
+
+function CopyButton({
+  value,
+  label = "复制"
+}: {
+  value: string;
+  label?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      className="app-button px-3 text-xs"
+      onClick={() => {
+        void navigator.clipboard.writeText(value);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1200);
+      }}
+      type="button"
+    >
+      {copied ? "已复制" : label}
+    </button>
+  );
+}
+
+function IconActionButton({
+  icon: Icon,
+  label,
+  onClick,
+  tone = "default"
+}: {
+  icon: typeof Search;
+  label: string;
+  onClick: () => void;
+  tone?: "default" | "danger" | "success";
+}) {
+  return (
+    <button
+      aria-label={label}
+      className={cn(
+        "app-icon-button rounded-2xl",
+        tone === "danger" && "border-ember/25 bg-ember/10 text-ember hover:border-ember/40 hover:bg-ember/15",
+        tone === "success" && "border-moss/25 bg-moss/10 text-moss hover:border-moss/40 hover:bg-moss/15"
+      )}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      <Icon className="h-4 w-4" />
+    </button>
   );
 }
 
@@ -226,14 +342,14 @@ export function SourceViewerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/10 bg-ink-950 shadow-panel">
+      <div className="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-[32px] border border-white/10 bg-ink-950/95 shadow-panel backdrop-blur">
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
           <div>
-            <h3 className="text-xl font-semibold text-white">{title}</h3>
-            {subtitle ? <p className="mt-1 text-sm text-ink-200/70">{subtitle}</p> : null}
+            <h3 className="text-2xl font-semibold tracking-tight text-white">{title}</h3>
+            {subtitle ? <p className="mt-2 text-sm leading-6 text-ink-200/70">{subtitle}</p> : null}
           </div>
           <button
-            className="rounded-full border border-white/10 bg-white/5 p-2 text-white transition hover:bg-white/10"
+            className="app-icon-button"
             onClick={onClose}
             type="button"
           >
@@ -241,23 +357,23 @@ export function SourceViewerModal({
           </button>
         </div>
 
-        <div className="max-h-[calc(85vh-92px)] overflow-y-auto px-6 py-5">
+        <div className="max-h-[calc(85vh-92px)] overflow-y-auto px-6 py-6">
           <div className="space-y-5">
             {sources.map((source) => (
-              <div key={source.id} className="rounded-3xl border border-white/10 bg-black/20 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
+              <div key={source.id} className="app-card overflow-hidden">
+                <div className="p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-3">
                       <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white">
                         {providerMonogram(source.key)}
                       </span>
-                      <div>
+                        <div className="min-w-0">
                         <p className="font-medium text-white">{source.label}</p>
-                        <p className="text-sm text-ink-200/65">{source.path}</p>
+                          <p className="mt-1 break-all text-sm text-ink-200/65">{source.path}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
                     <span
                       className={cn(
                         "rounded-full border px-2.5 py-1 text-xs uppercase tracking-[0.15em]",
@@ -268,47 +384,47 @@ export function SourceViewerModal({
                     >
                       {providerStatus(source, t)}
                     </span>
-                    <button
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
-                      onClick={() => onOpenPath(source.path)}
-                      type="button"
-                    >
-                      {t.openFolder}
-                    </button>
                   </div>
-                </div>
 
-                {source.skills.length ? (
-                  <div className="mt-4 space-y-3">
+                  {source.skills.length ? (
+                    <div className="mt-5 space-y-3">
                     {source.skills.map((skill) => (
                       <div
                         key={skill.id}
-                        className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
+                          className="rounded-2xl border border-white/10 bg-black/30 p-4"
                       >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
+                          <div className="flex flex-col gap-3">
+                            <div className="min-w-0">
                             <p className="font-medium text-white">{skill.name}</p>
                             <p className="mt-1 text-sm text-ink-200/70">
                               {skill.description || t.noDescriptionAvailable}
                             </p>
-                            <p className="mt-2 text-xs text-ink-200/55">{skill.relativePath}</p>
+                              <p className="mt-2 break-all text-xs text-ink-200/55">{skill.relativePath}</p>
+                            </div>
+                            <div className="flex justify-end border-t border-white/10 pt-3">
+                              <IconActionButton
+                                icon={FolderOpen}
+                                label={t.openFolder}
+                                onClick={() => onOpenPath(skill.rootPath)}
+                              />
+                            </div>
                           </div>
-                          <button
-                            className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
-                            onClick={() => onOpenPath(skill.rootPath)}
-                            type="button"
-                          >
-                            {t.openFolder}
-                          </button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-black/20 px-4 py-6 text-center text-sm text-ink-200/70">
-                    {t.modalNoSkills}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-2xl border border-dashed border-white/15 bg-black/20 px-4 py-6 text-center text-sm text-ink-200/70">
+                      {t.modalNoSkills}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-black/10 px-5 py-4">
+                  <IconActionButton
+                    icon={FolderOpen}
+                    label={t.openFolder}
+                    onClick={() => onOpenPath(source.path)}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -351,16 +467,10 @@ export function OverviewSection({
         </SectionCard>
       ) : null}
 
-      <SectionCard title={t.overviewInstallDir}>
-        <div className="rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-ink-100/85">
-          {snapshot.settings.installDir || t.notConfiguredYet}
-        </div>
-      </SectionCard>
-
       <SectionCard title={t.workspaceSkillDirectories} subtitle={t.workspaceSkillDirectoriesSubtitle}>
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
           {snapshot.systemSkillSources.map((source) => (
-            <div key={source.id} className="rounded-3xl border border-white/10 bg-black/20 p-4">
+            <div key={source.id} className="app-card flex h-full flex-col p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white">
@@ -384,22 +494,14 @@ export function OverviewSection({
                   {providerStatus(source, t)}
                 </span>
               </div>
-              <p className="mt-3 line-clamp-2 text-sm text-ink-200/70">{source.path}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
-                  onClick={() => onOpenSystemSourceModal(source)}
-                  type="button"
-                >
-                  {t.view}
-                </button>
-                <button
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+              <p className="mt-4 flex-1 break-all text-sm leading-6 text-ink-200/70">{source.path}</p>
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pt-4">
+                <IconActionButton icon={Eye} label={t.view} onClick={() => onOpenSystemSourceModal(source)} />
+                <IconActionButton
+                  icon={FolderOpen}
+                  label={t.openFolder}
                   onClick={() => void onOpenPath(source.path)}
-                  type="button"
-                >
-                  {t.openFolder}
-                </button>
+                />
               </div>
             </div>
           ))}
@@ -411,10 +513,11 @@ export function OverviewSection({
         subtitle={t.projectDirectoriesSubtitle}
         actions={
           <button
-            className="rounded-full bg-signal px-4 py-2 text-sm font-medium text-ink-950 transition hover:brightness-110"
+            className="app-button-primary"
             onClick={() => void onImportProject()}
             type="button"
           >
+            <Plus className="h-4 w-4" />
             {t.importProject}
           </button>
         }
@@ -422,38 +525,29 @@ export function OverviewSection({
         {snapshot.importedProjects.length ? (
           <div className="space-y-3">
             {snapshot.importedProjects.map((project) => (
-              <div key={project.id} className="rounded-3xl border border-white/10 bg-black/20 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+              <div key={project.id} className="app-card overflow-hidden">
+                <div className="p-5">
+                  <div className="min-w-0">
                     <p className="font-medium text-white">{project.name}</p>
-                    <p className="mt-1 text-sm text-ink-200/70">{project.path}</p>
+                    <p className="mt-2 break-all text-sm leading-6 text-ink-200/70">{project.path}</p>
                     <p className="mt-2 text-xs text-ink-200/55">
                       {t.skillCount}: {project.skillCount}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
-                      onClick={() => onOpenProjectModal(project)}
-                      type="button"
-                    >
-                      {t.view}
-                    </button>
-                    <button
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
-                      onClick={() => void onOpenPath(project.path)}
-                      type="button"
-                    >
-                      {t.openFolder}
-                    </button>
-                    <button
-                      className="rounded-full border border-ember/25 bg-ember/10 px-3 py-2 text-sm text-ember transition hover:bg-ember/15"
-                      onClick={() => void onRemoveProject(project.path)}
-                      type="button"
-                    >
-                      {t.delete}
-                    </button>
-                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-black/10 px-5 py-4">
+                  <IconActionButton icon={Eye} label={t.view} onClick={() => onOpenProjectModal(project)} />
+                  <IconActionButton
+                    icon={FolderOpen}
+                    label={t.openFolder}
+                    onClick={() => void onOpenPath(project.path)}
+                  />
+                  <IconActionButton
+                    icon={Trash2}
+                    label={t.delete}
+                    onClick={() => void onRemoveProject(project.path)}
+                    tone="danger"
+                  />
                 </div>
               </div>
             ))}
@@ -531,9 +625,8 @@ export function ImportSection({
   onRemoteAction,
   snapshot,
   selectedStagedId,
-  onLoadStagedDetail,
+  onOpenStagedDetail,
   onParseStaged,
-  onInstallStaged,
   onRemoveStaged
 }: {
   t: TranslationDictionary;
@@ -544,9 +637,8 @@ export function ImportSection({
   onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   snapshot: SkillManagerSnapshot;
   selectedStagedId: string | null;
-  onLoadStagedDetail: (id: string) => AsyncActionResult;
+  onOpenStagedDetail: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
-  onInstallStaged: (ids: string[]) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
 }) {
   return (
@@ -567,15 +659,8 @@ export function ImportSection({
           <p className="mt-2 text-sm text-ink-200/70">{t.localZipDropHelp}</p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button
-              className="rounded-full bg-moss px-4 py-2 text-sm font-medium text-ink-950 transition hover:brightness-110"
-              onClick={() => void onImportZip("install")}
-              type="button"
-            >
-              {t.installNow}
-            </button>
-            <button
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white transition hover:bg-white/10"
-              onClick={() => void onImportZip("install")}
+              className="app-button"
+              onClick={() => void onImportZip("staged")}
               type="button"
             >
               {t.chooseZip}
@@ -598,7 +683,7 @@ export function ImportSection({
               value={remoteUrl}
             />
             <button
-              className="h-12 rounded-2xl border border-white/10 bg-white/5 px-5 text-sm text-white transition hover:bg-white/10"
+              className="app-button"
               onClick={() => void onRemoteAction("staged")}
               type="button"
             >
@@ -615,13 +700,13 @@ export function ImportSection({
               <div
                 key={item.id}
                 className={cn(
-                  "rounded-3xl border p-4 transition",
+                  "overflow-hidden rounded-[28px] border transition",
                   selectedStagedId === item.id
                     ? "border-signal/45 bg-signal/10"
                     : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
                 )}
               >
-                <button className="w-full text-left" onClick={() => void onLoadStagedDetail(item.id)} type="button">
+                <button className="w-full px-5 py-5 text-left" onClick={() => void onOpenStagedDetail(item.id)} type="button">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -632,42 +717,33 @@ export function ImportSection({
                         {item.detectedDescription || item.analysisSummary || item.errorMessage || t.waitingForMetadataParsing}
                       </p>
                     </div>
-                    <span
-                      className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs uppercase tracking-[0.16em]",
-                        statusTone(item.status)
-                      )}
-                    >
-                      {statusLabel(item.status, t)}
-                    </span>
+                    <StatusIndicator status={item.status} t={t} />
                   </div>
-                  <p className="mt-3 text-xs text-ink-200/55">
-                    <RelativeTimeText value={item.updatedAt} />
-                  </p>
                 </button>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
-                    onClick={() => void onParseStaged([item.id])}
-                    type="button"
-                  >
-                    {t.reparse}
-                  </button>
-                  <button
-                    className="rounded-full bg-moss px-3 py-2 text-sm font-medium text-ink-950 transition hover:brightness-110"
-                    onClick={() => void onInstallStaged([item.id])}
-                    type="button"
-                  >
-                    {t.install}
-                  </button>
-                  <button
-                    className="rounded-full border border-ember/25 bg-ember/10 px-3 py-2 text-sm text-ember transition hover:bg-ember/15"
-                    onClick={() => void onRemoveStaged([item.id])}
-                    type="button"
-                  >
-                    {t.delete}
-                  </button>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-black/10 px-5 py-4">
+                  <p className="text-xs text-ink-200/55">
+                    <RelativeTimeText value={item.updatedAt} />
+                  </p>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <IconActionButton
+                      icon={RefreshCcw}
+                      label={t.reparse}
+                      onClick={() => void onParseStaged([item.id])}
+                    />
+                    <IconActionButton
+                      icon={Eye}
+                      label={t.view}
+                      onClick={() => void onOpenStagedDetail(item.id)}
+                      tone="success"
+                    />
+                    <IconActionButton
+                      icon={Trash2}
+                      label={t.delete}
+                      onClick={() => void onRemoveStaged([item.id])}
+                      tone="danger"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -688,7 +764,6 @@ export function StagedSection({
   onToggleStageSelection,
   onLoadStagedDetail,
   onParseStaged,
-  onInstallStaged,
   onRemoveStaged,
   onClearStaged
 }: {
@@ -699,7 +774,6 @@ export function StagedSection({
   onToggleStageSelection: (id: string) => void;
   onLoadStagedDetail: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
-  onInstallStaged: (ids: string[]) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
   onClearStaged: () => AsyncActionResult;
 }) {
@@ -711,13 +785,13 @@ export function StagedSection({
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+              className="app-button"
               href="/import"
             >
               {t.toImport}
             </Link>
             <button
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+              className="app-button"
               onClick={() =>
                 void onParseStaged(
                   selectedStageIds.length ? selectedStageIds : snapshot.stagedSources.map((item) => item.id)
@@ -728,29 +802,14 @@ export function StagedSection({
               {t.parseSelected}
             </button>
             <button
-              className="rounded-full bg-moss px-3 py-2 text-sm font-medium text-ink-950 transition hover:brightness-110"
-              onClick={() =>
-                void onInstallStaged(
-                  selectedStageIds.length
-                    ? selectedStageIds
-                    : snapshot.stagedSources
-                        .filter((item) => item.status !== "installed")
-                        .map((item) => item.id)
-                )
-              }
-              type="button"
-            >
-              {t.installSelected}
-            </button>
-            <button
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+              className="app-button"
               onClick={() => void onRemoveStaged(selectedStageIds)}
               type="button"
             >
               {t.removeSelected}
             </button>
             <button
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+              className="app-button"
               onClick={() => void onClearStaged()}
               type="button"
             >
@@ -792,14 +851,7 @@ export function StagedSection({
                       </p>
                     </div>
                   </div>
-                  <span
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-xs uppercase tracking-[0.16em]",
-                      statusTone(item.status)
-                    )}
-                  >
-                    {statusLabel(item.status, t)}
-                  </span>
+                  <StatusIndicator status={item.status} t={t} />
                 </div>
                 <p className="mt-3 text-xs text-ink-200/55">
                   <RelativeTimeText value={item.updatedAt} />
@@ -834,8 +886,8 @@ export function SkillsSection({
 }) {
   return (
     <div className="space-y-6">
-      <SectionCard title={t.installedSkills} subtitle={t.installedSkillsSubtitle}>
-        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 px-4">
+      <SectionCard title={t.installedSkills}>
+        <div className="app-search-shell mb-5 flex items-center gap-3">
           <Search className="h-4 w-4 text-ink-200/65" />
           <input
             className="h-12 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-ink-200/40"
@@ -851,44 +903,42 @@ export function SkillsSection({
               <div
                 key={skill.id}
                 className={cn(
-                  "rounded-3xl border p-4 transition",
+                  "overflow-hidden rounded-[28px] border transition",
                   selectedSkillId === skill.id
                     ? "border-moss/45 bg-moss/10"
                     : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
                 )}
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="p-5">
                   <button
                     className="min-w-0 flex-1 text-left"
                     onClick={() => void onLoadSkillDetail(skill.id)}
                     type="button"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-white">{skill.name}</p>
+                      <p className="text-base font-semibold tracking-tight text-white">{skill.name}</p>
                       <SourceBadge source={skill.sourceType} t={t} />
                     </div>
-                    <p className="mt-2 text-sm text-ink-200/75">
+                    <p className="mt-3 text-sm leading-6 text-ink-200/72">
                       {skill.description || t.noDescriptionAvailable}
                     </p>
-                    <p className="mt-3 text-xs text-ink-200/55">
-                      <RelativeTimeText value={skill.installedAt} />
-                    </p>
                   </button>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-black/10 px-5 py-4">
+                  <p className="text-xs text-ink-200/55">
+                    <RelativeTimeText value={skill.installedAt} />
+                  </p>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <IconActionButton
+                      icon={FolderOpen}
+                      label={t.openFolder}
                       onClick={() => void onOpenPath(skill.installPath)}
-                      type="button"
-                    >
-                      {t.openFolder}
-                    </button>
-                    <button
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+                    />
+                    <IconActionButton
+                      icon={Eye}
+                      label={t.view}
                       onClick={() => void onLoadSkillDetail(skill.id)}
-                      type="button"
-                    >
-                      {t.view}
-                    </button>
+                    />
                   </div>
                 </div>
               </div>
@@ -1094,7 +1144,7 @@ export function SettingsSection({
           <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
             <p className="text-sm font-medium text-white">AI</p>
             <p className="mt-1 text-sm text-ink-200/70">
-              Configure the AI provider used for remote repository recognition.
+              配置用于远程仓库识别和总结的 AI 服务。
             </p>
 
             <div className="mt-4 grid gap-4">
@@ -1113,12 +1163,12 @@ export function SettingsSection({
                   }
                   type="checkbox"
                 />
-                Enable AI recognition
+                启用 AI 识别
               </label>
 
               <div>
                 <label className="block text-sm font-medium text-white" htmlFor="ai-provider">
-                  Provider
+                  提供方
                 </label>
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition focus:border-signal/45"
@@ -1138,7 +1188,7 @@ export function SettingsSection({
 
               <div>
                 <label className="block text-sm font-medium text-white" htmlFor="ai-base-url">
-                  Base URL
+                  接口地址
                 </label>
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition focus:border-signal/45"
@@ -1158,7 +1208,7 @@ export function SettingsSection({
 
               <div>
                 <label className="block text-sm font-medium text-white" htmlFor="ai-model">
-                  Model
+                  模型
                 </label>
                 <input
                   className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white outline-none transition focus:border-signal/45"
@@ -1200,18 +1250,18 @@ export function SettingsSection({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              className="rounded-full bg-signal px-5 py-2.5 text-sm font-medium text-ink-950 transition hover:brightness-110"
-              onClick={() => void onSaveSettings()}
-              type="button"
-            >
-              {t.saveSettings}
-            </button>
-            <button
-              className="rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm text-white transition hover:bg-white/10"
-              onClick={() => void onOpenPath(settingsDraft.installDir)}
-              type="button"
-            >
+              <button
+                className="app-button-primary px-5"
+                onClick={() => void onSaveSettings()}
+                type="button"
+              >
+                {t.saveSettings}
+              </button>
+              <button
+                className="app-button px-5"
+                onClick={() => void onOpenPath(settingsDraft.installDir)}
+                type="button"
+              >
               {t.openInstallFolder}
             </button>
           </div>
@@ -1246,10 +1296,10 @@ export function WorkspacePrimarySection({
   onImportZip,
   onRemoteAction,
   onParseStaged,
-  onInstallStaged,
   onRemoveStaged,
   onClearStaged,
   onLoadStagedDetail,
+  onOpenStagedDetail,
   onLoadSkillDetail,
   onSelectLog,
   onOpenSkillsFromOverview,
@@ -1285,10 +1335,10 @@ export function WorkspacePrimarySection({
   onImportZip: (mode: "staged" | "install") => AsyncActionResult;
   onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
-  onInstallStaged: (ids: string[]) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
   onClearStaged: () => AsyncActionResult;
   onLoadStagedDetail: (id: string) => AsyncActionResult;
+  onOpenStagedDetail: (id: string) => AsyncActionResult;
   onLoadSkillDetail: (id: string) => AsyncActionResult;
   onSelectLog: (logId: string) => void;
   onOpenSkillsFromOverview: (skillId: string) => AsyncActionResult;
@@ -1331,8 +1381,7 @@ export function WorkspacePrimarySection({
         <ImportSection
           dropzone={dropzone}
           onImportZip={onImportZip}
-          onInstallStaged={onInstallStaged}
-          onLoadStagedDetail={onLoadStagedDetail}
+          onOpenStagedDetail={onOpenStagedDetail}
           onParseStaged={onParseStaged}
           onRemoveStaged={onRemoveStaged}
           onRemoteAction={onRemoteAction}
@@ -1347,7 +1396,6 @@ export function WorkspacePrimarySection({
       return (
         <StagedSection
           onClearStaged={onClearStaged}
-          onInstallStaged={onInstallStaged}
           onLoadStagedDetail={onLoadStagedDetail}
           onParseStaged={onParseStaged}
           onRemoveStaged={onRemoveStaged}
@@ -1418,20 +1466,16 @@ export function WorkspaceDetailPanel({
         subtitle={selectedSkillDetail.exists ? t.installedSkillDetail : t.installedSkillRecordMissing}
         actions={
           <div className="flex gap-2">
-            <button
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+            <IconActionButton
+              icon={FolderOpen}
+              label={t.openFolder}
               onClick={() => void onOpenPath(selectedSkillDetail.installPath)}
-              type="button"
-            >
-              {t.openFolder}
-            </button>
-            <button
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+            />
+            <IconActionButton
+              icon={RefreshCcw}
+              label={t.rescan}
               onClick={() => void onRescanInstalledSkill(selectedSkillDetail.id)}
-              type="button"
-            >
-              {t.rescan}
-            </button>
+            />
           </div>
         }
       >
@@ -1458,62 +1502,88 @@ export function WorkspaceDetailPanel({
   }
 
   if (section === "staged" && selectedStagedDetail) {
+    const isRemoteSource =
+      selectedStagedDetail.sourceType === "githubRepo" || selectedStagedDetail.sourceType === "remoteZip";
+    const detailLabel = selectedStagedDetail.analysisMethod === "rules+ai" ? "AI 总结" : "规则识别";
+
     return (
       <SectionCard
         title={selectedStagedDetail.detectedName || t.stagedSourceDetail}
         subtitle={t.stagedSourceDetailSubtitle}
         actions={
           <div className="flex gap-2">
-            <button
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"
+            <IconActionButton
+              icon={RefreshCcw}
+              label={t.reparse}
               onClick={() => void onParseStaged([selectedStagedDetail.id])}
-              type="button"
-            >
-              {t.reparse}
-            </button>
-            <button
-              className="rounded-full bg-moss px-3 py-2 text-sm font-medium text-ink-950 transition hover:brightness-110"
-              onClick={() => void onInstallStaged([selectedStagedDetail.id])}
-              type="button"
-            >
-              {t.install}
-            </button>
+            />
+            {!isRemoteSource ? (
+              <IconActionButton
+                icon={Plus}
+                label={t.install}
+                onClick={() => void onInstallStaged([selectedStagedDetail.id])}
+                tone="success"
+              />
+            ) : null}
           </div>
         }
       >
         <div className="space-y-4">
-            <div className="rounded-3xl border border-white/10 bg-black/20 p-4 text-sm text-ink-100/80">
-              <div className="flex flex-wrap items-center gap-2">
-                <SourceBadge source={selectedStagedDetail.sourceType} t={t} />
-                <StrategyBadge strategy={selectedStagedDetail.installStrategy} />
-                <span
-                  className={cn(
-                    "rounded-full border px-2.5 py-1 text-xs uppercase tracking-[0.16em]",
+          <div className="rounded-3xl border border-white/10 bg-black/20 p-4 text-sm text-ink-100/80">
+            <div className="flex flex-wrap items-center gap-2">
+              <SourceBadge source={selectedStagedDetail.sourceType} t={t} />
+              <StrategyBadge strategy={selectedStagedDetail.installStrategy} />
+              <span
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs uppercase tracking-[0.16em]",
                   statusTone(selectedStagedDetail.status)
                 )}
               >
                 {statusLabel(selectedStagedDetail.status, t)}
               </span>
             </div>
-            <p className="mt-3">
+            {isRemoteSource ? (
+              <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                远程来源当前只做识别和说明，不会直接安装。
+              </div>
+            ) : null}
+            <p className="mt-3 text-base text-white">
               {selectedStagedDetail.detectedDescription || selectedStagedDetail.sourceValue}
             </p>
-            <div className="mt-4 space-y-1 text-xs text-ink-200/60">
+            <div className="mt-4 space-y-2 text-xs text-ink-200/60">
               <p>{t.sourceValue}: {selectedStagedDetail.sourceValue}</p>
               <p>{t.archivePath}: {selectedStagedDetail.archivePath || t.archivePathPending}</p>
               <p>{t.skillRoot}: {selectedStagedDetail.skillRootPath || t.skillRootPending}</p>
-              {selectedStagedDetail.analysisMethod ? <p>Analysis: {selectedStagedDetail.analysisMethod}</p> : null}
-              {selectedStagedDetail.analysisSummary ? <p>Summary: {selectedStagedDetail.analysisSummary}</p> : null}
+              {selectedStagedDetail.analysisMethod ? <p>识别方式: {detailLabel}</p> : null}
               {selectedStagedDetail.readmeUrl ? <p>README: {selectedStagedDetail.readmeUrl}</p> : null}
-              {selectedStagedDetail.installStrategy?.command ? (
-                <p>Command: {selectedStagedDetail.installStrategy.command}</p>
-              ) : null}
-              {selectedStagedDetail.installStrategy?.manualSteps.length ? (
-                <p>Manual steps: {selectedStagedDetail.installStrategy.manualSteps.join(" | ")}</p>
-              ) : null}
               {selectedStagedDetail.errorMessage ? <p>{t.errorLabel}: {selectedStagedDetail.errorMessage}</p> : null}
             </div>
           </div>
+
+          {selectedStagedDetail.analysisSummary ? (
+            <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-ink-200/50">用途总结</p>
+              <p className="mt-3 text-sm leading-6 text-ink-100/85">{selectedStagedDetail.analysisSummary}</p>
+            </div>
+          ) : null}
+
+          <div className="grid gap-4">
+            <DetailList title="需要的工具" items={selectedStagedDetail.installStrategy?.requiredTools || []} copyLabel="复制列表" />
+            <DetailList title="安装前准备" items={selectedStagedDetail.installStrategy?.prerequisiteSteps || []} copyLabel="复制步骤" />
+            {selectedStagedDetail.installStrategy?.command ? (
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-[0.16em] text-ink-200/50">识别到的命令</p>
+                  <CopyButton label="复制命令" value={selectedStagedDetail.installStrategy.command} />
+                </div>
+                <pre className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-ink-100/90">
+                  {selectedStagedDetail.installStrategy.command}
+                </pre>
+              </div>
+            ) : null}
+            <DetailList title="手动安装步骤" items={selectedStagedDetail.installStrategy?.manualSteps || []} copyLabel="复制步骤" />
+          </div>
+
           <MarkdownViewer
             markdown={selectedStagedDetail.markdown || selectedStagedDetail.readmeExcerpt}
             emptyMessage={t.noSkillMdPreview}

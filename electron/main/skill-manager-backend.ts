@@ -370,10 +370,10 @@ export class SkillManagerBackend {
 
           const parsed = await detectSkillDirectory(extractionRoot);
           parsedSourceName = parsed.name;
-          this.updateStagedSource(id, {
-            status: "ready",
-            detectedName: parsed.name,
-            detectedDescription: parsed.description,
+        this.updateStagedSource(id, {
+          status: "ready",
+          detectedName: parsed.name,
+          detectedDescription: parsed.description,
             archivePath,
             skillRootPath: parsed.rootPath,
             skillMdPath: parsed.skillMdPath,
@@ -381,14 +381,15 @@ export class SkillManagerBackend {
             analysisSummary: "Archive source detected and parsed from SKILL.md.",
             installStrategy: {
               type: "archiveCopy",
-              title: "Archive copy install",
-              reason: "ZIP sources can be installed by extracting and copying the skill directory.",
-              command: null,
-              workingDirectory: null,
-              manualSteps: [],
-              requiredTools: [],
-              supportedPlatforms: ["win32", "darwin", "linux"],
-              canAutoInstall: true
+            title: "Archive copy install",
+            reason: "ZIP sources can be installed by extracting and copying the skill directory.",
+            command: null,
+            workingDirectory: null,
+            prerequisiteSteps: [],
+            manualSteps: [],
+            requiredTools: [],
+            supportedPlatforms: ["win32", "darwin", "linux"],
+            canAutoInstall: true
             },
             readmeUrl: null,
             readmeExcerpt: null,
@@ -498,23 +499,16 @@ export class SkillManagerBackend {
           }
         }
 
-        if (staged?.installStrategy?.type === "command" || staged?.installStrategy?.type === "manual") {
-          try {
-            const installedRecord = await this.installUsingStrategy(staged, environment, installRoot, settings.conflictPolicy);
-            if (installedRecord) {
-              installed.push(installedRecord);
-            }
-            continue;
-          } catch (error) {
-            const message = error instanceof Error ? error.message : "Unknown install error.";
-            this.updateStagedSource(id, {
-              status: "error",
-              errorMessage: message,
-              updatedAt: nowIso()
-            });
-            await this.writeLog("install", "error", "Failed to install the staged skill.", message, id);
-            continue;
-          }
+        if (staged?.installStrategy?.type === "manual" || staged?.installStrategy?.type === "command") {
+          const message =
+            "This remote source was recognized successfully, but remote repositories are metadata-only and cannot be installed automatically. Open the detail view to see the manual installation guide.";
+          this.updateStagedSource(id, {
+            status: "error",
+            errorMessage: message,
+            updatedAt: nowIso()
+          });
+          await this.writeLog("install", "warning", "Automatic install is disabled for remote sources.", message, id);
+          continue;
         }
 
         continue;
