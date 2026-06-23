@@ -137,6 +137,12 @@ const zhCnTranslations: TranslationDictionary = {
   enterRemoteSourceUrl: "请先输入远程来源地址。",
   stagedSources: "暂存来源",
   stagedSourcesSubtitle: "识别结果会显示在这里；本地 ZIP 可直接安装，远程来源当前提供说明和手动步骤。",
+  importQueueTitle: "导入后的下一步",
+  importQueueSubtitle: "这里不再重复列出全部暂存来源，只保留当前状态摘要。逐条查看、安装或清理请前往暂存区。",
+  importQueueInstallable: "可直接安装",
+  importQueueManual: "待查看说明",
+  importQueueErrors: "需要处理",
+  importQueueFootnote: "导入页负责把来源送进暂存区，真正的逐条处理集中在“暂存区”，这样导入、预览、安装三步会更清楚。",
   toImport: "前往导入",
   parseSelected: "解析所选",
   installSelected: "安装所选",
@@ -233,6 +239,12 @@ const zhCnTranslations: TranslationDictionary = {
   providerFound: "已找到",
   providerMissing: "缺失",
   remoteSourceAnalysisOnly: "远程来源当前只做识别和说明，不会直接安装。",
+  stagedNextInstall: "下一步：可以直接安装，或先看详情确认内容。",
+  stagedNextManual: "下一步：打开详情查看说明和手动安装步骤。",
+  stagedNextError: "下一步：重新解析，或移除这个来源。",
+  stagedNextProcessing: "下一步：等待解析完成后再继续。",
+  stagedNextPending: "下一步：先触发解析，再决定是否安装。",
+  stagedNextInstalled: "下一步：这个来源已经安装完成。",
   browserFallbackNotice: "当前页面未运行在 Electron 桌面壳中。"
 };
 
@@ -313,6 +325,12 @@ const enTranslations: TranslationDictionary = {
   enterRemoteSourceUrl: "Enter a remote source URL first.",
   stagedSources: "Staged sources",
   stagedSourcesSubtitle: "Recognition results appear here. Local ZIP sources can be installed directly, while remote sources currently provide guidance and manual steps.",
+  importQueueTitle: "What happens after import",
+  importQueueSubtitle: "This page now keeps only a compact staging summary. For item-by-item review, install, or cleanup, use the staged section.",
+  importQueueInstallable: "Ready to install",
+  importQueueManual: "Needs manual review",
+  importQueueErrors: "Needs attention",
+  importQueueFootnote: "The import page is now focused on bringing sources into staging. Detailed review and follow-up actions live in the staged section.",
   toImport: "Go to import",
   parseSelected: "Parse selected",
   installSelected: "Install selected",
@@ -409,6 +427,12 @@ const enTranslations: TranslationDictionary = {
   providerFound: "Found",
   providerMissing: "Missing",
   remoteSourceAnalysisOnly: "Remote sources are currently analyzed for review only and are not installed directly.",
+  stagedNextInstall: "Next: install this source directly, or open the detail view first.",
+  stagedNextManual: "Next: open the detail view for guidance and manual installation steps.",
+  stagedNextError: "Next: re-parse this source or remove it from staging.",
+  stagedNextProcessing: "Next: wait for parsing to finish before taking action.",
+  stagedNextPending: "Next: parse the source before deciding whether to install it.",
+  stagedNextInstalled: "Next: this source has already been installed.",
   browserFallbackNotice: "This page is not running inside the Electron desktop shell."
 };
 
@@ -1184,6 +1208,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     }}
                     onOpenPath={openPath}
                     onOpenSystemSourceModal={openSystemSourceModal}
+                    onInstallStaged={installStagedSources}
                     onParseStaged={parseStagedSources}
                     onPickInstallDir={handlePickInstallDir}
                     onPickTempDir={handlePickTempDir}
@@ -1239,6 +1264,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   }}
                   onOpenPath={openPath}
                   onOpenSystemSourceModal={openSystemSourceModal}
+                  onInstallStaged={installStagedSources}
                   onParseStaged={parseStagedSources}
                   onPickInstallDir={handlePickInstallDir}
                   onPickTempDir={handlePickTempDir}

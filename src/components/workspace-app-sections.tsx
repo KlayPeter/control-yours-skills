@@ -117,6 +117,38 @@ function StatusIndicator({
   );
 }
 
+function isRemoteStagedSource(source: Pick<StagedSourceRecord, "sourceType">) {
+  return source.sourceType === "githubRepo" || source.sourceType === "remoteZip";
+}
+
+function canInstallStagedSource(source: Pick<StagedSourceRecord, "sourceType" | "status">) {
+  return source.status === "ready" && !isRemoteStagedSource(source);
+}
+
+function stagedNextStepLabel(source: StagedSourceRecord, t: TranslationDictionary) {
+  if (source.status === "installed") {
+    return t.stagedNextInstalled;
+  }
+
+  if (canInstallStagedSource(source)) {
+    return t.stagedNextInstall;
+  }
+
+  if (source.status === "error") {
+    return t.stagedNextError;
+  }
+
+  if (source.status === "processing") {
+    return t.stagedNextProcessing;
+  }
+
+  if (source.status === "ready" && isRemoteStagedSource(source)) {
+    return t.stagedNextManual;
+  }
+
+  return t.stagedNextPending;
+}
+
 function providerMonogram(key: WorkspaceSkillSource["key"]) {
   switch (key) {
     case "codex":
@@ -888,6 +920,7 @@ export function ImportSection({
   onRemoteUrlChange,
   onImportZip,
   onRemoteAction,
+  onGoStaged,
   snapshot,
   selectedStagedId,
   onOpenStagedDetail,
@@ -903,6 +936,7 @@ export function ImportSection({
   onRemoteUrlChange: (value: string) => void;
   onImportZip: (mode: "staged" | "install") => AsyncActionResult;
   onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
+  onGoStaged: () => AsyncActionResult;
   snapshot: SkillManagerSnapshot;
   selectedStagedId: string | null;
   onOpenStagedDetail: (id: string) => AsyncActionResult;
@@ -911,6 +945,13 @@ export function ImportSection({
   selectedCategory: string;
   onCategoryChange: (value: string) => void;
 }) {
+  const installableCount = snapshot.stagedSources.filter(canInstallStagedSource).length;
+  const manualReviewCount = snapshot.stagedSources.filter(
+    (item) => item.status === "ready" && isRemoteStagedSource(item)
+  ).length;
+  const errorCount = snapshot.stagedSources.filter((item) => item.status === "error").length;
+  const latestStagedSource = snapshot.stagedSources[0] || null;
+
   return (
     <div className="space-y-6">
       <SectionCard title={t.localZipImport} subtitle={t.localZipImportSubtitle}>
@@ -996,60 +1037,76 @@ export function ImportSection({
         </div>
       </SectionCard>
 
-      <SectionCard title={t.stagedSources} subtitle={t.stagedSourcesSubtitle}>
+      <SectionCard title={t.importQueueTitle} subtitle={t.importQueueSubtitle}>
         {snapshot.stagedSources.length ? (
-          <div className="space-y-3">
-            {snapshot.stagedSources.map((item) => (
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <OverviewMetric label={t.importQueueInstallable} value={installableCount} />
+              <OverviewMetric label={t.importQueueManual} value={manualReviewCount} />
+              <OverviewMetric label={t.importQueueErrors} value={errorCount} />
+            </div>
+
+            {latestStagedSource ? (
               <div
-                key={item.id}
                 className={cn(
                   "overflow-hidden rounded-[28px] border transition",
-                  selectedStagedId === item.id
+                  selectedStagedId === latestStagedSource.id
                     ? "border-signal/45 bg-signal/10"
-                    : "app-surface hover:border-white/20 hover:bg-white/5"
+                    : "app-surface"
                 )}
               >
-                <button className="w-full px-5 py-5 text-left" onClick={() => void onOpenStagedDetail(item.id)} type="button">
+                <button
+                  className="w-full px-5 py-5 text-left"
+                  onClick={() => void onOpenStagedDetail(latestStagedSource.id)}
+                  type="button"
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium app-text">{item.detectedName || item.sourceValue}</p>
-                        <SourceBadge source={item.sourceType} t={t} />
+                        <p className="font-medium app-text">{latestStagedSource.detectedName || latestStagedSource.sourceValue}</p>
+                        <SourceBadge source={latestStagedSource.sourceType} t={t} />
                       </div>
                       <p className="mt-2 text-sm app-text-soft">
-                        {item.detectedDescription || item.analysisSummary || item.errorMessage || t.waitingForMetadataParsing}
+                        {latestStagedSource.detectedDescription ||
+                          latestStagedSource.analysisSummary ||
+                          latestStagedSource.errorMessage ||
+                          t.waitingForMetadataParsing}
+                      </p>
+                      <p className="mt-3 text-xs uppercase tracking-[0.16em] text-signal">
+                        {stagedNextStepLabel(latestStagedSource, t)}
                       </p>
                     </div>
-                    <StatusIndicator status={item.status} t={t} />
+                    <StatusIndicator status={latestStagedSource.status} t={t} />
                   </div>
                 </button>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-4">
                   <p className="text-xs app-text-soft">
-                    <RelativeTimeText value={item.updatedAt} />
+                    <RelativeTimeText value={latestStagedSource.updatedAt} />
                   </p>
                   <div className="flex flex-wrap justify-end gap-2">
+                    <button className="app-button" onClick={() => void onGoStaged()} type="button">
+                      {t.quickStartGoStaged}
+                    </button>
                     <IconActionButton
                       icon={RefreshCcw}
                       label={t.reparse}
-                      onClick={() => void onParseStaged([item.id])}
-                    />
-                    <IconActionButton
-                      icon={Eye}
-                      label={t.view}
-                      onClick={() => void onOpenStagedDetail(item.id)}
-                      tone="success"
+                      onClick={() => void onParseStaged([latestStagedSource.id])}
                     />
                     <IconActionButton
                       icon={Trash2}
                       label={t.delete}
-                      onClick={() => void onRemoveStaged([item.id])}
+                      onClick={() => void onRemoveStaged([latestStagedSource.id])}
                       tone="danger"
                     />
                   </div>
                 </div>
               </div>
-            ))}
+            ) : null}
+
+            <div className="rounded-3xl border border-dashed border-white/15 bg-black/10 px-4 py-4 text-sm app-text-soft">
+              {t.importQueueFootnote}
+            </div>
           </div>
         ) : (
           <EmptyState description={t.stagingAreaEmptyDescription} title={t.stagingAreaEmpty} />
@@ -1062,24 +1119,36 @@ export function ImportSection({
 export function StagedSection({
   snapshot,
   t,
+  installPathConfigured,
   selectedStageIds,
   selectedStagedId,
   onToggleStageSelection,
   onLoadStagedDetail,
   onParseStaged,
+  onInstallStaged,
   onRemoveStaged,
   onClearStaged
 }: {
   snapshot: SkillManagerSnapshot;
   t: TranslationDictionary;
+  installPathConfigured: boolean;
   selectedStageIds: string[];
   selectedStagedId: string | null;
   onToggleStageSelection: (id: string) => void;
   onLoadStagedDetail: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
+  onInstallStaged: (ids: string[]) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
   onClearStaged: () => AsyncActionResult;
 }) {
+  const selectedSources = snapshot.stagedSources.filter((item) => selectedStageIds.includes(item.id));
+  const selectedInstallableIds = selectedSources.filter(canInstallStagedSource).map((item) => item.id);
+  const installableCount = snapshot.stagedSources.filter(canInstallStagedSource).length;
+  const manualReviewCount = snapshot.stagedSources.filter(
+    (item) => item.status === "ready" && isRemoteStagedSource(item)
+  ).length;
+  const errorCount = snapshot.stagedSources.filter((item) => item.status === "error").length;
+
   return (
     <div className="space-y-6">
       <SectionCard
@@ -1105,14 +1174,24 @@ export function StagedSection({
               {t.parseSelected}
             </button>
             <button
-              className="app-button"
+              className={cn("app-button", (!installPathConfigured || selectedInstallableIds.length === 0) && "cursor-not-allowed opacity-60")}
+              disabled={!installPathConfigured || selectedInstallableIds.length === 0}
+              onClick={() => void onInstallStaged(selectedInstallableIds)}
+              type="button"
+            >
+              {t.installSelected}
+            </button>
+            <button
+              className={cn("app-button", selectedStageIds.length === 0 && "cursor-not-allowed opacity-60")}
+              disabled={selectedStageIds.length === 0}
               onClick={() => void onRemoveStaged(selectedStageIds)}
               type="button"
             >
               {t.removeSelected}
             </button>
             <button
-              className="app-button"
+              className={cn("app-button", snapshot.stagedSources.length === 0 && "cursor-not-allowed opacity-60")}
+              disabled={snapshot.stagedSources.length === 0}
               onClick={() => void onClearStaged()}
               type="button"
             >
@@ -1122,18 +1201,29 @@ export function StagedSection({
         }
       >
         {snapshot.stagedSources.length ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-4">
+              <OverviewMetric label={t.overviewMetricStaged} value={snapshot.stagedSources.length} />
+              <OverviewMetric label={t.importQueueInstallable} value={installableCount} />
+              <OverviewMetric label={t.importQueueManual} value={manualReviewCount} />
+              <OverviewMetric label={t.importQueueErrors} value={errorCount} />
+            </div>
+
+            {!installPathConfigured ? (
+              <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                {t.installPathRequiredBody}
+              </div>
+            ) : null}
+
             {snapshot.stagedSources.map((item) => (
-              <button
+              <div
                 key={item.id}
                 className={cn(
-                  "w-full rounded-3xl border p-4 text-left transition",
+                  "rounded-3xl border p-4 transition",
                   selectedStagedId === item.id
                     ? "border-signal/45 bg-signal/10"
                     : "app-surface hover:border-white/20 hover:bg-white/5"
                 )}
-                onClick={() => void onLoadStagedDetail(item.id)}
-                type="button"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3">
@@ -1152,14 +1242,47 @@ export function StagedSection({
                       <p className="mt-2 text-sm app-text-soft">
                         {item.detectedDescription || item.errorMessage || t.waitingForMetadataParsing}
                       </p>
+                      <p className="mt-3 text-xs uppercase tracking-[0.16em] text-signal">
+                        {stagedNextStepLabel(item, t)}
+                      </p>
                     </div>
                   </div>
                   <StatusIndicator status={item.status} t={t} />
                 </div>
-                <p className="mt-3 text-xs app-text-soft">
-                  <RelativeTimeText value={item.updatedAt} />
-                </p>
-              </button>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                  <p className="text-xs app-text-soft">
+                    <RelativeTimeText value={item.updatedAt} />
+                  </p>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {canInstallStagedSource(item) ? (
+                      <IconActionButton
+                        icon={Plus}
+                        label={t.install}
+                        onClick={() => void onInstallStaged([item.id])}
+                        tone="success"
+                      />
+                    ) : null}
+                    <IconActionButton
+                      icon={Eye}
+                      label={t.view}
+                      onClick={() => void onLoadStagedDetail(item.id)}
+                      tone="success"
+                    />
+                    <IconActionButton
+                      icon={RefreshCcw}
+                      label={t.reparse}
+                      onClick={() => void onParseStaged([item.id])}
+                    />
+                    <IconActionButton
+                      icon={Trash2}
+                      label={t.delete}
+                      onClick={() => void onRemoveStaged([item.id])}
+                      tone="danger"
+                    />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         ) : (
@@ -1715,6 +1838,7 @@ export function WorkspacePrimarySection({
   onImportZip,
   onRemoteAction,
   onParseStaged,
+  onInstallStaged,
   onRemoveStaged,
   onClearStaged,
   onLoadStagedDetail,
@@ -1761,6 +1885,7 @@ export function WorkspacePrimarySection({
   onImportZip: (mode: "staged" | "install") => AsyncActionResult;
   onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
+  onInstallStaged: (ids: string[]) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
   onClearStaged: () => AsyncActionResult;
   onLoadStagedDetail: (id: string) => AsyncActionResult;
@@ -1825,6 +1950,7 @@ export function WorkspacePrimarySection({
           onRemoveStaged={onRemoveStaged}
           onRemoteAction={onRemoteAction}
           onRemoteUrlChange={onRemoteUrlChange}
+          onGoStaged={onGoStaged}
           remoteUrl={remoteUrl}
           selectedCategory={selectedCategory}
           selectedStagedId={selectedStagedId}
@@ -1836,6 +1962,8 @@ export function WorkspacePrimarySection({
       return (
         <StagedSection
           onClearStaged={onClearStaged}
+          onInstallStaged={onInstallStaged}
+          installPathConfigured={installPathConfigured}
           onLoadStagedDetail={onLoadStagedDetail}
           onParseStaged={onParseStaged}
           onRemoveStaged={onRemoveStaged}
