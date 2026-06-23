@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   LoaderCircle,
   Logs,
+  PanelLeftClose,
   PanelLeftOpen,
   RefreshCcw,
   Settings2,
@@ -475,6 +476,8 @@ function SidebarWorkspaceTreeNode({
   );
 }
 
+let globalSidebarCollapsed = false;
+
 export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const router = useRouter();
   const {
@@ -538,6 +541,12 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     sources: WorkspaceSkillSource[];
   } | null>(null);
   const [stagedModalOpen, setStagedModalOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(globalSidebarCollapsed);
+
+  const setSidebarCollapsed = (val: boolean) => {
+    globalSidebarCollapsed = val;
+    setSidebarCollapsedState(val);
+  };
 
   const locale = snapshot?.settings.locale || settingsDraft.locale;
   const t = translations[locale];
@@ -852,14 +861,17 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
       />
 
       {section === "import" && stagedModalOpen && selectedStagedDetail ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-[28px] border border-white/10 bg-ink-950 shadow-panel">
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => {
+          setStagedModalOpen(false);
+          clearSelectedStagedDetail();
+        }}>
+          <div className="app-panel flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-black/10 dark:border-white/10 px-6 py-5">
               <div>
-                <h3 className="text-xl font-semibold text-white">
+                <h3 className="text-xl font-semibold app-text">
                   {selectedStagedDetail.detectedName || t.stagedSourceDetail}
                 </h3>
-                <p className="mt-1 text-sm text-ink-200/70">{t.stagedSourceDetailSubtitle}</p>
+                <p className="mt-1 text-sm app-text-soft">{t.stagedSourceDetailSubtitle}</p>
               </div>
               <button
                 className="app-icon-button"
@@ -927,39 +939,49 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         ) : null}
       </div>
 
-      <div className="grid min-h-screen grid-cols-1 xl:h-screen xl:grid-cols-[292px,minmax(0,1fr)] xl:overflow-hidden">
+      <div className={cn(
+        "grid min-h-screen grid-cols-1 xl:h-screen xl:overflow-hidden transition-all duration-300",
+        sidebarCollapsed ? "xl:grid-cols-[84px,minmax(0,1fr)]" : "xl:grid-cols-[292px,minmax(0,1fr)]"
+      )}>
         <aside className="app-sidebar">
           <div className="app-sidebar-inner">
-            <div className="flex items-center gap-3 px-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[16px] app-surface-subtle app-text shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
+            <div className={cn("flex items-center gap-3 px-2", sidebarCollapsed && "justify-center px-0")}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] app-surface-subtle app-text shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
                 <PanelLeftOpen className="h-4 w-4" />
               </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold app-text">{t.appName}</p>
-                <p className="mt-0.5 truncate text-xs app-text-soft">{t.appTitle}</p>
-              </div>
+              {!sidebarCollapsed && (
+                <div className="min-w-0 flex-1 transition-opacity duration-300">
+                  <p className="truncate text-sm font-semibold app-text">{t.appName}</p>
+                  <p className="mt-0.5 truncate text-xs app-text-soft">{t.appTitle}</p>
+                </div>
+              )}
             </div>
 
-            <nav className="mt-6 space-y-1.5">
+            <nav className={cn("mt-6 space-y-1.5", sidebarCollapsed && "px-1")}>
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = item.section === section;
                 return (
                   <Link
                     key={item.section}
-                    className={cn("app-sidebar-nav-item", active && "app-sidebar-nav-item-active")}
+                    className={cn(
+                      "app-sidebar-nav-item",
+                      active && "app-sidebar-nav-item-active",
+                      sidebarCollapsed && "justify-center px-0"
+                    )}
                     href={item.href}
+                    title={sidebarCollapsed ? navLabel(item.section, t) : undefined}
                   >
-                    <span className="flex min-w-0 items-center gap-3">
-                      <span className={cn("app-sidebar-nav-icon", active && "app-sidebar-nav-icon-active")}>
+                    <span className={cn("flex min-w-0 items-center gap-3", sidebarCollapsed && "justify-center")}>
+                      <span className={cn("app-sidebar-nav-icon", active && "app-sidebar-nav-icon-active", sidebarCollapsed && "h-10 w-10 rounded-[12px]")}>
                         <Icon className="h-4 w-4" />
                       </span>
-                      <span className="truncate font-medium">{navLabel(item.section, t)}</span>
+                      {!sidebarCollapsed && <span className="truncate font-medium">{navLabel(item.section, t)}</span>}
                     </span>
-                    {item.section === "staged" && pendingCount ? (
+                    {!sidebarCollapsed && item.section === "staged" && pendingCount ? (
                       <span className="app-sidebar-count app-sidebar-count-signal">{pendingCount}</span>
                     ) : null}
-                    {item.section === "logs" && failureCount ? (
+                    {!sidebarCollapsed && item.section === "logs" && failureCount ? (
                       <span className="app-sidebar-count app-sidebar-count-danger">{failureCount}</span>
                     ) : null}
                   </Link>
@@ -967,7 +989,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               })}
             </nav>
 
-            <section className="mt-8 flex min-h-0 flex-1 flex-col border-t pt-5" style={{ borderColor: "var(--app-border)" }}>
+            {!sidebarCollapsed && (
+            <section className="mt-8 flex min-h-0 flex-1 flex-col border-t pt-5 transition-opacity" style={{ borderColor: "var(--app-border)" }}>
               <div className="flex items-center justify-between gap-3 px-2">
                 <p className="text-xs font-medium tracking-[0.08em] app-text-soft">{t.projectDirectories}</p>
                 <button
@@ -1012,11 +1035,13 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     </div>
                   ))
                 ) : (
-                  <div className="px-3 py-2 text-sm app-text-soft">{t.notConfiguredYet}</div>
+                  <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">尚未导入项目</div>
                 )}
               </div>
 
-              <div className="app-scrollbar-hidden mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="my-3 border-t border-black/5 dark:border-white/5" />
+
+              <div className="app-scrollbar-hidden min-h-0 flex-1 overflow-y-auto pr-1">
                 {snapshot?.workspaceTree.length ? (
                   <SidebarWorkspaceTree
                     nodes={snapshot.workspaceTree}
@@ -1027,10 +1052,25 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     rootPath={snapshot.settings.installDir || t.notConfiguredYet}
                   />
                 ) : (
-                  <div className="px-3 py-2 text-sm app-text-soft">当前工作区下还没有识别到 Skill</div>
+                  <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">当前工作区下还没有识别到 Skill</div>
                 )}
               </div>
             </section>
+            )}
+
+            <div className={cn("mt-auto flex pt-4", sidebarCollapsed ? "justify-center" : "justify-end px-2")}>
+              <button
+                type="button"
+                className={cn(
+                  "app-icon-button shrink-0 hidden xl:flex transition-transform",
+                  sidebarCollapsed ? "h-10 w-10 rounded-[16px]" : "h-8 w-8 rounded-[12px]"
+                )}
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+              >
+                {sidebarCollapsed ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
         </aside>
 

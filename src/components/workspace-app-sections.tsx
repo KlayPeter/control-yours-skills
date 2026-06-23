@@ -138,7 +138,7 @@ function logTone(log: LogRecord) {
   }
 
   if (log.level === "warning") {
-    return "text-amber-200";
+    return "text-amber-600 dark:text-amber-400";
   }
 
   return "text-moss";
@@ -480,12 +480,12 @@ export function SourceViewerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-[32px] border border-white/10 bg-ink-950/95 shadow-panel backdrop-blur">
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div className="app-panel flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-black/10 dark:border-white/10 px-6 py-5">
           <div>
-            <h3 className="text-2xl font-semibold tracking-tight text-white">{title}</h3>
-            {subtitle ? <p className="mt-2 text-sm leading-6 text-ink-200/70">{subtitle}</p> : null}
+            <h3 className="text-2xl font-semibold tracking-tight app-text">{title}</h3>
+            {subtitle ? <p className="mt-2 text-sm leading-6 app-text-soft">{subtitle}</p> : null}
           </div>
           <button
             className="app-icon-button"
@@ -504,25 +504,24 @@ export function SourceViewerModal({
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white">
-                        {providerMonogram(source.key)}
-                      </span>
+                        <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-sm font-semibold app-text">
+                          {providerMonogram(source.key)}
+                        </span>
                         <div className="min-w-0">
-                        <p className="font-medium text-white">{source.label}</p>
-                          <p className="mt-1 break-all text-sm text-ink-200/65">{source.path}</p>
+                          <p className="font-medium app-text">{source.label}</p>
+                          <p className="mt-1 break-all text-sm app-text-soft">{source.path}</p>
                         </div>
                       </div>
                     </div>
-                    <span
+                    <div
+                      title={providerStatus(source, t)}
                       className={cn(
-                        "rounded-full border px-2.5 py-1 text-xs uppercase tracking-[0.15em]",
+                        "h-2.5 w-2.5 rounded-full shrink-0",
                         source.exists
-                          ? "border-moss/20 bg-moss/10 text-moss"
-                          : "border-white/10 bg-white/5 text-ink-200/65"
+                          ? "bg-moss shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+                          : "bg-black/20 dark:bg-white/20"
                       )}
-                    >
-                      {providerStatus(source, t)}
-                    </span>
+                    />
                   </div>
 
                   {source.skills.length ? (
@@ -530,17 +529,17 @@ export function SourceViewerModal({
                     {source.skills.map((skill) => (
                       <div
                         key={skill.id}
-                          className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                        className="rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/30 p-4"
                       >
-                          <div className="flex flex-col gap-3">
-                            <div className="min-w-0">
-                            <p className="font-medium text-white">{skill.name}</p>
-                            <p className="mt-1 text-sm text-ink-200/70">
+                        <div className="flex flex-col gap-3">
+                          <div className="min-w-0">
+                            <p className="font-medium app-text">{skill.name}</p>
+                            <p className="mt-1 text-sm app-text-soft">
                               {skill.description || t.noDescriptionAvailable}
                             </p>
-                              <p className="mt-2 break-all text-xs text-ink-200/55">{skill.relativePath}</p>
-                            </div>
-                            <div className="flex justify-end border-t border-white/10 pt-3">
+                            <p className="mt-2 break-all text-xs app-text-soft opacity-75">{skill.relativePath}</p>
+                          </div>
+                          <div className="flex justify-end border-t border-black/10 dark:border-white/10 pt-3">
                               <IconActionButton
                                 icon={FolderOpen}
                                 label={t.openFolder}
@@ -552,17 +551,10 @@ export function SourceViewerModal({
                       ))}
                     </div>
                   ) : (
-                    <div className="mt-5 rounded-2xl border border-dashed border-white/15 bg-black/20 px-4 py-6 text-center text-sm text-ink-200/70">
+                    <div className="mt-5 rounded-2xl border border-dashed border-black/15 dark:border-white/15 bg-black/5 dark:bg-black/20 px-4 py-6 text-center text-sm app-text-soft">
                       {t.modalNoSkills}
                     </div>
                   )}
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-black/10 px-5 py-4">
-                  <IconActionButton
-                    icon={FolderOpen}
-                    label={t.openFolder}
-                    onClick={() => onOpenPath(source.path)}
-                  />
                 </div>
               </div>
             ))}
@@ -604,7 +596,7 @@ export function OverviewSection({
     <div className="space-y-6">
       {!installPathConfigured ? (
         <SectionCard title={t.installPathRequired} subtitle={t.installPathRequiredSubtitle}>
-          <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5 text-sm text-amber-100">
+          <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5 text-sm text-amber-600 dark:text-amber-300">
             {t.installPathRequiredBody}
           </div>
         </SectionCard>
@@ -616,29 +608,28 @@ export function OverviewSection({
             <div key={source.id} className="app-card flex h-full flex-col p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-sm font-semibold app-text">
                     {providerMonogram(source.key)}
                   </div>
                   <div>
-                    <p className="font-medium text-white">{source.label}</p>
-                    <p className="text-sm text-ink-200/65">
+                    <p className="font-medium app-text">{source.label}</p>
+                    <p className="text-sm app-text-soft">
                       {t.skillCount}: {source.skillCount}
                     </p>
                   </div>
                 </div>
-                <span
+                <div
+                  title={providerStatus(source, t)}
                   className={cn(
-                    "rounded-full border px-2 py-1 text-xs uppercase tracking-[0.15em]",
+                    "h-2.5 w-2.5 rounded-full shrink-0",
                     source.exists
-                      ? "border-moss/20 bg-moss/10 text-moss"
-                      : "border-white/10 bg-white/5 text-ink-200/65"
+                      ? "bg-moss shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+                      : "bg-black/20 dark:bg-white/20"
                   )}
-                >
-                  {providerStatus(source, t)}
-                </span>
+                />
               </div>
-              <p className="mt-4 flex-1 break-all text-sm leading-6 text-ink-200/70">{source.path}</p>
-              <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-white/10 pt-4">
+              <p className="mt-4 flex-1 break-all text-sm leading-6 app-text-soft">{source.path}</p>
+              <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-black/10 dark:border-white/10 pt-4">
                 <IconActionButton icon={Eye} label={t.view} onClick={() => onOpenSystemSourceModal(source)} />
                 <IconActionButton
                   icon={FolderOpen}
@@ -783,7 +774,7 @@ export function ImportSection({
             "rounded-[28px] border border-dashed p-8 text-center transition",
             dropzone.isDragActive
               ? "border-signal bg-signal/10"
-              : "border-white/15 bg-black/20 hover:border-white/30 hover:bg-white/5"
+              : "border-black/15 dark:border-white/15 bg-transparent hover:border-black/30 dark:hover:border-white/30 hover:bg-black/5 dark:hover:bg-white/5"
           )}
         >
           <input {...dropzone.getInputProps()} />
@@ -1146,14 +1137,14 @@ export function LogsSection({
                   "w-full rounded-3xl border p-4 text-left transition",
                   selectedLogId === log.id
                     ? "border-ember/45 bg-ember/10"
-                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
+                    : "border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 hover:border-black/20 dark:hover:border-white/20 hover:bg-black/10 dark:hover:bg-white/10"
                 )}
                 onClick={() => onSelectLog(log.id)}
                 type="button"
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className={cn("font-medium", logTone(log))}>{log.message}</p>
-                  <span className="text-xs uppercase tracking-[0.16em] text-ink-200/55">
+                  <span className="text-xs uppercase tracking-[0.16em] opacity-50 app-text-soft">
                     {log.level === "error"
                       ? t.logLevelError
                       : log.level === "warning"
@@ -1161,8 +1152,8 @@ export function LogsSection({
                         : t.logLevelInfo}
                   </span>
                 </div>
-                <p className="mt-2 text-sm text-ink-200/75">{log.detail || t.noExtraDetail}</p>
-                <p className="mt-3 text-xs text-ink-200/55">
+                <p className="mt-2 text-sm opacity-80 app-text-soft">{log.detail || t.noExtraDetail}</p>
+                <p className="mt-3 text-xs opacity-50 app-text-soft">
                   <RelativeTimeText value={log.createdAt} />
                 </p>
               </button>
@@ -1329,9 +1320,14 @@ export function SettingsSection({
                 className={cn(
                   "inline-flex h-10 items-center gap-2 rounded-2xl border px-4 text-sm transition",
                   settingsDraft.theme === "light"
-                    ? "border-signal/40 bg-signal/15 text-signal"
-                    : "app-surface-subtle app-text-soft"
+                    ? "border-transparent shadow-md"
+                    : "app-surface-subtle app-text-soft hover:bg-black/5"
                 )}
+                style={
+                  settingsDraft.theme === "light"
+                    ? { background: "var(--app-text)", color: "var(--app-bg-start)" }
+                    : undefined
+                }
                 onClick={() => setSettingsDraft((current) => ({ ...current, theme: "light" }))}
                 type="button"
               >
@@ -1342,9 +1338,14 @@ export function SettingsSection({
                 className={cn(
                   "inline-flex h-10 items-center gap-2 rounded-2xl border px-4 text-sm transition",
                   settingsDraft.theme === "dark"
-                    ? "border-signal/40 bg-signal/15 text-signal"
-                    : "app-surface-subtle app-text-soft"
+                    ? "border-transparent shadow-md"
+                    : "app-surface-subtle app-text-soft hover:bg-black/5"
                 )}
+                style={
+                  settingsDraft.theme === "dark"
+                    ? { background: "var(--app-text)", color: "var(--app-bg-start)" }
+                    : undefined
+                }
                 onClick={() => setSettingsDraft((current) => ({ ...current, theme: "dark" }))}
                 type="button"
               >

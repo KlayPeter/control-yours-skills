@@ -3,7 +3,7 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const PORT = 3211;
-const ALLOWED_PROCESS_NAMES = new Set(["node.exe", "electron.exe"]);
+const ALLOWED_PROCESS_NAMES = new Set(["node.exe", "electron.exe", "node", "electron"]);
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const NEXT_DIR = path.join(PROJECT_ROOT, ".next");
 const REQUIRED_SERVER_FILES = path.join(NEXT_DIR, "required-server-files.json");
@@ -18,49 +18,73 @@ function fail(message) {
 }
 
 function listListeningPids(port) {
-  const output = execFileSync("netstat", ["-ano", "-p", "tcp"], {
-    encoding: "utf8"
-  });
-
-  const pids = new Set();
-
-  for (const rawLine of output.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || !line.includes("LISTENING") || !line.includes(`:${port}`)) {
-      continue;
+  if (process.platform === "win32") {
+    const output = execFileSync("netstat", ["-ano", "-p", "tcp"], {
+      encoding: "utf8"
+    });
+    const pids = new Set();
+    for (const rawLine of output.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || !line.includes("LISTENING") || !line.includes(`:${port}`)) {
+        continue;
+      }
+      const columns = line.split(/\s+/);
+      const pid = columns.at(-1);
+      if (pid && /^\d+$/.test(pid)) {
+        pids.add(pid);
+      }
     }
-
-    const columns = line.split(/\s+/);
-    const pid = columns.at(-1);
-    if (pid && /^\d+$/.test(pid)) {
-      pids.add(pid);
+    return [...pids];
+  } else {
+    try {
+      const output = execFileSync("lsof", ["-i", `tcp:${port}`, "-t"], { encoding: "utf8" });
+      const pids = output.trim().split(/\r?\n/).filter(Boolean);
+      return [...new Set(pids)];
+    } catch (e) {
+      return [];
     }
   }
-
-  return [...pids];
 }
 
 function getProcessName(pid) {
-  const output = execFileSync(
-    "tasklist",
-    ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"],
-    {
-      encoding: "utf8"
+  if (process.platform === "win32") {
+    const output = execFileSync(
+      "tasklist",
+      ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"],
+      {
+        encoding: "utf8"
+      }
+    ).trim();
+
+    if (!output || output.startsWith("INFO:")) {
+      return null;
     }
-  ).trim();
 
-  if (!output || output.startsWith("INFO:")) {
-    return null;
+    const [imageName] = output.split(",");
+    return imageName.replace(/^"|"$/g, "").toLowerCase();
+  } else {
+    try {
+      const output = execFileSync("ps", ["-p", String(pid), "-o", "comm="], { encoding: "utf8" }).trim();
+      if (!output) return null;
+      return path.basename(output).toLowerCase();
+    } catch (e) {
+      return null;
+    }
   }
-
-  const [imageName] = output.split(",");
-  return imageName.replace(/^"|"$/g, "").toLowerCase();
 }
 
 function stopProcess(pid) {
-  execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
-    stdio: "inherit"
-  });
+  if (process.platform === "win32") {
+    execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+      stdio: "inherit"
+    });
+  } else {
+    try {
+      process.kill(Number(pid), "SIGKILL");
+    } catch (e) {
+      // Ignore
+    }
+  }
 }
 
 function resetIncompleteNextOutput() {
