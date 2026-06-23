@@ -157,6 +157,20 @@ const zhCnTranslations: TranslationDictionary = {
   installPathRequired: "需要安装路径",
   installPathRequiredSubtitle: "安装技能前请先设置安装目录",
   installPathRequiredBody: "请先进入设置，配置默认安装目录。",
+  quickStartTitle: "开始使用",
+  quickStartSubtitle: "第一次使用时，按这三步走会最顺。",
+  quickStartStepInstallTitle: "1. 先设置安装目录",
+  quickStartStepInstallBody: "选一个专门存放已安装 skill 的目录，后续导入和导出都会更稳定。",
+  quickStartStepImportTitle: "2. 导入第一个 skill",
+  quickStartStepImportBody: "推荐先从本地 ZIP 开始，导入后可以先预览再决定是否安装。",
+  quickStartStepReviewTitle: "3. 查看暂存结果并安装",
+  quickStartStepReviewBody: "解析成功后去暂存区确认内容，再执行安装。",
+  quickStartStatusDone: "已完成",
+  quickStartStatusTodo: "待完成",
+  quickStartChooseInstallDir: "选择安装目录",
+  quickStartGoImport: "前往导入",
+  quickStartGoStaged: "查看暂存区",
+  quickStartStagedDisabled: "导入一个 skill 后，这里会出现可安装结果。",
   installDirectoryWritable: "安装目录可写。",
   installDirectoryInvalid: "安装目录无效或不可写。",
   tempDirectoryEmptyNotice: "临时目录为空，将使用默认运行时目录。",
@@ -301,6 +315,20 @@ const enTranslations: TranslationDictionary = {
   installPathRequired: "Install path required",
   installPathRequiredSubtitle: "Set an install directory before installing skills",
   installPathRequiredBody: "Open Settings and configure the default install directory first.",
+  quickStartTitle: "Get started",
+  quickStartSubtitle: "For a first run, this three-step path is the smoothest one.",
+  quickStartStepInstallTitle: "1. Choose an install directory",
+  quickStartStepInstallBody: "Pick a dedicated folder for installed skills so imports and exports stay predictable.",
+  quickStartStepImportTitle: "2. Import your first skill",
+  quickStartStepImportBody: "Starting with a local ZIP is the easiest path because you can preview it before installing.",
+  quickStartStepReviewTitle: "3. Review staged results and install",
+  quickStartStepReviewBody: "Once parsing succeeds, open the staged area, confirm the details, and install.",
+  quickStartStatusDone: "Done",
+  quickStartStatusTodo: "To do",
+  quickStartChooseInstallDir: "Choose install dir",
+  quickStartGoImport: "Go to import",
+  quickStartGoStaged: "Open staged",
+  quickStartStagedDisabled: "This step becomes available after you import a skill.",
   installDirectoryWritable: "Install directory is writable.",
   installDirectoryInvalid: "Install directory is invalid or not writable.",
   tempDirectoryEmptyNotice: "Temporary directory is empty; the default runtime path will be used.",
@@ -808,6 +836,21 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     }
   };
 
+  const handleQuickChooseInstallDir = async () => {
+    const initialPath = settingsDraft.installDir || snapshot?.runtime.homeDir;
+    const result = await pickDirectory(initialPath);
+    if (!result.ok || !result.data) {
+      return;
+    }
+
+    const nextSettings = {
+      ...settingsDraft,
+      installDir: result.data
+    };
+    setSettingsDraft(nextSettings);
+    await saveSettings(nextSettings);
+  };
+
   const handleValidateInstallDir = async () => {
     const result = await validateDirectory(settingsDraft.installDir);
     setNotice(result.writable ? t.installDirectoryWritable : result.error || t.installDirectoryInvalid);
@@ -1134,6 +1177,9 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     installPathConfigured={installPathConfigured}
                     installedSkills={installedSkills}
                     onClearStaged={clearStagedSources}
+                    onChooseInstallDir={handleQuickChooseInstallDir}
+                    onGoImport={() => router.push("/import")}
+                    onGoStaged={() => router.push("/staged")}
                     onImportProject={handleImportProject}
                     onImportZip={importZipWithPicker}
                     onLoadSkillDetail={loadSkillDetail}
@@ -1187,6 +1233,9 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   installPathConfigured={installPathConfigured}
                   installedSkills={installedSkills}
                   onClearStaged={clearStagedSources}
+                  onChooseInstallDir={handleQuickChooseInstallDir}
+                  onGoImport={() => router.push("/import")}
+                  onGoStaged={() => router.push("/staged")}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onLoadSkillDetail={loadSkillDetail}

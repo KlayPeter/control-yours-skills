@@ -273,6 +273,92 @@ function EmptyState({
   );
 }
 
+function QuickStartCard({
+  installPathConfigured,
+  hasStagedSources,
+  hasInstalledSkills,
+  t,
+  onChooseInstallDir,
+  onGoImport,
+  onGoStaged
+}: {
+  installPathConfigured: boolean;
+  hasStagedSources: boolean;
+  hasInstalledSkills: boolean;
+  t: TranslationDictionary;
+  onChooseInstallDir: () => AsyncActionResult;
+  onGoImport: () => AsyncActionResult;
+  onGoStaged: () => AsyncActionResult;
+}) {
+  const steps = [
+    {
+      title: t.quickStartStepInstallTitle,
+      body: t.quickStartStepInstallBody,
+      done: installPathConfigured,
+      actionLabel: t.quickStartChooseInstallDir,
+      action: onChooseInstallDir,
+      disabled: installPathConfigured
+    },
+    {
+      title: t.quickStartStepImportTitle,
+      body: t.quickStartStepImportBody,
+      done: hasStagedSources || hasInstalledSkills,
+      actionLabel: t.quickStartGoImport,
+      action: onGoImport,
+      disabled: false
+    },
+    {
+      title: t.quickStartStepReviewTitle,
+      body: t.quickStartStepReviewBody,
+      done: hasInstalledSkills,
+      actionLabel: t.quickStartGoStaged,
+      action: onGoStaged,
+      disabled: !hasStagedSources
+    }
+  ];
+
+  return (
+    <SectionCard title={t.quickStartTitle} subtitle={t.quickStartSubtitle}>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {steps.map((step) => (
+          <div key={step.title} className="app-card flex h-full flex-col p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-base font-semibold tracking-tight app-text">{step.title}</p>
+              <span
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.16em]",
+                  step.done
+                    ? "border-moss/25 bg-moss/10 text-moss"
+                    : "border-white/10 bg-white/5 app-text-soft"
+                )}
+              >
+                {step.done ? t.quickStartStatusDone : t.quickStartStatusTodo}
+              </span>
+            </div>
+            <p className="mt-3 flex-1 text-sm leading-6 app-text-soft">{step.body}</p>
+            <button
+              className={cn(
+                "mt-5 rounded-2xl px-4 py-2 text-sm font-medium transition",
+                step.disabled
+                  ? "cursor-not-allowed border border-white/10 bg-white/5 app-text-soft"
+                  : "app-button-primary"
+              )}
+              disabled={step.disabled}
+              onClick={() => void step.action()}
+              type="button"
+            >
+              {step.actionLabel}
+            </button>
+            {step.title === t.quickStartStepReviewTitle && step.disabled ? (
+              <p className="mt-3 text-xs app-text-soft">{t.quickStartStagedDisabled}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
 function CopyButton({
   value,
   label = "复制"
@@ -569,6 +655,9 @@ export function OverviewSection({
   snapshot,
   installPathConfigured,
   t,
+  onChooseInstallDir,
+  onGoImport,
+  onGoStaged,
   onOpenSystemSourceModal,
   onOpenProjectModal,
   onImportProject,
@@ -580,6 +669,9 @@ export function OverviewSection({
   snapshot: SkillManagerSnapshot;
   installPathConfigured: boolean;
   t: TranslationDictionary;
+  onChooseInstallDir: () => AsyncActionResult;
+  onGoImport: () => AsyncActionResult;
+  onGoStaged: () => AsyncActionResult;
   onOpenSystemSourceModal: (source: WorkspaceSkillSource) => void;
   onOpenProjectModal: (project: ImportedProjectRecord) => void;
   onImportProject: () => AsyncActionResult;
@@ -592,8 +684,22 @@ export function OverviewSection({
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
 }) {
+  const showQuickStart = !installPathConfigured || snapshot.summary.installedCount === 0;
+
   return (
     <div className="space-y-6">
+      {showQuickStart ? (
+        <QuickStartCard
+          hasInstalledSkills={snapshot.summary.installedCount > 0}
+          hasStagedSources={snapshot.stagedSources.length > 0}
+          installPathConfigured={installPathConfigured}
+          onChooseInstallDir={onChooseInstallDir}
+          onGoImport={onGoImport}
+          onGoStaged={onGoStaged}
+          t={t}
+        />
+      ) : null}
+
       {!installPathConfigured ? (
         <SectionCard title={t.installPathRequired} subtitle={t.installPathRequiredSubtitle}>
           <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5 text-sm text-amber-600 dark:text-amber-300">
@@ -738,6 +844,7 @@ export function OverviewSection({
 
 export function ImportSection({
   t,
+  installPathConfigured,
   dropzone,
   remoteUrl,
   onRemoteUrlChange,
@@ -752,6 +859,7 @@ export function ImportSection({
   onCategoryChange
 }: {
   t: TranslationDictionary;
+  installPathConfigured: boolean;
   dropzone: DropzoneState;
   remoteUrl: string;
   onRemoteUrlChange: (value: string) => void;
@@ -781,6 +889,9 @@ export function ImportSection({
           <UploadCloud className="mx-auto h-10 w-10 text-signal" />
           <p className="mt-4 text-lg font-medium app-text">{t.localZipDropTitle}</p>
           <p className="mt-2 text-sm app-text-soft">{t.localZipDropHelp}</p>
+          {!installPathConfigured ? (
+            <p className="mt-3 text-sm text-amber-200">{t.installPathRequiredBody}</p>
+          ) : null}
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button
               className="app-button"
@@ -788,6 +899,19 @@ export function ImportSection({
               type="button"
             >
               {t.chooseZip}
+            </button>
+            <button
+              className={cn(
+                "rounded-2xl px-4 py-2 text-sm font-medium transition",
+                installPathConfigured
+                  ? "app-button-primary"
+                  : "cursor-not-allowed border border-white/10 bg-white/5 app-text-soft"
+              )}
+              disabled={!installPathConfigured}
+              onClick={() => void onImportZip("install")}
+              type="button"
+            >
+              {t.installNow}
             </button>
           </div>
         </div>
@@ -1531,6 +1655,9 @@ export function WorkspacePrimarySection({
   snapshot,
   t,
   installPathConfigured,
+  onChooseInstallDir,
+  onGoImport,
+  onGoStaged,
   remoteUrl,
   onRemoteUrlChange,
   selectedStageIds,
@@ -1575,6 +1702,9 @@ export function WorkspacePrimarySection({
   snapshot: SkillManagerSnapshot | null;
   t: TranslationDictionary;
   installPathConfigured: boolean;
+  onChooseInstallDir: () => AsyncActionResult;
+  onGoImport: () => AsyncActionResult;
+  onGoStaged: () => AsyncActionResult;
   remoteUrl: string;
   onRemoteUrlChange: (value: string) => void;
   selectedStageIds: string[];
@@ -1634,6 +1764,9 @@ export function WorkspacePrimarySection({
       return (
         <OverviewSection
           installPathConfigured={installPathConfigured}
+          onChooseInstallDir={onChooseInstallDir}
+          onGoImport={onGoImport}
+          onGoStaged={onGoStaged}
           onImportProject={onImportProject}
           onOpenLogsFromOverview={onOpenLogsFromOverview}
           onOpenPath={onOpenPath}
@@ -1649,6 +1782,7 @@ export function WorkspacePrimarySection({
       return (
         <ImportSection
           dropzone={dropzone}
+          installPathConfigured={installPathConfigured}
           onCategoryChange={onCategoryChange}
           onImportZip={onImportZip}
           onOpenStagedDetail={onOpenStagedDetail}
