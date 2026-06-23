@@ -1375,7 +1375,7 @@ export function SkillsSection({
                       <SourceBadge source={skill.sourceType} t={t} />
                       {skill.category ? <span className="app-tag normal-case tracking-normal">{skill.category}</span> : null}
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-ink-200/72">
+                    <p className="mt-3 text-sm leading-6 app-text-soft">
                       {skill.description || t.noDescriptionAvailable}
                     </p>
                   </button>
