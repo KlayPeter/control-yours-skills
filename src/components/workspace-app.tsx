@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 
 import type {
-  ImportedProjectRecord,
   Locale,
   SaveSettingsInput,
   WorkspaceSkillProviderKey,
@@ -94,6 +93,8 @@ const zhCnTranslations: TranslationDictionary = {
   recentInstallsSubtitle: "最近成功安装的技能。",
   recentFailures: "最近失败",
   recentFailuresSubtitle: "最近的解析或安装失败记录。",
+  projectSkillBrowserSubtitle: "按项目直接浏览识别到的 Skill 文件夹，减少重复查看和弹窗跳转。",
+  projectTreeEmpty: "这个项目里还没有识别到可安装的 Skill 文件夹。",
   noInstallRecordsYet: "还没有安装记录",
   noInstallRecordsYetDescription: "首次成功安装技能后，这里会出现记录。",
   noRecentFailures: "最近没有失败",
@@ -252,6 +253,8 @@ const enTranslations: TranslationDictionary = {
   recentInstallsSubtitle: "The most recently installed skills.",
   recentFailures: "Recent failures",
   recentFailuresSubtitle: "Recent parse or install failures.",
+  projectSkillBrowserSubtitle: "Browse detected skill folders directly inside each imported project without jumping between duplicate views.",
+  projectTreeEmpty: "No installable skill folders have been detected in this project yet.",
   noInstallRecordsYet: "No install records yet",
   noInstallRecordsYetDescription: "Installed skills will appear here after the first successful install.",
   noRecentFailures: "No recent failures",
@@ -744,14 +747,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     });
   };
 
-  const openProjectModal = (project: ImportedProjectRecord) => {
-    setModalState({
-      title: project.name,
-      subtitle: project.path,
-      sources: project.sources
-    });
-  };
-
   const openSystemSourceModal = (source: WorkspaceSkillSource) => {
     setModalState({
       title: source.label,
@@ -1049,55 +1044,21 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 </button>
               </div>
 
-              <div className="app-scrollbar-hidden mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+              <div className="app-scrollbar-hidden mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {snapshot?.importedProjects.length ? (
                   snapshot.importedProjects.map((project) => (
-                    <div key={project.id} className="app-sidebar-project-row">
-                      <button
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                        onClick={() => openProjectModal(project)}
-                        type="button"
-                      >
-                        <span className="app-sidebar-project-icon">
-                          <FolderOpen className="h-4 w-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium app-text">{project.name}</span>
-                          <span className="mt-1 block truncate text-xs app-text-soft">
-                            {t.skillCount} {project.skillCount}
-                          </span>
-                        </span>
-                      </button>
-                      <button
-                        aria-label={`${t.openFolder}: ${project.name}`}
-                        className="app-sidebar-ghost-button shrink-0"
-                        onClick={() => void openPath(project.path)}
-                        title={t.openFolder}
-                        type="button"
-                      >
-                        <FolderOpen className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <SidebarWorkspaceTree
+                      key={project.id}
+                      nodes={project.tree}
+                      onOpenPath={(targetPath) => {
+                        void openPath(targetPath);
+                      }}
+                      rootLabel={project.name}
+                      rootPath={project.path}
+                    />
                   ))
                 ) : (
                   <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">尚未导入项目</div>
-                )}
-              </div>
-
-              <div className="my-3 border-t border-black/5 dark:border-white/5" />
-
-              <div className="app-scrollbar-hidden min-h-0 flex-1 overflow-y-auto pr-1">
-                {snapshot?.workspaceTree.length ? (
-                  <SidebarWorkspaceTree
-                    nodes={snapshot.workspaceTree}
-                    onOpenPath={(targetPath) => {
-                      void openPath(targetPath);
-                    }}
-                    rootLabel="当前工作区"
-                    rootPath={snapshot.settings.installDir || t.notConfiguredYet}
-                  />
-                ) : (
-                  <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">当前工作区下还没有识别到 Skill</div>
                 )}
               </div>
             </section>
@@ -1190,7 +1151,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                       router.push("/logs");
                     }}
                     onOpenPath={openPath}
-                    onOpenProjectModal={openProjectModal}
                     onOpenSystemSourceModal={openSystemSourceModal}
                     onParseStaged={parseStagedSources}
                     onPickInstallDir={handlePickInstallDir}
@@ -1246,7 +1206,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     router.push("/logs");
                   }}
                   onOpenPath={openPath}
-                  onOpenProjectModal={openProjectModal}
                   onOpenSystemSourceModal={openSystemSourceModal}
                   onParseStaged={parseStagedSources}
                   onPickInstallDir={handlePickInstallDir}

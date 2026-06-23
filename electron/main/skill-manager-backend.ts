@@ -28,7 +28,8 @@ import type {
   SourceType,
   StagedSourceDetail,
   StagedSourceRecord,
-  WorkspaceSkillSource
+  WorkspaceSkillSource,
+  WorkspaceTreeNode
 } from "@shared/contracts";
 
 import { createDatabase } from "./db";
@@ -264,7 +265,7 @@ export class SkillManagerBackend {
     const installedSkills = this.listInstalledSkills();
     const installCategories = await this.listInstallCategories(settings, installedSkills);
     const importedProjects = await this.getImportedProjects(settings.projectDirs);
-    const workspaceTree = settings.installDir.trim() ? await scanProjectTree(settings.installDir.trim()) : [];
+    const workspaceTree = this.buildWorkspaceTreeFromProjects(importedProjects);
     const workspaceSkillSources = importedProjects.flatMap((project) => project.sources);
     const systemSkillSources = await this.getSystemSkillSources();
     const logs = this.listLogs();
@@ -1078,6 +1079,18 @@ export class SkillManagerBackend {
     );
 
     return projects.sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  private buildWorkspaceTreeFromProjects(projects: ImportedProjectRecord[]): WorkspaceTreeNode[] {
+    return projects.map((project) => ({
+      id: `workspace-project:${project.id}`,
+      kind: "folder",
+      name: project.name,
+      relativePath: project.name,
+      absolutePath: project.path,
+      description: null,
+      children: project.tree
+    }));
   }
 
   private async getSystemSkillSources(): Promise<WorkspaceSkillSource[]> {

@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 
 import type {
-  ImportedProjectRecord,
   InstalledSkillDetail,
   InstalledSkillRecord,
   InstallStrategy,
@@ -659,7 +658,6 @@ export function OverviewSection({
   onGoImport,
   onGoStaged,
   onOpenSystemSourceModal,
-  onOpenProjectModal,
   onImportProject,
   onRemoveProject,
   onOpenPath,
@@ -673,7 +671,6 @@ export function OverviewSection({
   onGoImport: () => AsyncActionResult;
   onGoStaged: () => AsyncActionResult;
   onOpenSystemSourceModal: (source: WorkspaceSkillSource) => void;
-  onOpenProjectModal: (project: ImportedProjectRecord) => void;
   onImportProject: () => AsyncActionResult;
   onRemoveProject: (projectPath: string) => AsyncActionResult;
   onOpenPath: (path: string) => AsyncActionResult;
@@ -750,7 +747,7 @@ export function OverviewSection({
 
       <SectionCard
         title={t.projectDirectories}
-        subtitle={t.projectDirectoriesSubtitle}
+        subtitle={t.projectSkillBrowserSubtitle}
         actions={
           <button
             className="app-button-primary"
@@ -775,19 +772,18 @@ export function OverviewSection({
                     </p>
                   </div>
                 </div>
+                <div className="border-t border-white/10 px-5 py-4">
+                  <WorkspaceTree
+                    emptyMessage={t.projectTreeEmpty}
+                    nodes={project.tree}
+                    onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+                    onOpenPath={onOpenPath}
+                    projectRoot={project.path}
+                  />
+                </div>
                 <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-black/10 px-5 py-4">
-                  <IconActionButton icon={Eye} label={t.view} onClick={() => onOpenProjectModal(project)} />
-                  <IconActionButton
-                    icon={FolderOpen}
-                    label={t.openFolder}
-                    onClick={() => void onOpenPath(project.path)}
-                  />
-                  <IconActionButton
-                    icon={Trash2}
-                    label={t.delete}
-                    onClick={() => void onRemoveProject(project.path)}
-                    tone="danger"
-                  />
+                  <IconActionButton icon={FolderOpen} label={t.openFolder} onClick={() => void onOpenPath(project.path)} />
+                  <IconActionButton icon={Trash2} label={t.delete} onClick={() => void onRemoveProject(project.path)} tone="danger" />
                 </div>
               </div>
             ))}
@@ -797,21 +793,7 @@ export function OverviewSection({
         )}
       </SectionCard>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <SectionCard title="工作区目录树" subtitle="浏览当前工作区目录结构，并识别可安装的 Skill 文件夹。">
-          {snapshot.workspaceTree.length ? (
-            <WorkspaceTree
-              emptyMessage="当前工作区下还没有识别到 Skill 文件夹。"
-              nodes={snapshot.workspaceTree}
-              onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-              onOpenPath={onOpenPath}
-              projectRoot={snapshot.settings.installDir}
-            />
-          ) : (
-            <EmptyState description="当前工作区下还没有可展示的目录或 Skill。" title="工作区目录树" />
-          )}
-        </SectionCard>
-
+      <div className="grid gap-6">
         <SectionCard title={t.recentFailures} subtitle={t.recentFailuresSubtitle}>
           {snapshot.summary.recentFailures.length ? (
             <div className="space-y-3">
@@ -1672,7 +1654,6 @@ export function WorkspacePrimarySection({
   onToggleStageSelection,
   onImportProject,
   onRemoveProject,
-  onOpenProjectModal,
   onOpenSystemSourceModal,
   onOpenPath,
   onImportZip,
@@ -1719,7 +1700,6 @@ export function WorkspacePrimarySection({
   onToggleStageSelection: (id: string) => void;
   onImportProject: () => AsyncActionResult;
   onRemoveProject: (projectPath: string) => AsyncActionResult;
-  onOpenProjectModal: (project: ImportedProjectRecord) => void;
   onOpenSystemSourceModal: (source: WorkspaceSkillSource) => void;
   onOpenPath: (path: string) => AsyncActionResult;
   onImportZip: (mode: "staged" | "install") => AsyncActionResult;
@@ -1770,7 +1750,6 @@ export function WorkspacePrimarySection({
           onImportProject={onImportProject}
           onOpenLogsFromOverview={onOpenLogsFromOverview}
           onOpenPath={onOpenPath}
-          onOpenProjectModal={onOpenProjectModal}
           onOpenSystemSourceModal={onOpenSystemSourceModal}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
           onRemoveProject={onRemoveProject}
