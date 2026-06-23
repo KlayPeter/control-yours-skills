@@ -53,13 +53,13 @@ export function validateRemoteSource(source: string) {
       };
     }
 
-    if (isGitHubRepoUrl(trimmed) || ZIP_URL_PATTERN.test(trimmed) || Boolean(url.hostname)) {
+    if (isGitHubRepoUrl(trimmed) || ZIP_URL_PATTERN.test(trimmed)) {
       return { ok: true as const };
     }
 
     return {
       ok: false as const,
-      error: "The remote source URL is not supported."
+      error: "Use a GitHub repository URL or a direct .zip download URL."
     };
   } catch {
     return {

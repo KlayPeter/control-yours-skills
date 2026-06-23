@@ -21,6 +21,23 @@ After download, run the installer and follow the setup wizard.
 - Workspace provider scanning for `.codex`, `.claude`, `.agent`, and `.agents`
 - Installed skill export, logs, staging, and installation history
 
+## Current Remote Source Behavior
+
+- Local ZIP files can be parsed and installed directly from the app.
+- GitHub repository URLs are analyzed for metadata, README excerpts, and manual installation guidance.
+- Direct remote `.zip` URLs can be analyzed and staged, but are currently treated as review-first sources instead of one-click installs.
+- Remote sources are intentionally conservative right now: the app explains what it found before copying anything into your local skill directories.
+
+## Roadmap
+
+Planned improvements for upcoming phases:
+
+- Clarify product wording and onboarding so the app always matches its real behavior.
+- Make workspace and install-directory views easier to understand.
+- Add stronger validation and test coverage for import, staging, and install flows.
+- Support GitHub repository one-click install after the remote-source flow is hardened and made safer.
+- Expand cross-platform support beyond the current Windows-first packaging path.
+
 ## Requirements
 
 - Windows
@@ -109,4 +126,5 @@ GitHub Actions will then:
 - The release workflow currently targets Windows only.
 - Release publishing uses the built-in `GITHUB_TOKEN`.
 - The packaged app starts its bundled Next.js standalone server automatically in production.
+- GitHub repository one-click install is planned, but it is not implemented yet. For now, repository links are analyzed and summarized before any manual install steps are shown.
 - If local Windows packaging fails with a symbolic link permission error from `winCodeSign`, run the build terminal as Administrator or enable Windows Developer Mode. GitHub Actions is the recommended path for public releases.

@@ -1822,7 +1822,7 @@ export function WorkspaceDetailPanel({
             </div>
             {isRemoteSource ? (
               <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                远程来源当前只做识别和说明，不会直接安装。
+                {t.remoteSourceAnalysisOnly}
               </div>
             ) : null}
             <p className="mt-3 text-base app-text">

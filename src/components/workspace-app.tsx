@@ -112,14 +112,14 @@ const zhCnTranslations: TranslationDictionary = {
   importToStaged: "导入到暂存区",
   installNow: "立即安装",
   addRemoteSource: "添加远程来源",
-  addRemoteSourceSubtitle: "支持 GitHub 仓库地址和其他可识别的远程链接。",
+  addRemoteSourceSubtitle: "当前支持 GitHub 仓库地址和直链 ZIP。远程来源会先做识别与说明，暂不直接一键安装。",
   remoteSourceLabel: "远程地址",
-  remoteSourcePlaceholder: "https://github.com/... 或 https://example.com/skill.zip",
+  remoteSourcePlaceholder: "https://github.com/owner/repo 或 https://example.com/skill.zip",
   analyzeNow: "立即识别",
   addToStaged: "加入暂存区",
   enterRemoteSourceUrl: "请先输入远程来源地址。",
   stagedSources: "暂存来源",
-  stagedSourcesSubtitle: "识别结果会显示在这里，成功后可继续安装。",
+  stagedSourcesSubtitle: "识别结果会显示在这里；本地 ZIP 可直接安装，远程来源当前提供说明和手动步骤。",
   toImport: "前往导入",
   parseSelected: "解析所选",
   installSelected: "安装所选",
@@ -201,6 +201,7 @@ const zhCnTranslations: TranslationDictionary = {
   modalNoSkills: "未检测到技能",
   providerFound: "已找到",
   providerMissing: "缺失",
+  remoteSourceAnalysisOnly: "远程来源当前只做识别和说明，不会直接安装。",
   browserFallbackNotice: "当前页面未运行在 Electron 桌面壳中。"
 };
 
@@ -255,14 +256,14 @@ const enTranslations: TranslationDictionary = {
   importToStaged: "Import to staged",
   installNow: "Install now",
   addRemoteSource: "Add remote source",
-  addRemoteSourceSubtitle: "Supports GitHub repositories and other recognizable remote links.",
+  addRemoteSourceSubtitle: "Currently supports GitHub repository URLs and direct ZIP downloads. Remote sources are analyzed first and are not installed in one click yet.",
   remoteSourceLabel: "Remote URL",
-  remoteSourcePlaceholder: "https://github.com/... or https://example.com/skill.zip",
+  remoteSourcePlaceholder: "https://github.com/owner/repo or https://example.com/skill.zip",
   analyzeNow: "Analyze now",
   addToStaged: "Add to staged",
   enterRemoteSourceUrl: "Enter a remote source URL first.",
   stagedSources: "Staged sources",
-  stagedSourcesSubtitle: "Recognition results appear here and can be installed after they succeed.",
+  stagedSourcesSubtitle: "Recognition results appear here. Local ZIP sources can be installed directly, while remote sources currently provide guidance and manual steps.",
   toImport: "Go to import",
   parseSelected: "Parse selected",
   installSelected: "Install selected",
@@ -344,6 +345,7 @@ const enTranslations: TranslationDictionary = {
   modalNoSkills: "No skills detected",
   providerFound: "Found",
   providerMissing: "Missing",
+  remoteSourceAnalysisOnly: "Remote sources are currently analyzed for review only and are not installed directly.",
   browserFallbackNotice: "This page is not running inside the Electron desktop shell."
 };
 
