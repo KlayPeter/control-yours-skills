@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Eye,
   FolderOpen,
+  HardDriveDownload,
   LoaderCircle,
   Plus,
   RefreshCcw,
@@ -272,89 +273,90 @@ function EmptyState({
   );
 }
 
-function QuickStartCard({
-  installPathConfigured,
-  hasStagedSources,
-  hasInstalledSkills,
-  t,
-  onChooseInstallDir,
-  onGoImport,
-  onGoStaged
+function OverviewMetric({
+  label,
+  value
 }: {
-  installPathConfigured: boolean;
-  hasStagedSources: boolean;
-  hasInstalledSkills: boolean;
-  t: TranslationDictionary;
-  onChooseInstallDir: () => AsyncActionResult;
-  onGoImport: () => AsyncActionResult;
-  onGoStaged: () => AsyncActionResult;
+  label: string;
+  value: string | number;
 }) {
-  const steps = [
-    {
-      title: t.quickStartStepInstallTitle,
-      body: t.quickStartStepInstallBody,
-      done: installPathConfigured,
-      actionLabel: t.quickStartChooseInstallDir,
-      action: onChooseInstallDir,
-      disabled: installPathConfigured
-    },
-    {
-      title: t.quickStartStepImportTitle,
-      body: t.quickStartStepImportBody,
-      done: hasStagedSources || hasInstalledSkills,
-      actionLabel: t.quickStartGoImport,
-      action: onGoImport,
-      disabled: false
-    },
-    {
-      title: t.quickStartStepReviewTitle,
-      body: t.quickStartStepReviewBody,
-      done: hasInstalledSkills,
-      actionLabel: t.quickStartGoStaged,
-      action: onGoStaged,
-      disabled: !hasStagedSources
-    }
-  ];
-
   return (
-    <SectionCard title={t.quickStartTitle} subtitle={t.quickStartSubtitle}>
-      <div className="grid gap-4 lg:grid-cols-3">
-        {steps.map((step) => (
-          <div key={step.title} className="app-card flex h-full flex-col p-5">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-base font-semibold tracking-tight app-text">{step.title}</p>
-              <span
-                className={cn(
-                  "rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.16em]",
-                  step.done
-                    ? "border-moss/25 bg-moss/10 text-moss"
-                    : "border-white/10 bg-white/5 app-text-soft"
-                )}
-              >
-                {step.done ? t.quickStartStatusDone : t.quickStartStatusTodo}
-              </span>
-            </div>
-            <p className="mt-3 flex-1 text-sm leading-6 app-text-soft">{step.body}</p>
+    <div className="app-card p-4">
+      <p className="text-xs uppercase tracking-[0.16em] app-text-soft">{label}</p>
+      <p className="mt-3 text-2xl font-semibold tracking-tight app-text">{value}</p>
+    </div>
+  );
+}
+
+function CapabilityCard({
+  title,
+  body,
+  status,
+  icon: Icon,
+  primaryAction,
+  secondaryAction
+}: {
+  title: string;
+  body: string;
+  status: string;
+  icon: typeof Search;
+  primaryAction?: {
+    label: string;
+    onClick: () => AsyncActionResult;
+    disabled?: boolean;
+  };
+  secondaryAction?: {
+    label: string;
+    onClick: () => AsyncActionResult;
+    disabled?: boolean;
+  };
+}) {
+  return (
+    <div className="app-card flex h-full flex-col p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 app-text">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-medium app-text">{title}</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.16em] app-text-soft">{status}</p>
+          </div>
+        </div>
+      </div>
+      <p className="mt-4 flex-1 text-sm leading-6 app-text-soft">{body}</p>
+      {primaryAction || secondaryAction ? (
+        <div className="mt-5 flex flex-wrap gap-2">
+          {primaryAction ? (
             <button
               className={cn(
-                "mt-5 rounded-2xl px-4 py-2 text-sm font-medium transition",
-                step.disabled
-                  ? "cursor-not-allowed border border-white/10 bg-white/5 app-text-soft"
+                primaryAction.disabled
+                  ? "cursor-not-allowed rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm app-text-soft"
                   : "app-button-primary"
               )}
-              disabled={step.disabled}
-              onClick={() => void step.action()}
+              disabled={primaryAction.disabled}
+              onClick={() => void primaryAction.onClick()}
               type="button"
             >
-              {step.actionLabel}
+              {primaryAction.label}
             </button>
-            {step.title === t.quickStartStepReviewTitle && step.disabled ? (
-              <p className="mt-3 text-xs app-text-soft">{t.quickStartStagedDisabled}</p>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </SectionCard>
+          ) : null}
+          {secondaryAction ? (
+            <button
+              className={cn(
+                "app-button",
+                secondaryAction.disabled && "cursor-not-allowed opacity-60"
+              )}
+              disabled={secondaryAction.disabled}
+              onClick={() => void secondaryAction.onClick()}
+              type="button"
+            >
+              {secondaryAction.label}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -681,29 +683,93 @@ export function OverviewSection({
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
 }) {
-  const showQuickStart = !installPathConfigured || snapshot.summary.installedCount === 0;
+  const systemSkillCount = snapshot.systemSkillSources.reduce((total, source) => total + source.skillCount, 0);
+  const detectedSystemSources = snapshot.systemSkillSources.filter((source) => source.exists).length;
+  const importedProjectCount = snapshot.importedProjects.length;
+  const importedProjectSkillCount = snapshot.importedProjects.reduce((total, project) => total + project.skillCount, 0);
 
   return (
     <div className="space-y-6">
-      {showQuickStart ? (
-        <QuickStartCard
-          hasInstalledSkills={snapshot.summary.installedCount > 0}
-          hasStagedSources={snapshot.stagedSources.length > 0}
-          installPathConfigured={installPathConfigured}
-          onChooseInstallDir={onChooseInstallDir}
-          onGoImport={onGoImport}
-          onGoStaged={onGoStaged}
-          t={t}
-        />
-      ) : null}
+      <SectionCard title={t.capabilityOverviewTitle} subtitle={t.capabilityOverviewSubtitle}>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <OverviewMetric label={t.overviewMetricInstalled} value={snapshot.summary.installedCount} />
+          <OverviewMetric label={t.overviewMetricStaged} value={snapshot.summary.stagedCount} />
+          <OverviewMetric label={t.overviewMetricSystem} value={`${detectedSystemSources}/${snapshot.systemSkillSources.length}`} />
+          <OverviewMetric label={t.overviewMetricProjects} value={importedProjectCount} />
+        </div>
 
-      {!installPathConfigured ? (
-        <SectionCard title={t.installPathRequired} subtitle={t.installPathRequiredSubtitle}>
-          <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5 text-sm text-amber-600 dark:text-amber-300">
-            {t.installPathRequiredBody}
-          </div>
-        </SectionCard>
-      ) : null}
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+          <CapabilityCard
+            body={
+              installPathConfigured
+                ? `${t.capabilityInstallBody} ${snapshot.settings.installDir}`
+                : `${t.capabilityInstallBody} ${t.installPathRequiredBody}`
+            }
+            icon={HardDriveDownload}
+            primaryAction={{
+              label: t.quickStartChooseInstallDir,
+              onClick: onChooseInstallDir
+            }}
+            secondaryAction={
+              installPathConfigured
+                ? {
+                    label: t.openInstallFolder,
+                    onClick: () => onOpenPath(snapshot.settings.installDir)
+                  }
+                : undefined
+            }
+            status={installPathConfigured ? t.capabilityStatusConfigured : t.capabilityStatusNeedsSetup}
+            title={t.capabilityInstallTitle}
+          />
+          <CapabilityCard
+            body={t.capabilityImportBody}
+            icon={UploadCloud}
+            primaryAction={{
+              label: t.quickStartGoImport,
+              onClick: onGoImport
+            }}
+            secondaryAction={{
+              label: t.quickStartGoStaged,
+              onClick: onGoStaged,
+              disabled: snapshot.stagedSources.length === 0
+            }}
+            status={`${snapshot.summary.readyCount} ${t.statusReady}`}
+            title={t.capabilityImportTitle}
+          />
+          <CapabilityCard
+            body={`${t.capabilitySystemBody} ${systemSkillCount} ${t.skillCount}`}
+            icon={FolderOpen}
+            primaryAction={
+              snapshot.systemSkillSources[0]
+                ? {
+                    label: t.view,
+                    onClick: () => onOpenSystemSourceModal(snapshot.systemSkillSources[0])
+                  }
+                : undefined
+            }
+            status={`${detectedSystemSources}/${snapshot.systemSkillSources.length} ${t.providerFound}`}
+            title={t.capabilitySystemTitle}
+          />
+          <CapabilityCard
+            body={`${t.capabilityProjectBody} ${importedProjectSkillCount} ${t.skillCount}`}
+            icon={Search}
+            primaryAction={{
+              label: t.importProject,
+              onClick: onImportProject
+            }}
+            secondaryAction={
+              importedProjectCount > 0
+                ? {
+                    label: t.openFolder,
+                    onClick: () => onOpenPath(snapshot.importedProjects[0].path)
+                  }
+                : undefined
+            }
+            status={`${importedProjectCount} ${t.projectDirectories}`}
+            title={t.capabilityProjectTitle}
+          />
+        </div>
+      </SectionCard>
 
       <SectionCard title={t.workspaceSkillDirectories} subtitle={t.workspaceSkillDirectoriesSubtitle}>
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
@@ -748,16 +814,6 @@ export function OverviewSection({
       <SectionCard
         title={t.projectDirectories}
         subtitle={t.projectSkillBrowserSubtitle}
-        actions={
-          <button
-            className="app-button-primary"
-            onClick={() => void onImportProject()}
-            type="button"
-          >
-            <Plus className="h-4 w-4" />
-            {t.importProject}
-          </button>
-        }
       >
         {snapshot.importedProjects.length ? (
           <div className="space-y-3">
