@@ -76,10 +76,10 @@ function statusTone(status: SourceStatus) {
   }
 
   if (status === "processing") {
-    return "text-amber-200 bg-amber-300/10 border-amber-300/20";
+    return "text-amber-700 dark:text-amber-200 bg-amber-300/12 dark:bg-amber-300/10 border-amber-400/30 dark:border-amber-300/20";
   }
 
-  return "text-ink-100/80 bg-white/5 border-white/10";
+  return "text-slate-700 dark:text-slate-200 bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10";
 }
 
 function statusLabel(status: SourceStatus, t: TranslationDictionary) {
@@ -969,7 +969,7 @@ export function ImportSection({
           <p className="mt-4 text-lg font-medium app-text">{t.localZipDropTitle}</p>
           <p className="mt-2 text-sm app-text-soft">{t.localZipDropHelp}</p>
           {!installPathConfigured ? (
-            <p className="mt-3 text-sm text-amber-200">{t.installPathRequiredBody}</p>
+            <p className="mt-3 text-sm text-amber-700 dark:text-amber-200">{t.installPathRequiredBody}</p>
           ) : null}
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button
@@ -2145,9 +2145,9 @@ export function WorkspaceDetailPanel({
           </div>
 
           {selectedStagedDetail.analysisSummary ? (
-            <div className="rounded-3xl border border-white/10 bg-black/20 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-ink-200/50">用途总结</p>
-              <p className="mt-3 text-sm leading-6 text-ink-100/85">{selectedStagedDetail.analysisSummary}</p>
+            <div className="app-surface-subtle rounded-3xl p-4">
+              <p className="text-xs uppercase tracking-[0.16em] app-text-soft">用途总结</p>
+              <p className="mt-3 text-sm leading-6 app-text">{selectedStagedDetail.analysisSummary}</p>
             </div>
           ) : null}
 
@@ -2157,10 +2157,10 @@ export function WorkspaceDetailPanel({
             {selectedStagedDetail.installStrategy?.command ? (
               <div>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-ink-200/50">识别到的命令</p>
+                  <p className="text-xs uppercase tracking-[0.16em] app-text-soft">识别到的命令</p>
                   <CopyButton label="复制命令" value={selectedStagedDetail.installStrategy.command} />
                 </div>
-                <pre className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-ink-100/90">
+                <pre className="app-surface-subtle mt-2 overflow-x-auto rounded-2xl px-4 py-3 text-sm app-text">
                   {selectedStagedDetail.installStrategy.command}
                 </pre>
               </div>

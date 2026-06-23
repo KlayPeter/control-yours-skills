@@ -951,7 +951,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const primarySectionCategory = section === "import" ? settingsDraft.defaultSkillCategory : selectedCategoryFilter;
 
   return (
-    <div className="app-shell app-grid min-h-screen bg-ink-950 text-ink-100">
+    <div className="app-shell app-grid min-h-screen app-text">
       <SourceViewerModal
         onClose={() => setModalState(null)}
         onOpenPath={(targetPath) => void openPath(targetPath)}
