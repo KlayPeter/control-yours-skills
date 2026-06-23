@@ -18,7 +18,7 @@ After download, run the installer and follow the setup wizard.
 - SQLite local data storage
 - Local ZIP import with `SKILL.md` parsing
 - GitHub repository and remote ZIP analysis before installation
-- Workspace provider scanning for `.codex`, `.claude`, `.agent`, and `.agents`
+- Workspace provider scanning for `.codex`, `.claude`, and `.agents`
 - Installed skill export, logs, staging, and installation history
 
 ## Current Remote Source Behavior
@@ -36,14 +36,15 @@ Planned improvements for upcoming phases:
 - Make workspace and install-directory views easier to understand.
 - Add stronger validation and test coverage for import, staging, and install flows.
 - Support GitHub repository one-click install after the remote-source flow is hardened and made safer.
-- Expand cross-platform support beyond the current Windows-first packaging path.
+- Expand packaged installers beyond the current Windows-first release path.
 
 ## Requirements
 
-- Windows
+- Windows, macOS, or Linux for local development
 - Node.js 24+
 - npm 11+
-- PowerShell
+
+The published release currently ships as a Windows installer. The local ZIP parsing path uses a Node-based extractor and does not require PowerShell.
 
 ## Local Development
 

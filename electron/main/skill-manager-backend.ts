@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 
 import type Database from "better-sqlite3";
 import { dialog, shell } from "electron";
+import extractZip from "extract-zip";
 
 import type {
   EnvironmentInfo,
@@ -230,10 +231,6 @@ function toLogRecord(row: LogRow): LogRecord {
 function resolveConfiguredOrFallbackPath(configuredPath: string, fallbackPath: string) {
   const normalized = configuredPath.trim();
   return normalized || fallbackPath;
-}
-
-function psQuote(value: string) {
-  return `'${value.replace(/'/g, "''")}'`;
 }
 
 async function safeReadText(filePath: string | null) {
@@ -1247,13 +1244,7 @@ export class SkillManagerBackend {
   }
 
   private async extractArchive(archivePath: string, destinationPath: string) {
-    const command = `Expand-Archive -LiteralPath ${psQuote(archivePath)} -DestinationPath ${psQuote(
-      destinationPath
-    )} -Force`;
-
-    await execFileAsync("powershell.exe", ["-NoProfile", "-Command", command], {
-      windowsHide: true
-    });
+    await extractZip(archivePath, { dir: destinationPath });
   }
 
   private async resolveInstallPath(
