@@ -30,11 +30,15 @@ After download, run the installer and follow the setup wizard.
 
 ## Roadmap
 
+Completed hardening in the current product pass:
+
+- Clarified product wording and onboarding so the app matches its real behavior.
+- Made system skill directories, imported project skills, staged sources, and installed skills easier to distinguish.
+- Added focused test coverage for workspace skill source scanning and project skill tree detection.
+- Replaced Windows PowerShell ZIP extraction with a Node-based cross-platform extractor.
+
 Planned improvements for upcoming phases:
 
-- Clarify product wording and onboarding so the app always matches its real behavior.
-- Make workspace and install-directory views easier to understand.
-- Add stronger validation and test coverage for import, staging, and install flows.
 - Support GitHub repository one-click install after the remote-source flow is hardened and made safer.
 - Expand packaged installers beyond the current Windows-first release path.
 

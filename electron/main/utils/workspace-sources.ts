@@ -175,15 +175,17 @@ async function scanProjectTreeDirectory(
     }
 
     const children = await scanProjectTreeDirectory(projectRoot, absolutePath, depth + 1);
-    nodes.push({
-      id: `folder:${absolutePath}`,
-      kind: "folder",
-      name: entry.name,
-      relativePath,
-      absolutePath,
-      description: null,
-      children
-    });
+    if (children.length > 0) {
+      nodes.push({
+        id: `folder:${absolutePath}`,
+        kind: "folder",
+        name: entry.name,
+        relativePath,
+        absolutePath,
+        description: null,
+        children
+      });
+    }
   }
 
   return sortTreeNodes(nodes);
