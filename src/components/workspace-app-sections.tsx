@@ -1316,9 +1316,18 @@ export function SkillsSection({
   selectedCategory: string;
   onCategoryChange: (value: string) => void;
 }) {
+  const activeCategoryCount = categories.filter((category) => category.skillCount > 0).length;
+  const sourceTypeCount = new Set(installedSkills.map((skill) => skill.sourceType)).size;
+
   return (
     <div className="space-y-6">
-      <SectionCard title={t.installedSkills}>
+      <SectionCard title={t.installedSkills} subtitle={t.installedSkillsSubtitle}>
+        <div className="mb-5 grid gap-4 md:grid-cols-3">
+          <OverviewMetric label={t.overviewMetricInstalled} value={installedSkills.length} />
+          <OverviewMetric label={t.installedMetricCategories} value={activeCategoryCount} />
+          <OverviewMetric label={t.installedMetricSourceTypes} value={sourceTypeCount} />
+        </div>
+
         <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr),220px]">
           <div className="app-search-shell flex items-center gap-3">
             <Search className="h-4 w-4 app-text-soft" />
@@ -1334,7 +1343,7 @@ export function SkillsSection({
             onChange={(event) => onCategoryChange(event.target.value)}
             value={selectedCategory}
           >
-            <option value="">全部分类</option>
+            <option value="">{t.allCategories}</option>
             {categories.map((category) => (
               <option key={category.id} value={category.name}>
                 {category.name}
