@@ -637,11 +637,32 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
       "application/zip": [".zip"]
     },
     multiple: false,
-    onDropAccepted: (files) => {
+    onDropAccepted: (files, event) => {
       void (async () => {
-        const file = files[0];
-        const api = getSkillManagerApi();
-        const realPath = api.getPathForFile ? api.getPathForFile(file) : (file as unknown as { path?: string }).path;
+        let realPath = "";
+        
+        // 1. Try extracting from raw DragEvent dataTransfer
+        if (event && (event as any).dataTransfer && (event as any).dataTransfer.files) {
+          const rawFile = (event as any).dataTransfer.files[0];
+          if (rawFile && rawFile.path) {
+            realPath = rawFile.path;
+          }
+        }
+        
+        // 2. Try extracting from raw ChangeEvent target (input click)
+        if (!realPath && event && (event as any).target && (event as any).target.files) {
+          const rawFile = (event as any).target.files[0];
+          if (rawFile && rawFile.path) {
+            realPath = rawFile.path;
+          }
+        }
+
+        // 3. Fallback to API / manipulated file
+        if (!realPath) {
+          const file = files[0];
+          const api = getSkillManagerApi();
+          realPath = api.getPathForFile ? api.getPathForFile(file) : (file as unknown as { path?: string }).path || "";
+        }
 
         if (!realPath) {
           setError(t.droppedFilePathUnavailable);
