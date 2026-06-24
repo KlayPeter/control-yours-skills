@@ -24,6 +24,7 @@ import {
   X
 } from "lucide-react";
 
+import { ProviderInstallButtons } from "@/components/workspace-app-sections";
 import type {
   Locale,
   SaveSettingsInput,
@@ -489,12 +490,18 @@ function SidebarWorkspaceTree({
   rootLabel,
   rootPath,
   nodes,
-  onOpenPath
+  onOpenPath,
+  onInstallWorkspaceSkill
 }: {
   rootLabel: string;
   rootPath: string;
   nodes: WorkspaceTreeNode[];
   onOpenPath: (path: string) => void;
+  onInstallWorkspaceSkill: (
+    sourceRoot: string,
+    skillRootPath: string,
+    providerKey: WorkspaceSkillProviderKey
+  ) => Promise<unknown>;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -510,15 +517,15 @@ function SidebarWorkspaceTree({
           <FolderOpen className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium app-text">{rootLabel}</span>
-          <span className="mt-1 block truncate text-xs app-text-soft">{rootPath}</span>
+          <span className="block truncate text-sm font-medium app-text" title={rootLabel}>{rootLabel}</span>
+          <span className="mt-1 block truncate text-xs app-text-soft" title={rootPath}>{rootPath}</span>
         </span>
       </button>
       {open ? (
         <div className="border-t border-white/10 px-2 py-2">
           <div className="space-y-1">
             {nodes.map((node) => (
-              <SidebarWorkspaceTreeNode key={node.id} node={node} onOpenPath={onOpenPath} />
+              <SidebarWorkspaceTreeNode key={node.id} node={node} projectRoot={rootPath} onOpenPath={onOpenPath} onInstallWorkspaceSkill={onInstallWorkspaceSkill} />
             ))}
           </div>
         </div>
@@ -529,19 +536,27 @@ function SidebarWorkspaceTree({
 
 function SidebarWorkspaceTreeNode({
   node,
-  onOpenPath
+  projectRoot,
+  onOpenPath,
+  onInstallWorkspaceSkill
 }: {
   node: WorkspaceTreeNode;
+  projectRoot: string;
   onOpenPath: (path: string) => void;
+  onInstallWorkspaceSkill: (
+    sourceRoot: string,
+    skillRootPath: string,
+    providerKey: WorkspaceSkillProviderKey
+  ) => Promise<unknown>;
 }) {
   const [open, setOpen] = useState(false);
   const isFolder = node.kind === "folder";
 
   return (
     <div>
-      <div className="flex items-center gap-2 rounded-xl px-2 py-2 hover:bg-white/5">
+      <div className="group relative flex items-center gap-2 rounded-xl px-2 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 overflow-hidden">
         <button
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left before:absolute before:inset-0"
           onClick={() => {
             if (isFolder) {
               setOpen((current) => !current);
@@ -552,18 +567,27 @@ function SidebarWorkspaceTreeNode({
           type="button"
         >
           {isFolder ? (
-            open ? <ChevronDown className="h-3.5 w-3.5 app-text-soft" /> : <ChevronRight className="h-3.5 w-3.5 app-text-soft" />
+            open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 app-text-soft" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 app-text-soft" />
           ) : (
-            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-moss/15 text-[9px] text-moss">S</span>
+            <div className="w-3.5 shrink-0" />
           )}
-          <span className="truncate text-sm app-text">{node.name}</span>
+          <span className="truncate text-[13px] app-text" title={node.name}>{node.name}</span>
         </button>
-        <span className="shrink-0 text-xs app-text-soft">{isFolder ? "Folder" : "Skill"}</span>
+
+        {node.kind === "skill" && node.skill ? (
+          <div className="absolute right-0 top-0 bottom-0 flex items-center gap-1 px-1 bg-slate-100 dark:bg-slate-800 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
+            <ProviderInstallButtons
+              onInstall={(providerKey) => {
+                void onInstallWorkspaceSkill(projectRoot, node.skill!.rootPath, providerKey);
+              }}
+            />
+          </div>
+        ) : null}
       </div>
       {isFolder && open && node.children.length ? (
-        <div className="ml-4 border-l border-white/10 pl-2">
+        <div className="ml-[8px] border-l border-white/10 pl-[4px]">
           {node.children.map((child) => (
-            <SidebarWorkspaceTreeNode key={child.id} node={child} onOpenPath={onOpenPath} />
+            <SidebarWorkspaceTreeNode key={child.id} node={child} projectRoot={projectRoot} onOpenPath={onOpenPath} onInstallWorkspaceSkill={onInstallWorkspaceSkill} />
           ))}
         </div>
       ) : null}
@@ -636,6 +660,11 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     sources: WorkspaceSkillSource[];
   } | null>(null);
   const [stagedModalOpen, setStagedModalOpen] = useState(false);
+  const [installConfirmContext, setInstallConfirmContext] = useState<{
+    sourceRoot: string;
+    skillRootPath: string;
+    providerKey: WorkspaceSkillProviderKey;
+  } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(globalSidebarCollapsed);
 
   const setSidebarCollapsed = (val: boolean) => {
@@ -802,11 +831,12 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => {
-    await installWorkspaceSkill({
-      sourceRoot,
-      skillRootPath,
-      providerKey
-    });
+    const skip = localStorage.getItem("skip-install-confirm") === "true";
+    if (skip) {
+      await installWorkspaceSkill({ sourceRoot, skillRootPath, providerKey });
+    } else {
+      setInstallConfirmContext({ sourceRoot, skillRootPath, providerKey });
+    }
   };
 
   const openSystemSourceModal = (source: WorkspaceSkillSource) => {
@@ -1043,14 +1073,22 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
       <div className={cn(
         "grid min-h-screen grid-cols-1 xl:h-screen xl:overflow-hidden transition-all duration-300",
-        sidebarCollapsed ? "xl:grid-cols-[84px,minmax(0,1fr)]" : "xl:grid-cols-[292px,minmax(0,1fr)]"
+        sidebarCollapsed ? "xl:grid-cols-[84px,minmax(0,1fr)]" : "xl:grid-cols-[340px,minmax(0,1fr)]"
       )}>
         <aside className="app-sidebar">
           <div className="app-sidebar-inner">
             <div className={cn("flex items-center gap-3 px-2", sidebarCollapsed && "justify-center px-0")}>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] app-surface-subtle app-text shadow-[0_12px_24px_rgba(15,23,42,0.18)]">
-                <PanelLeftOpen className="h-4 w-4" />
-              </div>
+              <button
+                type="button"
+                className={cn(
+                  "flex shrink-0 items-center justify-center app-text transition-all",
+                  sidebarCollapsed ? "h-10 w-10 rounded-[16px] app-surface-subtle shadow-[0_12px_24px_rgba(15,23,42,0.18)]" : "h-8 w-8 rounded-[12px] hover:bg-black/5 dark:hover:bg-white/5 -ml-1"
+                )}
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </button>
               {!sidebarCollapsed && (
                 <div className="min-w-0 flex-1 transition-opacity duration-300">
                   <p className="truncate text-sm font-semibold app-text">{t.appName}</p>
@@ -1060,7 +1098,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             </div>
 
             <nav className={cn("mt-6 space-y-1.5", sidebarCollapsed && "px-1")}>
-              {navItems.map((item) => {
+              {navItems.filter(item => item.section !== "settings").map((item) => {
                 const Icon = item.icon;
                 const active = item.section === section;
                 return (
@@ -1115,6 +1153,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                       onOpenPath={(targetPath) => {
                         void openPath(targetPath);
                       }}
+                      onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
                       rootLabel={project.name}
                       rootPath={project.path}
                     />
@@ -1126,18 +1165,30 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             </section>
             )}
 
-            <div className={cn("mt-auto flex pt-4", sidebarCollapsed ? "justify-center" : "justify-end px-2")}>
-              <button
-                type="button"
-                className={cn(
-                  "app-icon-button shrink-0 hidden xl:flex transition-transform",
-                  sidebarCollapsed ? "h-10 w-10 rounded-[16px]" : "h-8 w-8 rounded-[12px]"
-                )}
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
-              >
-                {sidebarCollapsed ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-              </button>
+            <div className={cn("mt-auto flex flex-col pt-4", sidebarCollapsed && "px-1")}>
+              {navItems.filter(item => item.section === "settings").map((item) => {
+                const Icon = item.icon;
+                const active = item.section === section;
+                return (
+                  <Link
+                    key={item.section}
+                    className={cn(
+                      "app-sidebar-nav-item",
+                      active && "app-sidebar-nav-item-active",
+                      sidebarCollapsed && "justify-center px-0"
+                    )}
+                    href={item.href}
+                    title={sidebarCollapsed ? navLabel(item.section, t) : undefined}
+                  >
+                    <span className={cn("flex min-w-0 items-center gap-3", sidebarCollapsed && "justify-center")}>
+                      <span className={cn("app-sidebar-nav-icon", active && "app-sidebar-nav-icon-active", sidebarCollapsed && "h-10 w-10 rounded-[12px]")}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      {!sidebarCollapsed && <span className="truncate font-medium">{navLabel(item.section, t)}</span>}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </aside>
@@ -1180,7 +1231,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
             <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="app-surface-subtle inline-flex max-w-full items-center gap-3 rounded-[24px] px-4 py-3.5 text-sm app-text-soft shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-                <span className="truncate">{headerPath}</span>
+                <span className="truncate" title={headerPath}>{headerPath}</span>
               </div>
               {busyLabel ? (
                 <div className="inline-flex items-center gap-2 rounded-full border border-signal/30 bg-signal/10 px-4 py-2 text-sm text-signal">
@@ -1307,6 +1358,51 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
           </main>
         </div>
       </div>
+      {installConfirmContext ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm transition-opacity dark:bg-black/60" onClick={() => setInstallConfirmContext(null)}>
+          <div className="app-panel flex w-full max-w-[320px] flex-col overflow-hidden p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold tracking-tight app-text mb-2">确认安装技能</h3>
+            <p className="text-sm leading-relaxed app-text-soft mb-6">
+              即将为 <strong className="app-text font-semibold">{installConfirmContext.providerKey}</strong> 环境安装此技能。
+            </p>
+            
+            <label className="group mb-8 flex cursor-pointer items-center gap-2.5">
+              <input 
+                type="checkbox" 
+                className="h-4 w-4 cursor-pointer rounded border-black/20 bg-black/5 text-slate-900 transition-colors focus:ring-slate-900/30 dark:border-white/20 dark:bg-white/5 dark:text-slate-100"
+                id="skip-install-confirm-checkbox"
+              />
+              <span className="text-sm app-text-soft transition-colors group-hover:app-text">不再提醒，下次直接安装</span>
+            </label>
+
+            <div className="flex justify-end gap-3 mt-2">
+              <button 
+                className="app-button" 
+                onClick={() => setInstallConfirmContext(null)}
+              >
+                取消
+              </button>
+              <button 
+                className="app-button-primary" 
+                onClick={() => {
+                  const cb = document.getElementById("skip-install-confirm-checkbox") as HTMLInputElement;
+                  if (cb?.checked) {
+                    localStorage.setItem("skip-install-confirm", "true");
+                  }
+                  void installWorkspaceSkill({
+                    sourceRoot: installConfirmContext.sourceRoot, 
+                    skillRootPath: installConfirmContext.skillRootPath, 
+                    providerKey: installConfirmContext.providerKey
+                  });
+                  setInstallConfirmContext(null);
+                }}
+              >
+                确认安装
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
