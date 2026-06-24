@@ -1,6 +1,6 @@
 import { Eye, FolderOpen, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { InstalledSkillRecord, SkillCategoryRecord } from "@shared/contracts";
+import type { InstalledSkillRecord, SkillCategoryRecord, SkillManagerSnapshot } from "@shared/contracts";
 
 import { SectionCard } from "../ui/cards";
 import { SourceBadge } from "../ui/badges";
@@ -21,7 +21,8 @@ export function SkillsSection({
   onOpenPath,
   categories,
   selectedCategory,
-  onCategoryChange
+  onCategoryChange,
+  snapshot
 }: {
   t: TranslationDictionary;
   installedSkills: InstalledSkillRecord[];
@@ -33,9 +34,25 @@ export function SkillsSection({
   categories: SkillCategoryRecord[];
   selectedCategory: string;
   onCategoryChange: (value: string) => void;
+  snapshot: SkillManagerSnapshot;
 }) {
   const activeCategoryCount = categories.filter((category) => category.skillCount > 0).length;
   const sourceTypeCount = new Set(installedSkills.map((skill) => skill.sourceType)).size;
+
+  const getLocationLabel = (installPath: string) => {
+    if (!installPath) return "未知目录";
+    if (snapshot.settings.installDir && installPath.startsWith(snapshot.settings.installDir)) {
+      return "默认安装目录";
+    }
+    const codex = snapshot.systemSkillSources.find((s) => s.key === "codex");
+    if (codex && installPath.startsWith(codex.path)) return "Codex 目录";
+    const claude = snapshot.systemSkillSources.find((s) => s.key === "claude");
+    if (claude && installPath.startsWith(claude.path)) return "Claude 目录";
+    const agents = snapshot.systemSkillSources.find((s) => s.key === "agents");
+    if (agents && installPath.startsWith(agents.path)) return "Agent 目录";
+
+    return "历史/其他目录";
+  };
 
   return (
     <div className="space-y-6">
@@ -91,6 +108,9 @@ export function SkillsSection({
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-base font-semibold tracking-tight app-text">{skill.name}</p>
                       <SourceBadge source={skill.sourceType} t={t} />
+                      <span className="app-tag border border-white/10 bg-white/5 text-white/70 tracking-normal normal-case">
+                        {getLocationLabel(skill.installPath)}
+                      </span>
                       {skill.category ? <span className="app-tag normal-case tracking-normal">{skill.category}</span> : null}
                     </div>
                     <p className="mt-3 text-sm leading-6 app-text-soft">

@@ -195,6 +195,7 @@ export function WorkspacePrimarySection({
           searchValue={searchValue}
           selectedCategory={selectedCategory}
           selectedSkillId={selectedSkillId}
+          snapshot={snapshot}
           t={t}
         />
       );
