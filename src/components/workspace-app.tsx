@@ -642,7 +642,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         let realPath = "";
         
         // 1. Try extracting from raw DragEvent dataTransfer
-        const dragEvent = event as unknown as { dataTransfer?: { files?: { path?: string }[] } };
+        const dragEvent = event as unknown as { dataTransfer?: { files?: Array<{ path?: string }> } };
         if (dragEvent?.dataTransfer?.files?.[0]?.path) {
           realPath = dragEvent.dataTransfer.files[0].path;
         }
@@ -657,7 +657,10 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         if (!realPath) {
           const file = files[0];
           const api = getSkillManagerApi();
-          realPath = api.getPathForFile ? api.getPathForFile(file) : (file as unknown as { path?: string }).path || "";
+          const lastKnown = api.getLastKnownFilePath ? api.getLastKnownFilePath() : "";
+          const apiResult = api.getPathForFile ? api.getPathForFile(file) : undefined;
+          const fallbackPath = (file as unknown as { path?: string }).path;
+          realPath = lastKnown || apiResult || fallbackPath || "";
         }
 
         if (!realPath) {

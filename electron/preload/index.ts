@@ -2,6 +2,22 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import type { SkillManagerApi } from "@shared/contracts";
 
+let lastKnownFilePath = "";
+
+window.addEventListener("drop", (e) => {
+  const file = e.dataTransfer?.files[0];
+  if (file) {
+    lastKnownFilePath = webUtils.getPathForFile(file);
+  }
+}, true);
+
+window.addEventListener("change", (e) => {
+  const target = e.target as HTMLInputElement;
+  if (target?.type === "file" && target.files?.[0]) {
+    lastKnownFilePath = webUtils.getPathForFile(target.files[0]);
+  }
+}, true);
+
 const api: SkillManagerApi = {
   getSnapshot: () => ipcRenderer.invoke("skill-manager:get-snapshot"),
   importLocalArchive: (filePath) => ipcRenderer.invoke("skill-manager:import-local-archive", filePath),
@@ -22,7 +38,8 @@ const api: SkillManagerApi = {
   openPath: (targetPath) => ipcRenderer.invoke("skill-manager:open-path", targetPath),
   pickArchiveFile: () => ipcRenderer.invoke("skill-manager:pick-archive-file"),
   pickDirectory: (initialPath) => ipcRenderer.invoke("skill-manager:pick-directory", initialPath),
-  getPathForFile: (file) => webUtils.getPathForFile(file)
+  getPathForFile: (file) => webUtils.getPathForFile(file),
+  getLastKnownFilePath: () => lastKnownFilePath
 };
 
 contextBridge.exposeInMainWorld("skillManager", api);
