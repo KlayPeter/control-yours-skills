@@ -113,7 +113,8 @@ const browserFallbackApi: SkillManagerApi = {
   }),
   openPath: async () => unavailableResult<void>(),
   pickArchiveFile: async () => ({ ok: true, data: null }),
-  pickDirectory: async () => ({ ok: true, data: null })
+  pickDirectory: async () => ({ ok: true, data: null }),
+  getPathForFile: (file: File) => (file as unknown as { path?: string }).path || file.name
 };
 
 export function getSkillManagerApi() {

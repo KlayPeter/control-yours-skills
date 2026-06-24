@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 import type { SkillManagerApi } from "@shared/contracts";
 
@@ -21,7 +21,8 @@ const api: SkillManagerApi = {
   validateDirectory: (targetPath) => ipcRenderer.invoke("skill-manager:validate-directory", targetPath),
   openPath: (targetPath) => ipcRenderer.invoke("skill-manager:open-path", targetPath),
   pickArchiveFile: () => ipcRenderer.invoke("skill-manager:pick-archive-file"),
-  pickDirectory: (initialPath) => ipcRenderer.invoke("skill-manager:pick-directory", initialPath)
+  pickDirectory: (initialPath) => ipcRenderer.invoke("skill-manager:pick-directory", initialPath),
+  getPathForFile: (file) => webUtils.getPathForFile(file)
 };
 
 contextBridge.exposeInMainWorld("skillManager", api);

@@ -33,6 +33,7 @@ import { SourceViewerModal } from "./workspace/source-viewer-modal";
 import { WorkspaceDetailPanel } from "./workspace/workspace-detail-panel";
 import { WorkspacePrimarySection } from "./workspace/workspace-primary-section";
 import { SidebarWorkspaceTree } from "./workspace/sidebar";
+import { getSkillManagerApi } from "@/lib/electron-api";
 import { useSkillManager } from "@/hooks/use-skill-manager";
 import { cn } from "@/lib/cn";
 
@@ -639,12 +640,15 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     onDropAccepted: (files) => {
       void (async () => {
         const file = files[0];
-        if (!file?.path) {
+        const api = getSkillManagerApi();
+        const realPath = api.getPathForFile ? api.getPathForFile(file) : (file as unknown as { path?: string }).path;
+
+        if (!realPath) {
           setError(t.droppedFilePathUnavailable);
           return;
         }
 
-        await importLocalArchive(file.path);
+        await importLocalArchive(realPath);
         router.push("/staged");
       })();
     }

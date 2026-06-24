@@ -260,4 +260,5 @@ export interface SkillManagerApi {
   openPath(targetPath: string): Promise<OperationResult<void>>;
   pickArchiveFile(): Promise<OperationResult<string | null>>;
   pickDirectory(initialPath?: string): Promise<OperationResult<string | null>>;
+  getPathForFile?(file: File): string;
 }
