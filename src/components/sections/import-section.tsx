@@ -106,23 +106,14 @@ export function ImportSection({
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button
               className="app-button"
-              onClick={() => void onImportZip("staged")}
+              onClick={(e) => {
+                // Prevent dropzone click handler if the button is clicked to avoid double picker
+                e.stopPropagation();
+                void onImportZip("staged");
+              }}
               type="button"
             >
               {t.chooseZip}
-            </button>
-            <button
-              className={cn(
-                "rounded-2xl px-4 py-2 text-sm font-medium transition",
-                installPathConfigured
-                  ? "app-button-primary"
-                  : "cursor-not-allowed border border-white/10 bg-white/5 app-text-soft"
-              )}
-              disabled={!installPathConfigured}
-              onClick={() => void onImportZip("install")}
-              type="button"
-            >
-              {t.installNow}
             </button>
           </div>
         </div>

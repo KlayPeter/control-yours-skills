@@ -642,19 +642,15 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         let realPath = "";
         
         // 1. Try extracting from raw DragEvent dataTransfer
-        if (event && (event as any).dataTransfer && (event as any).dataTransfer.files) {
-          const rawFile = (event as any).dataTransfer.files[0];
-          if (rawFile && rawFile.path) {
-            realPath = rawFile.path;
-          }
+        const dragEvent = event as unknown as { dataTransfer?: { files?: { path?: string }[] } };
+        if (dragEvent?.dataTransfer?.files?.[0]?.path) {
+          realPath = dragEvent.dataTransfer.files[0].path;
         }
         
         // 2. Try extracting from raw ChangeEvent target (input click)
-        if (!realPath && event && (event as any).target && (event as any).target.files) {
-          const rawFile = (event as any).target.files[0];
-          if (rawFile && rawFile.path) {
-            realPath = rawFile.path;
-          }
+        const changeEvent = event as unknown as { target?: { files?: { path?: string }[] } };
+        if (!realPath && changeEvent?.target?.files?.[0]?.path) {
+          realPath = changeEvent.target.files[0].path;
         }
 
         // 3. Fallback to API / manipulated file
