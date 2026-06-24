@@ -165,6 +165,7 @@ export function WorkspacePrimarySection({
           selectedStagedId={selectedStagedId}
           snapshot={snapshot}
           t={t}
+          onInstallStaged={onInstallStaged}
         />
       );
     case "staged":

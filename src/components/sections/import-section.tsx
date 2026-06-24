@@ -1,5 +1,5 @@
 import type { DropzoneState } from "react-dropzone";
-import { RefreshCcw, Trash2, UploadCloud } from "lucide-react";
+import { Plus, RefreshCcw, Trash2, UploadCloud } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, StagedSourceRecord } from "@shared/contracts";
 
@@ -59,7 +59,8 @@ export function ImportSection({
   onParseStaged,
   onRemoveStaged,
   selectedCategory,
-  onCategoryChange
+  onCategoryChange,
+  onInstallStaged
 }: {
   t: TranslationDictionary;
   installPathConfigured: boolean;
@@ -76,6 +77,7 @@ export function ImportSection({
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
   selectedCategory: string;
   onCategoryChange: (value: string) => void;
+  onInstallStaged: (ids: string[]) => AsyncActionResult;
 }) {
   const installableCount = snapshot.stagedSources.filter(canInstallStagedSource).length;
   const manualReviewCount = snapshot.stagedSources.filter(
@@ -211,6 +213,14 @@ export function ImportSection({
                     <button className="app-button" onClick={() => void onGoStaged()} type="button">
                       {t.quickStartGoStaged}
                     </button>
+                    {canInstallStagedSource(latestStagedSource) ? (
+                      <IconActionButton
+                        icon={Plus}
+                        label={t.install}
+                        onClick={() => void onInstallStaged([latestStagedSource.id])}
+                        tone="success"
+                      />
+                    ) : null}
                     <IconActionButton
                       icon={RefreshCcw}
                       label={t.reparse}
