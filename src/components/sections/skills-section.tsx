@@ -99,9 +99,14 @@ export function SkillsSection({
                   </button>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-4">
-                  <p className="text-xs app-text-soft">
-                    <RelativeTimeText value={skill.installedAt} />
-                  </p>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs app-text-soft">
+                      <RelativeTimeText value={skill.installedAt} />
+                    </p>
+                    <p className="text-[11px] font-mono opacity-60 app-text-soft break-all" title={skill.installPath}>
+                      {skill.installPath}
+                    </p>
+                  </div>
                   <div className="flex flex-wrap justify-end gap-2">
                     <IconActionButton
                       icon={FolderOpen}

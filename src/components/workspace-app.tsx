@@ -149,7 +149,7 @@ const zhCnTranslations: TranslationDictionary = {
   stagingAreaEmptyDescription: "先导入 ZIP 或添加远程来源。",
   waitingForMetadataParsing: "等待解析元数据。",
   installedSkills: "已安装技能",
-  installedSkillsSubtitle: "安装库：这些 skill 已经复制到默认安装目录，可搜索、查看和导出。",
+  installedSkillsSubtitle: "安装库：这些 skill 已经安装到本地磁盘，可搜索、查看和导出。",
   allCategories: "全部分类",
   installedMetricCategories: "有效分类",
   installedMetricSourceTypes: "来源类型",
