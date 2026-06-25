@@ -96,7 +96,7 @@ export function WorkspaceTreeNodeRow({
           </div>
         </button>
         <div className="absolute right-0 top-0 bottom-0 flex items-center gap-2 pr-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
-          {isFolder ? <IconActionButton icon={FolderOpen} label="打开目录" onClick={() => void onOpenPath(node.absolutePath)} /> : null}
+          <IconActionButton icon={FolderOpen} label="打开目录" onClick={() => void onOpenPath(node.absolutePath)} />
           {node.kind === "skill" && node.skill ? (
             <ProviderInstallButtons
               onInstall={(providerKey) => {
