@@ -145,7 +145,7 @@ export function WorkspaceDetailPanel({
             <p className="mt-3 text-base app-text">
               {selectedStagedDetail.detectedDescription || selectedStagedDetail.sourceValue}
             </p>
-            <div className="mt-4 space-y-2 text-xs app-text-soft">
+            <div className="mt-4 space-y-2 text-xs app-text-soft break-all">
               <p>{t.sourceValue}: {selectedStagedDetail.sourceValue}</p>
               <p>{t.archivePath}: {selectedStagedDetail.archivePath || t.archivePathPending}</p>
               <p>{t.skillRoot}: {selectedStagedDetail.skillRootPath || t.skillRootPending}</p>

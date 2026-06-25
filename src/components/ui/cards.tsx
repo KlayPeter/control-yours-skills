@@ -26,7 +26,7 @@ export function DetailList({
       </div>
       <div className="mt-2 space-y-2">
         {items.map((item, index) => (
-          <p key={`${title}-${index}`} className="app-surface-subtle rounded-2xl px-3 py-2 text-sm app-text">
+          <p key={`${title}-${index}`} className="app-surface-subtle rounded-2xl px-3 py-2 text-sm app-text break-all">
             {item}
           </p>
         ))}
