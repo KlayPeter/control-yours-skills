@@ -217,6 +217,7 @@ function ProjectSelectionModal({
   onConfirm: (targetDirectory: string) => void;
 }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
@@ -236,21 +237,63 @@ function ProjectSelectionModal({
             <div className="p-4 text-center text-sm app-text-soft">暂无导入的项目</div>
           ) : (
             <div className="flex flex-col">
-              {importedProjects.map((project) => (
-                <button
-                  key={project.id}
-                  className={cn(
-                    "flex flex-col items-start px-4 py-3 text-left transition-colors border-b border-black/5 dark:border-white/5 last:border-0",
-                    selectedProjectId === project.id
-                      ? "bg-blue-50 dark:bg-blue-900/20"
-                      : "hover:bg-black/5 dark:hover:bg-white/5"
-                  )}
-                  onClick={() => setSelectedProjectId(project.id)}
-                >
-                  <span className={cn("text-sm font-medium", selectedProjectId === project.id ? "text-blue-600 dark:text-blue-400" : "app-text")}>{project.name}</span>
-                  <span className="text-xs app-text-soft truncate w-full mt-1">{project.path}</span>
-                </button>
-              ))}
+              {importedProjects.map((project) => {
+                const getFolders = (nodes: WorkspaceTreeNode[]): WorkspaceTreeNode[] => {
+                  let res: WorkspaceTreeNode[] = [];
+                  for (const n of nodes) {
+                    if (n.kind === 'folder') {
+                      res.push(n);
+                      res = res.concat(getFolders(n.children));
+                    }
+                  }
+                  return res;
+                };
+                const folders = getFolders(project.tree);
+
+                return (
+                  <div key={project.id} className="border-b border-black/5 dark:border-white/5 last:border-0 flex flex-col">
+                    <button
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-3 text-left transition-colors",
+                        selectedProjectId === project.id && !selectedFolderId
+                          ? "bg-blue-50 dark:bg-blue-900/20"
+                          : "hover:bg-black/5 dark:hover:bg-white/5"
+                      )}
+                      onClick={() => {
+                        setSelectedProjectId(project.id);
+                        setSelectedFolderId(null);
+                      }}
+                    >
+                      <Folder className={cn("h-4 w-4 shrink-0", selectedProjectId === project.id && !selectedFolderId ? "text-blue-500" : "app-text-soft")} />
+                      <div className="flex flex-col">
+                        <span className={cn("text-sm font-medium", selectedProjectId === project.id && !selectedFolderId ? "text-blue-600 dark:text-blue-400" : "app-text")}>{project.name} (根目录)</span>
+                        <span className="text-xs app-text-soft truncate w-full mt-0.5" title={project.path}>{project.path}</span>
+                      </div>
+                    </button>
+                    
+                    {folders.map(folder => (
+                      <button
+                        key={folder.id}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 pl-10 text-left transition-colors border-t border-black/5 dark:border-white/5",
+                          selectedProjectId === project.id && selectedFolderId === folder.id
+                            ? "bg-blue-50/50 dark:bg-blue-900/10"
+                            : "hover:bg-black/5 dark:hover:bg-white/5"
+                        )}
+                        onClick={() => {
+                          setSelectedProjectId(project.id);
+                          setSelectedFolderId(folder.id);
+                        }}
+                      >
+                        <Folder className={cn("h-3.5 w-3.5 shrink-0", selectedProjectId === project.id && selectedFolderId === folder.id ? "text-blue-500" : "app-text-soft/70")} />
+                        <span className={cn("text-[13px]", selectedProjectId === project.id && selectedFolderId === folder.id ? "text-blue-600 dark:text-blue-400 font-medium" : "app-text")}>
+                          {folder.absolutePath.substring(project.path.length).replace(/^[/\\]+/, '')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -264,7 +307,27 @@ function ProjectSelectionModal({
             disabled={!selectedProjectId}
             onClick={() => {
               const project = importedProjects.find(p => p.id === selectedProjectId);
-              if (project) onConfirm(project.path);
+              if (project) {
+                if (selectedFolderId) {
+                  const getFolders = (nodes: WorkspaceTreeNode[]): WorkspaceTreeNode[] => {
+                    let res: WorkspaceTreeNode[] = [];
+                    for (const n of nodes) {
+                      if (n.kind === 'folder') {
+                        res.push(n);
+                        res = res.concat(getFolders(n.children));
+                      }
+                    }
+                    return res;
+                  };
+                  const folders = getFolders(project.tree);
+                  const selectedFolder = folders.find(f => f.id === selectedFolderId);
+                  if (selectedFolder) {
+                    onConfirm(selectedFolder.absolutePath);
+                    return;
+                  }
+                }
+                onConfirm(project.path);
+              }
             }}
           >
             确认复制
