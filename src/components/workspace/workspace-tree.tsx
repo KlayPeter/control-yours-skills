@@ -62,11 +62,16 @@ export function WorkspaceTreeNodeRow({
 
   return (
     <div>
-      <div className="group relative flex items-center gap-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-2 -mx-2 transition-colors overflow-hidden">
+      <div className={cn(
+        "group relative flex items-center gap-3 transition-all overflow-hidden",
+        isFolder 
+          ? "py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-2 -mx-2"
+          : "my-1 p-3 rounded-xl border border-transparent hover:border-black/5 dark:hover:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm"
+      )}>
         <button
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-3 text-left before:absolute before:inset-0",
-            !isFolder && "cursor-default"
+            "flex min-w-0 flex-1 items-center gap-3 text-left before:absolute before:inset-0 transition-all duration-150",
+            isFolder ? "group-hover:pr-[40px]" : "group-hover:pr-[100px] cursor-default"
           )}
           onClick={() => {
             if (isFolder) {
@@ -90,8 +95,8 @@ export function WorkspaceTreeNodeRow({
             {node.description ? <p className="mt-1 line-clamp-2 text-[11px] app-text-soft" title={node.description}>{node.description}</p> : null}
           </div>
         </button>
-        <div className="absolute right-0 top-0 bottom-0 flex items-center gap-2 px-1 bg-slate-100 dark:bg-slate-800 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
-          <IconActionButton icon={FolderOpen} label="打开目录" onClick={() => void onOpenPath(node.absolutePath)} />
+        <div className="absolute right-0 top-0 bottom-0 flex items-center gap-2 pr-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
+          {isFolder ? <IconActionButton icon={FolderOpen} label="打开目录" onClick={() => void onOpenPath(node.absolutePath)} /> : null}
           {node.kind === "skill" && node.skill ? (
             <ProviderInstallButtons
               onInstall={(providerKey) => {

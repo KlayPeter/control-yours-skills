@@ -130,9 +130,11 @@ const copy: Record<
   }
 };
 
+let cachedSnapshot: SkillManagerSnapshot | null = null;
+
 export function useSkillManager(initialSkillId?: string) {
   const api = useMemo(() => getSkillManagerApi(), []);
-  const [snapshot, setSnapshot] = useState<SkillManagerSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<SkillManagerSnapshot | null>(cachedSnapshot);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(initialSkillId || null);
   const [selectedStagedId, setSelectedStagedId] = useState<string | null>(null);
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
@@ -150,6 +152,7 @@ export function useSkillManager(initialSkillId?: string) {
     setIsRefreshing(true);
     try {
       const nextSnapshot = await api.getSnapshot();
+      cachedSnapshot = nextSnapshot;
       setSnapshot(nextSnapshot);
 
       setSelectedWorkspaceSourceId((current) => {

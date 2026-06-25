@@ -4,12 +4,15 @@ import type { WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contr
 import { cn } from "@/lib/cn";
 import { ProviderInstallButtons } from "../ui/buttons";
 
+const expandedStateStore = new Map<string, boolean>();
+
 export function SidebarWorkspaceTree({
   rootLabel,
   rootPath,
   nodes,
   onOpenPath,
-  onInstallWorkspaceSkill
+  onInstallWorkspaceSkill,
+  defaultOpen = true
 }: {
   rootLabel: string;
   rootPath: string;
@@ -20,14 +23,30 @@ export function SidebarWorkspaceTree({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => Promise<unknown>;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const nodeId = `root-${rootPath}`;
+  const [open, setOpen] = useState(() => {
+    if (expandedStateStore.has(nodeId)) {
+      return expandedStateStore.get(nodeId)!;
+    }
+    expandedStateStore.set(nodeId, defaultOpen);
+    return defaultOpen;
+  });
+
+  const toggleOpen = () => {
+    setOpen((current) => {
+      const next = !current;
+      expandedStateStore.set(nodeId, next);
+      return next;
+    });
+  };
 
   return (
     <div className="rounded-[14px] border border-white/10 bg-black/10">
       <button
         className="flex w-full items-center gap-2.5 px-2.5 py-2 text-left"
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleOpen}
         type="button"
       >
         {open ? <ChevronDown className="h-4 w-4 shrink-0 app-text-soft" /> : <ChevronRight className="h-4 w-4 shrink-0 app-text-soft" />}
@@ -43,7 +62,7 @@ export function SidebarWorkspaceTree({
         <div className="border-t border-white/10 px-2 py-2">
           <div className="space-y-1">
             {nodes.map((node) => (
-              <SidebarWorkspaceTreeNode key={node.id} node={node} projectRoot={rootPath} onOpenPath={onOpenPath} onInstallWorkspaceSkill={onInstallWorkspaceSkill} />
+              <SidebarWorkspaceTreeNode key={node.id} node={node} projectRoot={rootPath} onOpenPath={onOpenPath} onInstallWorkspaceSkill={onInstallWorkspaceSkill} defaultOpen={defaultOpen} />
             ))}
           </div>
         </div>
@@ -56,7 +75,8 @@ export function SidebarWorkspaceTreeNode({
   node,
   projectRoot,
   onOpenPath,
-  onInstallWorkspaceSkill
+  onInstallWorkspaceSkill,
+  defaultOpen = false
 }: {
   node: WorkspaceTreeNode;
   projectRoot: string;
@@ -66,23 +86,42 @@ export function SidebarWorkspaceTreeNode({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => Promise<unknown>;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const nodeId = `node-${projectRoot}-${node.absolutePath}`;
+  const [open, setOpen] = useState(() => {
+    if (expandedStateStore.has(nodeId)) {
+      return expandedStateStore.get(nodeId)!;
+    }
+    expandedStateStore.set(nodeId, defaultOpen);
+    return defaultOpen;
+  });
   const isFolder = node.kind === "folder";
+
+  const toggleOpen = () => {
+    setOpen((current) => {
+      const next = !current;
+      expandedStateStore.set(nodeId, next);
+      return next;
+    });
+  };
 
   return (
     <div>
       <div className={cn(
-        "group relative flex items-center gap-2 rounded-xl transition-colors overflow-hidden",
+        "group relative flex items-center gap-2 rounded-xl transition-all overflow-hidden",
         isFolder 
           ? "px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
-          : "px-2 py-2 my-1 border border-black/5 dark:border-white/5 bg-white dark:bg-white/5 shadow-sm hover:border-black/15 dark:hover:border-white/15"
+          : "px-2 py-2 my-0.5 border border-transparent hover:border-black/5 dark:hover:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm"
       )}>
         <button
-          className="flex min-w-0 flex-1 items-center gap-2 text-left before:absolute before:inset-0"
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2 text-left before:absolute before:inset-0 transition-all duration-150",
+            isFolder ? "" : "group-hover:pr-[96px]"
+          )}
           onClick={() => {
             if (isFolder) {
-              setOpen((current) => !current);
+              toggleOpen();
             } else {
               onOpenPath(node.absolutePath);
             }
@@ -103,7 +142,7 @@ export function SidebarWorkspaceTreeNode({
         </button>
 
         {node.kind === "skill" && node.skill ? (
-          <div className="absolute right-0 top-0 bottom-0 flex items-center gap-1 px-2 bg-gradient-to-l from-white via-white dark:from-[#121212] dark:via-[#121212] to-transparent opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
+          <div className="absolute right-0 top-0 bottom-0 flex items-center gap-1 pr-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
             <ProviderInstallButtons
               onInstall={(providerKey) => {
                 void onInstallWorkspaceSkill(projectRoot, node.skill!.rootPath, providerKey);
@@ -115,7 +154,7 @@ export function SidebarWorkspaceTreeNode({
       {isFolder && open && node.children.length ? (
         <div className="ml-[8px] border-l border-white/10 pl-[4px]">
           {node.children.map((child) => (
-            <SidebarWorkspaceTreeNode key={child.id} node={child} projectRoot={projectRoot} onOpenPath={onOpenPath} onInstallWorkspaceSkill={onInstallWorkspaceSkill} />
+            <SidebarWorkspaceTreeNode key={child.id} node={child} projectRoot={projectRoot} onOpenPath={onOpenPath} onInstallWorkspaceSkill={onInstallWorkspaceSkill} defaultOpen={defaultOpen} />
           ))}
         </div>
       ) : null}

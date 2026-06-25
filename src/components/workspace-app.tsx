@@ -553,13 +553,14 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const [stagedModalOpen, setStagedModalOpen] = useState(false);
   const [installConfirmContext, setInstallConfirmContext] = useState<{
     sourceRoot: string;
-    skillRootPath: string;
+  skillRootPath: string;
     providerKey: WorkspaceSkillProviderKey;
   } | null>(null);
   const [moveCopyContext, setMoveCopyContext] = useState<{
     id: string;
     action: "copy" | "move";
   } | null>(null);
+  const [sidebarTab, setSidebarTab] = useState<"projects" | "installDir">("projects");
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(globalSidebarCollapsed);
 
   const setSidebarCollapsed = (val: boolean) => {
@@ -1050,34 +1051,79 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             {!sidebarCollapsed && (
             <section className="mt-8 flex min-h-0 flex-1 flex-col border-t pt-5 transition-opacity" style={{ borderColor: "var(--app-border)" }}>
               <div className="flex items-center justify-between gap-3 px-2">
-                <p className="text-xs font-medium tracking-[0.08em] app-text-soft">{t.projectDirectories}</p>
-                <button
-                  aria-label={t.importProject}
-                  className="app-sidebar-ghost-button"
-                  onClick={() => void handleImportProject()}
-                  title={t.importProject}
-                  type="button"
-                >
-                  <FolderPlus className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "projects" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
+                    onClick={() => setSidebarTab("projects")}
+                  >
+                    已导入项目
+                  </button>
+                  <span className="text-xs text-black/10 dark:text-white/10">|</span>
+                  <button 
+                    className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "installDir" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
+                    onClick={() => setSidebarTab("installDir")}
+                  >
+                    本地安装
+                  </button>
+                </div>
+                {sidebarTab === "projects" ? (
+                  <button
+                    aria-label={t.importProject}
+                    className="app-sidebar-ghost-button"
+                    onClick={() => void handleImportProject()}
+                    title={t.importProject}
+                    type="button"
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <button
+                    aria-label={t.quickStartChooseInstallDir}
+                    className="app-sidebar-ghost-button"
+                    onClick={() => void handleQuickChooseInstallDir()}
+                    title={t.quickStartChooseInstallDir}
+                    type="button"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </button>
+                )}
               </div>
 
               <div className="app-scrollbar-hidden mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                {snapshot?.importedProjects.length ? (
-                  snapshot.importedProjects.map((project) => (
+                {sidebarTab === "projects" ? (
+                  snapshot?.importedProjects.length ? (
+                    snapshot.importedProjects.map((project, index) => (
+                      <SidebarWorkspaceTree
+                        key={project.id}
+                        defaultOpen={index === 0}
+                        nodes={project.tree}
+                        onOpenPath={(targetPath) => {
+                          void openPath(targetPath);
+                        }}
+                        onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
+                        rootLabel={project.name}
+                        rootPath={project.path}
+                      />
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">尚未导入项目</div>
+                  )
+                ) : (
+                  snapshot?.installDirTree && snapshot.installDirTree.length > 0 ? (
                     <SidebarWorkspaceTree
-                      key={project.id}
-                      nodes={project.tree}
+                      nodes={snapshot.installDirTree}
                       onOpenPath={(targetPath) => {
                         void openPath(targetPath);
                       }}
                       onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
-                      rootLabel={project.name}
-                      rootPath={project.path}
+                      rootLabel="安装目录"
+                      rootPath={snapshot.settings.installDir}
                     />
-                  ))
-                ) : (
-                  <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">尚未导入项目</div>
+                  ) : (
+                    <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">
+                      {!snapshot?.settings.installDir ? "未配置安装目录" : "安装目录为空"}
+                    </div>
+                  )
                 )}
               </div>
             </section>
