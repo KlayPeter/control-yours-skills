@@ -176,7 +176,22 @@ async function scanProjectTreeDirectory(
     }
 
     const children = await scanProjectTreeDirectory(projectRoot, absolutePath, depth + 1, includeEmptyFolders);
-    if (children.length > 0 || (includeEmptyFolders && depth <= 1)) {
+    let isEmptyCategory = false;
+    if (includeEmptyFolders && depth <= 1 && children.length === 0) {
+      if (!entry.name.startsWith('.')) {
+        try {
+          const childEntries = await fs.readdir(absolutePath, { withFileTypes: true });
+          const hasRegularFiles = childEntries.some(e => e.isFile() && e.name !== '.DS_Store');
+          if (!hasRegularFiles) {
+            isEmptyCategory = true;
+          }
+        } catch {
+          // Ignore read errors
+        }
+      }
+    }
+
+    if (children.length > 0 || isEmptyCategory) {
       nodes.push({
         id: `folder:${absolutePath}`,
         kind: "folder",
