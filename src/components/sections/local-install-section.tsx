@@ -1,5 +1,6 @@
+import { useState } from "react";
 import type { DropzoneState } from "react-dropzone";
-import { Search, UploadCloud } from "lucide-react";
+import { Search, UploadCloud, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
@@ -20,6 +21,7 @@ export function LocalInstallSection({
   snapshot,
   onOpenPath,
   onInstallWorkspaceSkill,
+  onCreateWorkspaceFolder,
   searchValue,
   onSearchValueChange
 }: {
@@ -37,9 +39,12 @@ export function LocalInstallSection({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
+  onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
   const installTree = snapshot.installDirTree;
 
   // Simple search filter function that filters the tree nodes by name
@@ -136,6 +141,57 @@ export function LocalInstallSection({
             spellCheck={false}
           />
         </div>
+        {isCreatingFolder ? (
+          <div className="flex items-center gap-2 p-1.5 bg-white dark:bg-black/40 rounded-xl border border-black/10 dark:border-white/10 focus-within:border-signal/45 focus-within:ring-1 focus-within:ring-signal/45 transition-all">
+            <input
+              type="text"
+              autoFocus
+              className="flex-1 bg-transparent px-2 text-sm app-text focus:outline-none"
+              placeholder="分类文件夹名称..."
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (newFolderName.trim() && onCreateWorkspaceFolder) {
+                    void onCreateWorkspaceFolder({ parentPath: snapshot.settings.installDir || "", folderName: newFolderName.trim() });
+                    setNewFolderName("");
+                    setIsCreatingFolder(false);
+                  }
+                }
+                if (e.key === 'Escape') {
+                  setIsCreatingFolder(false);
+                  setNewFolderName("");
+                }
+              }}
+            />
+            <button 
+              className="px-2 py-1 text-xs font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors"
+              onClick={() => {
+                if (newFolderName.trim() && onCreateWorkspaceFolder) {
+                  void onCreateWorkspaceFolder({ parentPath: snapshot.settings.installDir || "", folderName: newFolderName.trim() });
+                  setNewFolderName("");
+                  setIsCreatingFolder(false);
+                }
+              }}
+            >
+              创建
+            </button>
+            <button 
+              className="px-2 py-1 text-xs font-medium app-text-soft hover:app-text transition-colors"
+              onClick={() => { setIsCreatingFolder(false); setNewFolderName(""); }}
+            >
+              取消
+            </button>
+          </div>
+        ) : (
+          <button 
+            className="app-button flex items-center gap-2 bg-white dark:bg-black/40 border border-black/10 dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 text-sm"
+            onClick={() => setIsCreatingFolder(true)}
+          >
+            <FolderPlus className="h-4 w-4" />
+            新建分类
+          </button>
+        )}
       </div>
 
       <SectionCard 

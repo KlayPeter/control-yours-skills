@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, FolderOpen, Folder, Sparkles, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { WorkspaceSkillProviderKey, WorkspaceTreeNode, ImportedProjectRecord, CopyWorkspaceSkillInput } from "@shared/contracts";
@@ -216,8 +217,13 @@ function ProjectSelectionModal({
   onConfirm: (targetDirectory: string) => void;
 }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  return (
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
         <h2 className="text-lg font-semibold app-text mb-4">选择目标项目</h2>
@@ -265,7 +271,8 @@ function ProjectSelectionModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -287,6 +294,9 @@ export function LocalFolderSelectionModal({
   const [selectedFolderId, setSelectedFolderId] = useState<string>("root");
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const folderNodes = installDirTree.filter(n => n.kind === "folder");
 
@@ -307,7 +317,9 @@ export function LocalFolderSelectionModal({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
         <h2 className="text-lg font-semibold app-text mb-4">复制到本地分类</h2>
@@ -404,6 +416,7 @@ export function LocalFolderSelectionModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
