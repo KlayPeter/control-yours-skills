@@ -74,23 +74,25 @@ export function WorkspaceNavSidebar({
   return (
     <aside className="app-sidebar">
       <div className="app-sidebar-inner">
-        <div className={cn("flex items-center gap-3 px-2", sidebarCollapsed && "justify-center px-0")}>
-          <button
-            type="button"
-            className={cn(
-              "flex shrink-0 items-center justify-center app-text transition-all",
-              sidebarCollapsed ? "h-10 w-10 rounded-[16px] app-surface-subtle shadow-[0_12px_24px_rgba(15,23,42,0.18)]" : "h-8 w-8 rounded-[12px] hover:bg-black/5 dark:hover:bg-white/5 -ml-1"
-            )}
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
-          >
-            {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </button>
+        <div className={cn("flex flex-col", sidebarCollapsed ? "items-center gap-4 px-0" : "gap-5 px-2")}>
+          <div className={cn("flex items-center w-full", sidebarCollapsed && "justify-center")}>
+            <button
+              type="button"
+              className={cn(
+                "flex shrink-0 items-center justify-center app-text transition-all",
+                sidebarCollapsed ? "h-10 w-10 rounded-[16px] app-surface-subtle shadow-[0_12px_24px_rgba(15,23,42,0.18)]" : "h-8 w-8 rounded-[12px] hover:bg-black/5 dark:hover:bg-white/5 -ml-1"
+              )}
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          </div>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3 min-w-0 flex-1 transition-opacity duration-300">
-              <img src="/logo.svg" alt="Logo" className="h-7 w-7 text-signal dark:text-white" />
+              <img src="/logo.svg" alt="Logo" className="h-10 w-10 text-signal dark:text-white" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold app-text">{t.appName}</p>
+                <p className="truncate text-[15px] font-semibold app-text">{t.appName}</p>
                 <p className="mt-0.5 truncate text-[11px] app-text-soft leading-none">{t.appTitle}</p>
               </div>
             </div>
