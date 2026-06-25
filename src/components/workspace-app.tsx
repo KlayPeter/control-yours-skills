@@ -215,17 +215,14 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               </div>
             </div>
 
-            <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="app-surface-subtle inline-flex max-w-full items-center gap-3 rounded-[24px] px-4 py-3.5 text-sm app-text-soft shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-                <span className="truncate" title={headerPath}>{headerPath}</span>
-              </div>
-              {busyLabel ? (
+            {busyLabel ? (
+              <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-end">
                 <div className="inline-flex items-center gap-2 rounded-full border border-signal/30 bg-signal/10 px-4 py-2 text-sm text-signal">
                   <LoaderCircle className="h-4 w-4 animate-spin" />
                   {busyLabel}
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </header>
 
           <main className="flex-1 p-5">
