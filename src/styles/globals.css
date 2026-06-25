@@ -148,7 +148,7 @@
   }
 
   .app-sidebar {
-    @apply relative overflow-hidden border-b px-4 py-6 xl:h-screen xl:border-b-0 xl:border-r;
+    @apply relative overflow-hidden border-b px-4 pt-2 pb-6 xl:h-screen xl:border-b-0 xl:border-r;
     border-color: var(--app-border);
     background: var(--app-panel-strong);
   }

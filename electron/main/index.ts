@@ -9,6 +9,8 @@ import { SkillManagerBackend } from "./skill-manager-backend";
 const isDevelopment = process.env.NODE_ENV !== "production";
 
 function createWindow(rendererUrl: string) {
+  const iconPath = path.join(app.getAppPath(), "build", "icon.png");
+
   const window = new BrowserWindow({
     width: 1560,
     height: 980,
@@ -16,6 +18,8 @@ function createWindow(rendererUrl: string) {
     minHeight: 760,
     backgroundColor: "#09111f",
     autoHideMenuBar: true,
+    titleBarStyle: "hiddenInset",
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -41,6 +45,12 @@ async function bootstrap() {
 
   const backend = new SkillManagerBackend(app.getPath("userData"));
   registerIpcHandlers(backend);
+
+  const iconPath = path.join(app.getAppPath(), "build", "icon.png");
+  if (process.platform === "darwin") {
+    app.dock?.setIcon(iconPath);
+  }
+
   createWindow(rendererUrl);
 
   if (productionRenderer) {
