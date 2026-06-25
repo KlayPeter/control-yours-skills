@@ -198,6 +198,7 @@ export interface SkillManagerSnapshot {
   stagedSources: StagedSourceRecord[];
   installedSkills: InstalledSkillRecord[];
   installCategories: SkillCategoryRecord[];
+  installDirTree: WorkspaceTreeNode[];
   importedProjects: ImportedProjectRecord[];
   workspaceTree: WorkspaceTreeNode[];
   workspaceSkillSources: WorkspaceSkillSource[];
@@ -216,6 +217,11 @@ export interface InstallWorkspaceSkillInput {
   sourceRoot: string;
   skillRootPath: string;
   providerKey: WorkspaceSkillProviderKey;
+}
+
+export interface MoveCopySkillInput {
+  id: string;
+  targetDir: string;
 }
 
 export interface SaveSettingsInput {
@@ -260,6 +266,8 @@ export interface SkillManagerApi {
   openPath(targetPath: string): Promise<OperationResult<void>>;
   pickArchiveFile(): Promise<OperationResult<string | null>>;
   pickDirectory(initialPath?: string): Promise<OperationResult<string | null>>;
+  copySkill(input: { id: string; targetDir: string }): Promise<OperationResult<void>>;
+  moveSkill(input: { id: string; targetDir: string }): Promise<OperationResult<void>>;
   getPathForFile?(file: File): string;
   getLastKnownFilePath?(): string;
 }

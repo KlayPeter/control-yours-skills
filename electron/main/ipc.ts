@@ -53,4 +53,10 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:pick-directory", (_event, initialPath?: string) =>
     backend.pickDirectory(initialPath)
   );
+  ipcMain.handle("skill-manager:copy-skill", (_event, input: { id: string; targetDir: string }) =>
+    backend.copySkill(input)
+  );
+  ipcMain.handle("skill-manager:move-skill", (_event, input: { id: string; targetDir: string }) =>
+    backend.moveSkill(input)
+  );
 }

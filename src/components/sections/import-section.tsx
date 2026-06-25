@@ -147,18 +147,20 @@ export function ImportSection({
 
       <SectionCard title="安装分类" subtitle="新导入的 skill 默认会安装到这里。">
         <div className="app-surface-subtle rounded-3xl p-4">
-          <select
+          <input
             className="app-input h-10 w-full rounded-2xl px-4 text-sm outline-none focus:border-signal/45"
+            list="category-options"
             onChange={(event) => onCategoryChange(event.target.value)}
+            placeholder="默认根目录 (可手动输入如 video 或 media/video)"
             value={selectedCategory}
-          >
-            <option value="">默认根目录</option>
+          />
+          <datalist id="category-options">
             {snapshot.installCategories.map((category) => (
               <option key={category.id} value={category.name}>
                 {category.name}
               </option>
             ))}
-          </select>
+          </datalist>
         </div>
       </SectionCard>
 

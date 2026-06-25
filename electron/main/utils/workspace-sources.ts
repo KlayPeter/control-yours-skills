@@ -34,8 +34,8 @@ export async function scanSystemSkillSources(): Promise<WorkspaceSkillSource[]> 
   return scanSkillSources("system", os.homedir());
 }
 
-export async function scanProjectTree(projectRoot: string): Promise<WorkspaceTreeNode[]> {
-  return scanProjectTreeDirectory(projectRoot, projectRoot, 0);
+export async function scanProjectTree(projectRoot: string, includeEmptyFolders = false): Promise<WorkspaceTreeNode[]> {
+  return scanProjectTreeDirectory(projectRoot, projectRoot, 0, includeEmptyFolders);
 }
 
 function scanSkillSources(scope: WorkspaceSkillSourceScope, rootPath: string): Promise<WorkspaceSkillSource[]> {
@@ -131,7 +131,8 @@ function buildWorkspaceTree(providerRoot: string, skills: WorkspaceSkillEntry[])
 async function scanProjectTreeDirectory(
   projectRoot: string,
   currentPath: string,
-  depth: number
+  depth: number,
+  includeEmptyFolders: boolean
 ): Promise<WorkspaceTreeNode[]> {
   if (depth > MAX_PROJECT_TREE_DEPTH) {
     return [];
@@ -174,8 +175,8 @@ async function scanProjectTreeDirectory(
       continue;
     }
 
-    const children = await scanProjectTreeDirectory(projectRoot, absolutePath, depth + 1);
-    if (children.length > 0) {
+    const children = await scanProjectTreeDirectory(projectRoot, absolutePath, depth + 1, includeEmptyFolders);
+    if (children.length > 0 || includeEmptyFolders) {
       nodes.push({
         id: `folder:${absolutePath}`,
         kind: "folder",

@@ -66,7 +66,9 @@ export function WorkspacePrimarySection({
   newCategoryName,
   onNewCategoryNameChange,
   selectedCategory,
-  onCategoryChange
+  onCategoryChange,
+  onCopySkill,
+  onMoveSkill
 }: {
   section: WorkspaceSection;
   snapshot: SkillManagerSnapshot | null;
@@ -118,6 +120,8 @@ export function WorkspacePrimarySection({
   onNewCategoryNameChange: (value: string) => void;
   selectedCategory: string;
   onCategoryChange: (value: string) => void;
+  onCopySkill: (id: string) => void;
+  onMoveSkill: (id: string) => void;
 }) {
   if (!snapshot) {
     return (
@@ -192,6 +196,8 @@ export function WorkspacePrimarySection({
           onCategoryChange={onCategoryChange}
           onLoadSkillDetail={onLoadSkillDetail}
           onOpenPath={onOpenPath}
+          onCopySkill={onCopySkill}
+          onMoveSkill={onMoveSkill}
           onSearchValueChange={onSearchValueChange}
           searchValue={searchValue}
           selectedCategory={selectedCategory}

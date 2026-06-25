@@ -37,7 +37,9 @@ const api: SkillManagerApi = {
   validateDirectory: (targetPath) => ipcRenderer.invoke("skill-manager:validate-directory", targetPath),
   openPath: (targetPath) => ipcRenderer.invoke("skill-manager:open-path", targetPath),
   pickArchiveFile: () => ipcRenderer.invoke("skill-manager:pick-archive-file"),
-  pickDirectory: (initialPath) => ipcRenderer.invoke("skill-manager:pick-directory", initialPath),
+  pickDirectory: (initialPath?: string) => ipcRenderer.invoke("skill-manager:pick-directory", initialPath),
+  copySkill: (input) => ipcRenderer.invoke("skill-manager:copy-skill", input),
+  moveSkill: (input) => ipcRenderer.invoke("skill-manager:move-skill", input),
   getPathForFile: (file) => webUtils.getPathForFile(file),
   getLastKnownFilePath: () => lastKnownFilePath
 };

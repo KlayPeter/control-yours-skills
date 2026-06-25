@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderOpen, Folder, Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
 import { IconActionButton, ProviderInstallButtons } from "../ui/buttons";
@@ -76,12 +76,18 @@ export function WorkspaceTreeNodeRow({
           type="button"
         >
           {isFolder ? (
-            open ? <ChevronDown className="h-4 w-4 shrink-0 app-text-soft" /> : <ChevronRight className="h-4 w-4 shrink-0 app-text-soft" />
+            <div className="flex items-center gap-2">
+              {open ? <ChevronDown className="h-4 w-4 shrink-0 app-text-soft" /> : <ChevronRight className="h-4 w-4 shrink-0 app-text-soft" />}
+              <Folder className="h-4 w-4 shrink-0 text-blue-500/80 dark:text-blue-400/80" />
+            </div>
           ) : (
-            <div className="w-4 shrink-0" />
+            <div className="flex items-center gap-2">
+              <div className="w-4 shrink-0" />
+              <Sparkles className="h-4 w-4 shrink-0 text-amber-500/80 dark:text-amber-400/80" />
+            </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium app-text" title={node.name}>{node.name}</p>
+            <p className={cn("truncate text-[13px] app-text", isFolder ? "font-semibold" : "font-medium")} title={node.name}>{node.name}</p>
             {node.description ? <p className="mt-1 line-clamp-2 text-[11px] app-text-soft" title={node.description}>{node.description}</p> : null}
           </div>
         </button>

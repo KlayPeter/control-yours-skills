@@ -1,4 +1,4 @@
-import { Eye, FolderOpen, Search } from "lucide-react";
+import { Eye, FolderOpen, Search, Copy, Move } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { InstalledSkillRecord, SkillCategoryRecord, SkillManagerSnapshot } from "@shared/contracts";
 
@@ -19,6 +19,8 @@ export function SkillsSection({
   onSearchValueChange,
   onLoadSkillDetail,
   onOpenPath,
+  onCopySkill,
+  onMoveSkill,
   categories,
   selectedCategory,
   onCategoryChange,
@@ -31,6 +33,8 @@ export function SkillsSection({
   onSearchValueChange: (value: string) => void;
   onLoadSkillDetail: (id: string) => AsyncActionResult;
   onOpenPath: (path: string) => AsyncActionResult;
+  onCopySkill: (id: string) => AsyncActionResult;
+  onMoveSkill: (id: string) => AsyncActionResult;
   categories: SkillCategoryRecord[];
   selectedCategory: string;
   onCategoryChange: (value: string) => void;
@@ -128,6 +132,16 @@ export function SkillsSection({
                     </p>
                   </div>
                   <div className="flex flex-wrap justify-end gap-2">
+                    <IconActionButton
+                      icon={Copy}
+                      label="复制到"
+                      onClick={() => onCopySkill(skill.id)}
+                    />
+                    <IconActionButton
+                      icon={Move}
+                      label="移动到"
+                      onClick={() => onMoveSkill(skill.id)}
+                    />
                     <IconActionButton
                       icon={FolderOpen}
                       label={t.openFolder}

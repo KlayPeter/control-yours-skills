@@ -519,7 +519,9 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     pickDirectory,
     rescanInstalledSkill,
     createSkillCategory,
-    installWorkspaceSkill
+    installWorkspaceSkill,
+    copySkill,
+    moveSkill
   } = useSkillManager(initialSkillId);
   const [remoteUrl, setRemoteUrl] = useState("");
   const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
@@ -553,6 +555,10 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     sourceRoot: string;
     skillRootPath: string;
     providerKey: WorkspaceSkillProviderKey;
+  } | null>(null);
+  const [moveCopyContext, setMoveCopyContext] = useState<{
+    id: string;
+    action: "copy" | "move";
   } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(globalSidebarCollapsed);
 
@@ -1187,6 +1193,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     onRemoveProject={handleRemoveProject}
                     onRemoveStaged={removeStagedSources}
                     onCreateCategory={handleCreateCategory}
+                    onCopySkill={(id) => setMoveCopyContext({ id, action: "copy" })}
+                    onMoveSkill={(id) => setMoveCopyContext({ id, action: "move" })}
                     onCategoryChange={setSelectedCategoryFilter}
                     onSaveSettings={() => saveSettings(settingsDraft)}
                     onSearchValueChange={setSearchValue}
@@ -1243,6 +1251,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveProject={handleRemoveProject}
                   onRemoveStaged={removeStagedSources}
                   onCreateCategory={handleCreateCategory}
+                  onCopySkill={(id) => setMoveCopyContext({ id, action: "copy" })}
+                  onMoveSkill={(id) => setMoveCopyContext({ id, action: "move" })}
                   onCategoryChange={setSelectedCategoryFilter}
                   onSaveSettings={() => saveSettings(settingsDraft)}
                   onSearchValueChange={setSearchValue}
@@ -1310,6 +1320,76 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 }}
               >
                 确认安装
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {moveCopyContext && snapshot ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm transition-opacity dark:bg-black/60" onClick={() => setMoveCopyContext(null)}>
+          <div className="app-panel flex w-full max-w-[400px] flex-col overflow-hidden p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold tracking-tight app-text mb-2">
+              {moveCopyContext.action === "copy" ? "复制到" : "移动到"}
+            </h3>
+            <p className="text-sm leading-relaxed app-text-soft mb-4">
+              请选择目标目录
+            </p>
+            
+            <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto mb-6">
+              {snapshot.systemSkillSources.map((source) => (
+                <button
+                  key={source.id}
+                  className="app-button flex items-center justify-start text-left w-full h-auto py-2 px-3"
+                  onClick={() => {
+                    const action = moveCopyContext.action === "copy" ? copySkill : moveSkill;
+                    void action({ id: moveCopyContext.id, targetDir: source.path });
+                    setMoveCopyContext(null);
+                  }}
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium">{source.key}</span>
+                    <span className="text-xs text-opacity-60 truncate">{source.path}</span>
+                  </div>
+                </button>
+              ))}
+              {snapshot.installCategories.map((category) => (
+                <button
+                  key={category.id}
+                  className="app-button flex items-center justify-start text-left w-full h-auto py-2 px-3"
+                  onClick={() => {
+                    const action = moveCopyContext.action === "copy" ? copySkill : moveSkill;
+                    void action({ id: moveCopyContext.id, targetDir: category.path });
+                    setMoveCopyContext(null);
+                  }}
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium">分类: {category.name}</span>
+                    <span className="text-xs text-opacity-60 truncate">{category.path}</span>
+                  </div>
+                </button>
+              ))}
+              <button
+                className="app-button flex items-center justify-center text-left w-full mt-2"
+                onClick={async () => {
+                  const result = await pickDirectory();
+                  if (result?.data) {
+                    const action = moveCopyContext.action === "copy" ? copySkill : moveSkill;
+                    void action({ id: moveCopyContext.id, targetDir: result.data });
+                    setMoveCopyContext(null);
+                  }
+                }}
+              >
+                选择其他目录...
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-2 pt-4 border-t border-white/10">
+              <button 
+                className="app-button" 
+                onClick={() => setMoveCopyContext(null)}
+              >
+                取消
               </button>
             </div>
           </div>

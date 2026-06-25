@@ -152,7 +152,7 @@ function parseStringList(raw: string, fallbackValue = "") {
 }
 
 function normalizeCategoryName(value: string) {
-  return value.trim().replace(/[\\/]+/g, "-").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  return value.trim().replace(/\\+/g, "/").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").replace(/^\/|\/$/g, "");
 }
 
 function toSettingsRecord(row: SettingsRow): SettingsRecord {
@@ -250,6 +250,112 @@ export class SkillManagerBackend {
   readonly database: Database.Database;
   environmentCache: EnvironmentInfo | null = null;
 
+  async syncPhysicalSkills(installRoot: string) {
+    if (!installRoot || !fs.existsSync(installRoot)) return [];
+    
+    const discoveredSkills: { installPath: string; category: string | null; name: string; description: string | null; slug: string }[] = [];
+    const discoveredCategories = new Set<string>();
+
+    const scanDirectory = async (dirPath: string, currentDepth: number, maxDepth: number, parentCategory: string | null) => {
+      try {
+        const entries = await fsp.readdir(dirPath, { withFileTypes: true });
+        
+        const isSkill = entries.some(e => e.isFile() && e.name === "SKILL.md");
+        if (isSkill) {
+          try {
+            const parsed = await detectSkillDirectory(dirPath);
+            discoveredSkills.push({
+              installPath: dirPath,
+              category: parentCategory,
+              name: parsed.name || path.basename(dirPath),
+              description: parsed.description,
+              slug: path.basename(dirPath)
+            });
+          } catch {
+            discoveredSkills.push({
+              installPath: dirPath,
+              category: parentCategory,
+              name: path.basename(dirPath),
+              description: null,
+              slug: path.basename(dirPath)
+            });
+          }
+          return;
+        }
+
+        let thisCategory = parentCategory;
+        if (currentDepth > 0) {
+          thisCategory = parentCategory ? `${parentCategory}/${path.basename(dirPath)}` : path.basename(dirPath);
+          discoveredCategories.add(thisCategory);
+        }
+
+        if (currentDepth < maxDepth) {
+          for (const entry of entries) {
+            if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+              const subDir = path.join(dirPath, entry.name);
+              await scanDirectory(subDir, currentDepth + 1, maxDepth, thisCategory);
+            }
+          }
+        }
+      } catch {}
+    };
+
+    await scanDirectory(installRoot, 0, 2, null);
+
+    const existingSkills = this.database.prepare("select * from installed_skills").all() as InstalledRow[];
+    const existingMap = new Map(existingSkills.map(s => [s.install_path, s]));
+
+    const insertStmt = this.database.prepare(
+      `insert into installed_skills (
+        id, name, slug, description, category, install_path, skill_md_path, source_type, source_value, installed_at, updated_at
+      ) values (
+        @id, @name, @slug, @description, @category, @installPath, @skillMdPath, @sourceType, @sourceValue, @installedAt, @updatedAt
+      )`
+    );
+    const updateStmt = this.database.prepare(
+      `update installed_skills set category = @category, name = @name, description = @description where install_path = @installPath`
+    );
+    const deleteStmt = this.database.prepare("delete from installed_skills where install_path = ?");
+
+    const tx = (this.database as any).transaction(() => {
+      for (const skill of discoveredSkills) {
+        const existing = existingMap.get(skill.installPath);
+        if (existing) {
+          updateStmt.run({
+            installPath: skill.installPath,
+            category: skill.category,
+            name: skill.name,
+            description: skill.description
+          });
+          existingMap.delete(skill.installPath);
+        } else {
+          insertStmt.run({
+            id: randomUUID(),
+            name: skill.name,
+            slug: skill.slug,
+            description: skill.description,
+            category: skill.category,
+            installPath: skill.installPath,
+            skillMdPath: path.join(skill.installPath, "SKILL.md"),
+            sourceType: "localDir",
+            sourceValue: skill.installPath,
+            installedAt: nowIso(),
+            updatedAt: nowIso()
+          });
+        }
+      }
+
+      for (const existing of existingMap.values()) {
+        if (existing.install_path.startsWith(installRoot) && !fs.existsSync(existing.install_path)) {
+          deleteStmt.run(existing.install_path);
+        }
+      }
+    });
+
+    tx();
+    return Array.from(discoveredCategories);
+  }
+
   constructor(userDataPath: string) {
     this.paths = resolveRuntimePaths(userDataPath);
     this.database = createDatabase(this.paths);
@@ -259,8 +365,15 @@ export class SkillManagerBackend {
     const settings = this.getSettings();
     const environment = await this.getEnvironmentInfo();
     const stagedSources = this.listStagedSources();
+    
+    // Sync physical folders to DB before fetching installed skills
+    await this.syncPhysicalSkills(settings.installDir.trim());
+
     const installedSkills = this.listInstalledSkills();
     const installCategories = await this.listInstallCategories(settings, installedSkills);
+    const installDirTree = settings.installDir && fs.existsSync(settings.installDir) 
+      ? await scanProjectTree(settings.installDir, true)
+      : [];
     const importedProjects = await this.getImportedProjects(settings.projectDirs);
     const workspaceTree = this.buildWorkspaceTreeFromProjects(importedProjects);
     const workspaceSkillSources = importedProjects.flatMap((project) => project.sources);
@@ -294,6 +407,7 @@ export class SkillManagerBackend {
       stagedSources,
       installedSkills,
       installCategories,
+      installDirTree,
       importedProjects,
       workspaceTree,
       workspaceSkillSources,
@@ -1033,7 +1147,15 @@ export class SkillManagerBackend {
       return [];
     }
 
-    const discovered = new Set(settings.skillCategories.map((item) => this.resolveInstallCategory(item)).filter(Boolean));
+    // syncPhysicalSkills is already called in getSnapshot, so we can just read from physical folders again quickly
+    // or just rely on what is in the DB now. Actually, let's keep it calling sync to be safe and to get the empty folders.
+    const physicalCategories = await this.syncPhysicalSkills(installDir);
+
+    const discovered = new Set([
+      ...settings.skillCategories.map((item) => this.resolveInstallCategory(item)).filter(Boolean),
+      ...physicalCategories
+    ]);
+
     for (const skill of installedSkills) {
       if (skill.category) {
         discovered.add(skill.category);
@@ -1061,8 +1183,16 @@ export class SkillManagerBackend {
     const projects = await Promise.all(
       projectDirs.map(async (projectDir) => {
         const sources = await scanWorkspaceSkillSources(projectDir);
-        const skillCount = sources.reduce((total, source) => total + source.skillCount, 0);
         const tree = await scanProjectTree(projectDir);
+        
+        let skillCount = 0;
+        const countSkills = (nodes: any[]) => {
+          for (const node of nodes) {
+            if (node.kind === "skill") skillCount++;
+            if (node.children) countSkills(node.children);
+          }
+        };
+        countSkills(tree);
 
         return {
           id: projectDir,
@@ -1456,6 +1586,57 @@ export class SkillManagerBackend {
       cwd: workingDirectory,
       windowsHide: true
     });
+  }
+
+  async copySkill(input: { id: string; targetDir: string }): Promise<OperationResult<void>> {
+    try {
+      const skillRow = this.database.prepare("select * from installed_skills where id = ?").get(input.id) as any;
+      if (!skillRow) return { ok: false, error: "Skill not found in database." };
+      
+      const targetPath = path.join(input.targetDir, skillRow.slug);
+      if (fs.existsSync(targetPath)) {
+        return { ok: false, error: `Target directory already exists: ${targetPath}` };
+      }
+      
+      await fsp.cp(skillRow.install_path, targetPath, { recursive: true });
+      await this.writeLog("install", "info", `Copied skill: ${skillRow.name}`, `${skillRow.install_path} -> ${targetPath}`, skillRow.id);
+      
+      // Sync it so it's registered immediately if it's in the installDir
+      const settings = this.getSettings();
+      if (targetPath.startsWith(settings.installDir)) {
+         await this.syncPhysicalSkills(settings.installDir);
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Failed to copy skill." };
+    }
+  }
+
+  async moveSkill(input: { id: string; targetDir: string }): Promise<OperationResult<void>> {
+    try {
+      const skillRow = this.database.prepare("select * from installed_skills where id = ?").get(input.id) as any;
+      if (!skillRow) return { ok: false, error: "Skill not found in database." };
+      
+      const targetPath = path.join(input.targetDir, skillRow.slug);
+      if (fs.existsSync(targetPath)) {
+        return { ok: false, error: `Target directory already exists: ${targetPath}` };
+      }
+      
+      await fsp.cp(skillRow.install_path, targetPath, { recursive: true });
+      await fsp.rm(skillRow.install_path, { recursive: true, force: true });
+      
+      this.database.prepare("delete from installed_skills where id = ?").run(skillRow.id);
+      await this.writeLog("install", "info", `Moved skill: ${skillRow.name}`, `${skillRow.install_path} -> ${targetPath}`, skillRow.id);
+      
+      // Sync it so it's registered immediately if it's in the installDir
+      const settings = this.getSettings();
+      if (targetPath.startsWith(settings.installDir)) {
+         await this.syncPhysicalSkills(settings.installDir);
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Failed to move skill." };
+    }
   }
 
   private async writeLog(

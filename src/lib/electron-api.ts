@@ -43,6 +43,7 @@ const fallbackSnapshot: SkillManagerSnapshot = {
   stagedSources: [],
   installedSkills: [],
   installCategories: [],
+  installDirTree: [],
   importedProjects: [],
   workspaceTree: [],
   workspaceSkillSources: [],
@@ -114,6 +115,8 @@ const browserFallbackApi: SkillManagerApi = {
   openPath: async () => unavailableResult<void>(),
   pickArchiveFile: async () => ({ ok: true, data: null }),
   pickDirectory: async () => ({ ok: true, data: null }),
+  copySkill: async () => ({ ok: true, data: undefined }),
+  moveSkill: async () => ({ ok: true, data: undefined }),
   getPathForFile: (file: File) => (file as unknown as { path?: string }).path || file.name,
   getLastKnownFilePath: () => ""
 };

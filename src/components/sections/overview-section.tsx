@@ -1,6 +1,6 @@
 import { Eye, FolderOpen, HardDriveDownload, Search, ShieldAlert, Trash2, UploadCloud } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceSkillSource } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceSkillSource, WorkspaceTreeNode } from "@shared/contracts";
 
 import { SectionCard, CapabilityCard } from "../ui/cards";
 import { OverviewMetric, RelativeTimeText } from "../ui/typography";
@@ -14,6 +14,19 @@ type AsyncActionResult<T = unknown> = void | Promise<T>;
 
 function providerStatus(source: WorkspaceSkillSource, t: TranslationDictionary) {
   return source.exists ? t.providerFound : t.providerMissing;
+}
+
+function countSkillsInTree(nodes: WorkspaceTreeNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node.kind === "skill") {
+      count++;
+    }
+    if (node.children && node.children.length > 0) {
+      count += countSkillsInTree(node.children);
+    }
+  }
+  return count;
 }
 
 export function OverviewSection({
@@ -50,7 +63,7 @@ export function OverviewSection({
   const systemSkillCount = snapshot.systemSkillSources.reduce((total, source) => total + source.skillCount, 0);
   const detectedSystemSources = snapshot.systemSkillSources.filter((source) => source.exists).length;
   const importedProjectCount = snapshot.importedProjects.length;
-  const importedProjectSkillCount = snapshot.importedProjects.reduce((total, project) => total + project.skillCount, 0);
+  const importedProjectSkillCount = snapshot.importedProjects.reduce((total, project) => total + countSkillsInTree(project.tree), 0);
 
   return (
     <div className="space-y-6">
@@ -188,7 +201,7 @@ export function OverviewSection({
                     <p className="font-medium app-text">{project.name}</p>
                     <p className="mt-2 break-all text-sm leading-6 app-text-soft">{project.path}</p>
                     <p className="mt-2 text-xs app-text-soft">
-                      {t.skillCount}: {project.skillCount}
+                      {t.skillCount}: {countSkillsInTree(project.tree)}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -210,6 +223,38 @@ export function OverviewSection({
           </div>
         ) : (
           <EmptyState title={t.projectDirectories} description={t.projectDirectoriesSubtitle} />
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title={t.localInstallDirectory || "本地安装目录 (Local Install Directory)"}
+        subtitle={t.localInstallDirectorySubtitle || "查看和管理您本地统一归档的技能与分类"}
+      >
+        {installPathConfigured && snapshot.installDirTree ? (
+          <div className="app-card overflow-hidden">
+            <div className="flex items-start justify-between gap-4 p-5">
+              <div className="min-w-0">
+                <p className="font-medium app-text">{snapshot.settings.installDir}</p>
+                <p className="mt-2 text-xs app-text-soft">
+                  {t.skillCount}: {countSkillsInTree(snapshot.installDirTree)}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <IconActionButton icon={FolderOpen} label={t.openFolder} onClick={() => void onOpenPath(snapshot.settings.installDir)} />
+              </div>
+            </div>
+            <div className="border-t border-black/10 dark:border-white/10 px-5 py-4">
+              <WorkspaceTree
+                emptyMessage={t.projectTreeEmpty}
+                nodes={snapshot.installDirTree}
+                onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+                onOpenPath={onOpenPath}
+                projectRoot={snapshot.settings.installDir}
+              />
+            </div>
+          </div>
+        ) : (
+          <EmptyState title={t.capabilityInstallTitle} description={t.installPathRequiredBody} />
         )}
       </SectionCard>
 

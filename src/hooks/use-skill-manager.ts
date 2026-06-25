@@ -389,8 +389,20 @@ export function useSkillManager(initialSkillId?: string) {
 
       return result;
     },
-    pickArchiveFile: async () => api.pickArchiveFile(),
-    pickDirectory: async (initialPath?: string) => api.pickDirectory(initialPath),
+    pickArchiveFile: () => api.pickArchiveFile(),
+    pickDirectory: (initialPath?: string) => api.pickDirectory(initialPath),
+    copySkill: (input: { id: string; targetDir: string }) =>
+      runAction("正在复制...", async () => {
+        const result = await api.copySkill(input);
+        if (!result.ok) throw new Error(result.error || "复制失败");
+        setNotice("复制成功");
+      }),
+    moveSkill: (input: { id: string; targetDir: string }) =>
+      runAction("正在移动...", async () => {
+        const result = await api.moveSkill(input);
+        if (!result.ok) throw new Error(result.error || "移动失败");
+        setNotice("移动成功");
+      }),
     rescanInstalledSkill: (skillId: string) =>
       runAction(t.busyRescanningSkill, async () => {
         const result = await api.rescanInstalledSkill(skillId);
