@@ -75,13 +75,13 @@ export function WorkspaceNavSidebar({
   return (
     <aside className="app-sidebar">
       <div className="app-sidebar-inner">
-        <div className={cn("flex flex-col", sidebarCollapsed ? "items-center gap-4 px-0 pt-4" : "gap-5 px-2 pt-3")}>
+        <div className={cn("flex flex-col", sidebarCollapsed ? "items-center gap-4 px-0 pt-4" : "gap-5 px-2 pt-1.5")}>
           <div className={cn("flex items-center w-full", sidebarCollapsed ? "justify-center" : "justify-end")}>
             <button
               type="button"
               className={cn(
                 "flex shrink-0 items-center justify-center app-text transition-all",
-                sidebarCollapsed ? "h-10 w-10 rounded-[16px] app-surface-subtle shadow-[0_12px_24px_rgba(15,23,42,0.18)]" : "h-7 w-7 rounded-[8px] hover:bg-black/5 dark:hover:bg-white/5"
+                sidebarCollapsed ? "h-10 w-10 rounded-[16px] app-surface-subtle shadow-[0_12px_24px_rgba(15,23,42,0.18)]" : "h-6 w-6 rounded-[6px] hover:bg-black/5 dark:hover:bg-white/5"
               )}
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
