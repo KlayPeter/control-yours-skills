@@ -81,7 +81,7 @@ export function WorkspaceNavSidebar({
               type="button"
               className={cn(
                 "flex shrink-0 items-center justify-center app-text transition-all",
-                sidebarCollapsed ? "h-10 w-10 rounded-[16px] app-surface-subtle shadow-[0_12px_24px_rgba(15,23,42,0.18)]" : "h-5 w-5 rounded-[4px] hover:bg-black/5 dark:hover:bg-white/5"
+                sidebarCollapsed ? "h-8 w-8 rounded-[10px] hover:bg-black/5 dark:hover:bg-white/5" : "h-5 w-5 rounded-[4px] hover:bg-black/5 dark:hover:bg-white/5"
               )}
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
