@@ -71,7 +71,7 @@ export function WorkspaceTreeNodeRow({
         <button
           className={cn(
             "flex min-w-0 flex-1 items-center gap-3 text-left before:absolute before:inset-0 transition-all duration-150",
-            isFolder ? "group-hover:pr-[40px]" : "group-hover:pr-[100px] cursor-default"
+            isFolder ? "pr-[40px]" : "pr-[140px] cursor-default"
           )}
           onClick={() => {
             if (isFolder) {

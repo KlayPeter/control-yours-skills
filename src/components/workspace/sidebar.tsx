@@ -118,7 +118,7 @@ export function SidebarWorkspaceTreeNode({
         <button
           className={cn(
             "flex min-w-0 flex-1 items-center gap-2 text-left before:absolute before:inset-0 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-signal/45 focus-visible:outline-none rounded-md",
-            isFolder ? "" : "group-hover:pr-[96px]"
+            isFolder ? "" : "pr-[96px]"
           )}
           onClick={() => {
             if (isFolder) {
