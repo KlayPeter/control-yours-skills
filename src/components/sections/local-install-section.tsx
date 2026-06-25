@@ -22,6 +22,7 @@ export function LocalInstallSection({
   onOpenPath,
   onInstallWorkspaceSkill,
   onCreateWorkspaceFolder,
+  onCopyWorkspaceSkill,
   searchValue,
   onSearchValueChange
 }: {
@@ -39,6 +40,10 @@ export function LocalInstallSection({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
+  onCopyWorkspaceSkill?: (input: {
+    sourceNode: { kind: string; absolutePath: string; skill?: { rootPath: string } };
+    targetDirectory: string;
+  }) => AsyncActionResult;
   onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
@@ -204,6 +209,8 @@ export function LocalInstallSection({
             projectRoot={snapshot.settings.installDir || ""}
             onOpenPath={onOpenPath}
             onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+            onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+            importedProjects={snapshot.importedProjects}
             emptyMessage={t.projectTreeEmpty || "没有找到可安装的技能"}
           />
         </div>

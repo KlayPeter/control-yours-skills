@@ -193,6 +193,7 @@ export function WorkspacePrimarySection({
           t={t}
           onOpenPath={onOpenPath}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+          onCopyWorkspaceSkill={onCopyWorkspaceSkill}
           onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
