@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder, FolderOpen, Sparkles } from "lucide-react";
 import type { WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
+import { cn } from "@/lib/cn";
 import { ProviderInstallButtons } from "../ui/buttons";
 
 export function SidebarWorkspaceTree({
@@ -71,7 +72,12 @@ export function SidebarWorkspaceTreeNode({
 
   return (
     <div>
-      <div className="group relative flex items-center gap-2 rounded-xl px-2 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 overflow-hidden">
+      <div className={cn(
+        "group relative flex items-center gap-2 rounded-xl transition-colors overflow-hidden",
+        isFolder 
+          ? "px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
+          : "px-2 py-2 my-1 border border-black/5 dark:border-white/5 bg-white dark:bg-white/5 shadow-sm hover:border-black/15 dark:hover:border-white/15"
+      )}>
         <button
           className="flex min-w-0 flex-1 items-center gap-2 text-left before:absolute before:inset-0"
           onClick={() => {
@@ -84,15 +90,20 @@ export function SidebarWorkspaceTreeNode({
           type="button"
         >
           {isFolder ? (
-            open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 app-text-soft" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 app-text-soft" />
+            <div className="flex items-center gap-1.5">
+              {open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 app-text-soft" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 app-text-soft" />}
+              <Folder className="h-3.5 w-3.5 shrink-0 text-blue-500/80 dark:text-blue-400/80" />
+            </div>
           ) : (
-            <div className="w-3.5 shrink-0" />
+            <div className="flex items-center justify-center h-6 w-6 rounded-md bg-gradient-to-br from-amber-500/20 to-orange-500/10 dark:from-amber-400/25 dark:to-orange-500/15 shrink-0 border border-amber-500/30 dark:border-amber-400/30 shadow-sm">
+              <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-300" />
+            </div>
           )}
-          <span className="truncate text-[13px] app-text" title={node.name}>{node.name}</span>
+          <span className={cn("truncate app-text", isFolder ? "text-[13px]" : "text-[12px] font-medium")} title={node.name}>{node.name}</span>
         </button>
 
         {node.kind === "skill" && node.skill ? (
-          <div className="absolute right-0 top-0 bottom-0 flex items-center gap-1 px-1 bg-slate-100 dark:bg-slate-800 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
+          <div className="absolute right-0 top-0 bottom-0 flex items-center gap-1 px-2 bg-gradient-to-l from-white via-white dark:from-[#121212] dark:via-[#121212] to-transparent opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
             <ProviderInstallButtons
               onInstall={(providerKey) => {
                 void onInstallWorkspaceSkill(projectRoot, node.skill!.rootPath, providerKey);

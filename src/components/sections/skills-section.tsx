@@ -1,15 +1,74 @@
 import { Eye, FolderOpen, Search, Copy, Move } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { InstalledSkillRecord, SkillCategoryRecord, SkillManagerSnapshot } from "@shared/contracts";
+import type { InstalledSkillRecord, SkillCategoryRecord, SkillManagerSnapshot, WorkspaceTreeNode } from "@shared/contracts";
 
 import { SectionCard } from "../ui/cards";
-import { SourceBadge } from "../ui/badges";
 import { IconActionButton } from "../ui/buttons";
-import { OverviewMetric, RelativeTimeText } from "../ui/typography";
+import { OverviewMetric } from "../ui/typography";
 import { EmptyState } from "../ui/empty-state";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
+
+interface GlobalSkillItem {
+  id: string;
+  name: string;
+  description: string | null;
+  installPath: string;
+  locationLabel: string;
+  sourceTypeLabel: string;
+  category: string | null;
+}
+
+function traverseTree(
+  nodes: WorkspaceTreeNode[],
+  locationLabel: string,
+  sourceTypeLabel: string,
+  category: string | null,
+  result: GlobalSkillItem[]
+) {
+  for (const node of nodes) {
+    if (node.kind === "skill" && node.skill) {
+      result.push({
+        id: node.skill.id,
+        name: node.skill.name,
+        description: node.skill.description,
+        installPath: node.skill.rootPath,
+        locationLabel,
+        sourceTypeLabel,
+        category: category
+      });
+    } else if (node.kind === "folder" && node.children) {
+      traverseTree(node.children, locationLabel, sourceTypeLabel, category || node.name, result);
+    }
+  }
+}
+
+function getAllSkills(snapshot: SkillManagerSnapshot): GlobalSkillItem[] {
+  const result: GlobalSkillItem[] = [];
+  
+  if (snapshot.installDirTree) {
+    traverseTree(snapshot.installDirTree, "默认安装目录", "Local", null, result);
+  }
+
+  if (snapshot.systemSkillSources) {
+    for (const source of snapshot.systemSkillSources) {
+      if (source.exists && source.tree) {
+        traverseTree(source.tree, source.label, "System", null, result);
+      }
+    }
+  }
+
+  if (snapshot.importedProjects) {
+    for (const project of snapshot.importedProjects) {
+      if (project.tree) {
+        traverseTree(project.tree, project.name, "Project", null, result);
+      }
+    }
+  }
+
+  return result;
+}
 
 export function SkillsSection({
   t,
@@ -40,31 +99,31 @@ export function SkillsSection({
   onCategoryChange: (value: string) => void;
   snapshot: SkillManagerSnapshot;
 }) {
-  const activeCategoryCount = categories.filter((category) => category.skillCount > 0).length;
-  const sourceTypeCount = new Set(installedSkills.map((skill) => skill.sourceType)).size;
+  const allSkills = getAllSkills(snapshot);
+  
+  let displayedSkills = allSkills;
+  
+  if (searchValue) {
+    const q = searchValue.toLowerCase();
+    displayedSkills = displayedSkills.filter(
+      (s) => s.name.toLowerCase().includes(q) || (s.description && s.description.toLowerCase().includes(q))
+    );
+  }
+  
+  if (selectedCategory) {
+    displayedSkills = displayedSkills.filter((s) => s.category === selectedCategory);
+  }
 
-  const getLocationLabel = (installPath: string) => {
-    if (!installPath) return "未知目录";
-    if (snapshot.settings.installDir && installPath.startsWith(snapshot.settings.installDir)) {
-      return "默认安装目录";
-    }
-    const codex = snapshot.systemSkillSources.find((s) => s.key === "codex");
-    if (codex && installPath.startsWith(codex.path)) return "Codex 目录";
-    const claude = snapshot.systemSkillSources.find((s) => s.key === "claude");
-    if (claude && installPath.startsWith(claude.path)) return "Claude 目录";
-    const agents = snapshot.systemSkillSources.find((s) => s.key === "agents");
-    if (agents && installPath.startsWith(agents.path)) return "Agent 目录";
-
-    return "历史/其他目录";
-  };
+  const activeCategoryCount = new Set(allSkills.map(s => s.category).filter(Boolean)).size;
+  const locationCount = new Set(allSkills.map(s => s.locationLabel)).size;
 
   return (
     <div className="space-y-6">
-      <SectionCard title={t.installedSkills} subtitle={t.installedSkillsSubtitle}>
+      <SectionCard title="全局搜索库" subtitle="汇总所有目录和项目下的技能，方便跨目录统一搜索和管理。">
         <div className="mb-5 grid gap-4 md:grid-cols-3">
-          <OverviewMetric label={t.overviewMetricInstalled} value={installedSkills.length} />
-          <OverviewMetric label={t.installedMetricCategories} value={activeCategoryCount} />
-          <OverviewMetric label={t.installedMetricSourceTypes} value={sourceTypeCount} />
+          <OverviewMetric label="总技能数" value={allSkills.length} />
+          <OverviewMetric label="有效分类数" value={activeCategoryCount} />
+          <OverviewMetric label="来源目录数" value={locationCount} />
         </div>
 
         <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr),220px]">
@@ -83,17 +142,17 @@ export function SkillsSection({
             value={selectedCategory}
           >
             <option value="">{t.allCategories}</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.name}>
-                {category.name}
+            {Array.from(new Set(allSkills.map(s => s.category).filter(Boolean))).map((cat) => (
+              <option key={cat as string} value={cat as string}>
+                {cat}
               </option>
             ))}
           </select>
         </div>
 
-        {installedSkills.length ? (
+        {displayedSkills.length ? (
           <div className="space-y-3">
-            {installedSkills.map((skill) => (
+            {displayedSkills.map((skill) => (
               <div
                 key={skill.id}
                 className={cn(
@@ -111,10 +170,14 @@ export function SkillsSection({
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-base font-semibold tracking-tight app-text">{skill.name}</p>
-                      <SourceBadge source={skill.sourceType} t={t} />
                       <span className="app-tag border border-white/10 bg-white/5 text-white/70 tracking-normal normal-case">
-                        {getLocationLabel(skill.installPath)}
+                        {skill.locationLabel}
                       </span>
+                      {skill.sourceTypeLabel && (
+                        <span className="app-tag border border-white/10 bg-white/5 text-white/70 tracking-normal normal-case">
+                          {skill.sourceTypeLabel}
+                        </span>
+                      )}
                       {skill.category ? <span className="app-tag normal-case tracking-normal">{skill.category}</span> : null}
                     </div>
                     <p className="mt-3 text-sm leading-6 app-text-soft">
@@ -124,9 +187,6 @@ export function SkillsSection({
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-5 py-4">
                   <div className="flex flex-col gap-1">
-                    <p className="text-xs app-text-soft">
-                      <RelativeTimeText value={skill.installedAt} />
-                    </p>
                     <p className="text-[11px] font-mono opacity-60 app-text-soft break-all" title={skill.installPath}>
                       {skill.installPath}
                     </p>

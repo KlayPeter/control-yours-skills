@@ -176,7 +176,7 @@ async function scanProjectTreeDirectory(
     }
 
     const children = await scanProjectTreeDirectory(projectRoot, absolutePath, depth + 1, includeEmptyFolders);
-    if (children.length > 0 || includeEmptyFolders) {
+    if (children.length > 0 || (includeEmptyFolders && depth === 0)) {
       nodes.push({
         id: `folder:${absolutePath}`,
         kind: "folder",

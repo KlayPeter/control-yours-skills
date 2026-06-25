@@ -713,11 +713,7 @@ export class SkillManagerBackend {
           )
           .run(record);
 
-        this.updateStagedSource(id, {
-          status: "installed",
-          installPath,
-          updatedAt: nowIso()
-        });
+        this.database.prepare("delete from staged_sources where id = ?").run(id);
 
         await this.writeLog("install", "info", `Installed skill: ${record.name}`, installPath, id);
         installed.push(record);

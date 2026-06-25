@@ -64,14 +64,27 @@ export function OverviewSection({
   const detectedSystemSources = snapshot.systemSkillSources.filter((source) => source.exists).length;
   const importedProjectCount = snapshot.importedProjects.length;
   const importedProjectSkillCount = snapshot.importedProjects.reduce((total, project) => total + countSkillsInTree(project.tree), 0);
+  const installDirSkillCount = snapshot.installDirTree ? countSkillsInTree(snapshot.installDirTree) : 0;
 
   return (
     <div className="space-y-6">
       <SectionCard title={t.capabilityOverviewTitle} subtitle={t.capabilityOverviewSubtitle}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <OverviewMetric label={t.overviewMetricInstalled} value={snapshot.summary.installedCount} />
+          <OverviewMetric label={t.overviewMetricInstalled} value={installDirSkillCount} />
           <OverviewMetric label={t.overviewMetricStaged} value={snapshot.summary.stagedCount} />
-          <OverviewMetric label={t.overviewMetricSystem} value={`${detectedSystemSources}/${snapshot.systemSkillSources.length}`} />
+          
+          <div className="app-card p-4 flex flex-col">
+            <p className="text-xs uppercase tracking-[0.16em] app-text-soft mb-3">{t.overviewMetricSystem}</p>
+            <div className="flex flex-col gap-1.5 flex-1 justify-center">
+              {snapshot.systemSkillSources.map(s => (
+                <div key={s.id} className="flex justify-between items-center">
+                   <span className="text-sm font-medium app-text">{s.label}</span>
+                   <span className="text-sm font-semibold app-text-soft">{s.skillCount}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
           <OverviewMetric label={t.overviewMetricProjects} value={importedProjectCount} />
         </div>
 

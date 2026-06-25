@@ -81,9 +81,8 @@ export function WorkspaceTreeNodeRow({
               <Folder className="h-4 w-4 shrink-0 text-blue-500/80 dark:text-blue-400/80" />
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <div className="w-4 shrink-0" />
-              <Sparkles className="h-4 w-4 shrink-0 text-amber-500/80 dark:text-amber-400/80" />
+            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/10 dark:from-amber-400/25 dark:to-orange-500/15 shrink-0 border border-amber-500/30 dark:border-amber-400/30 shadow-sm">
+              <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-300" />
             </div>
           )}
           <div className="min-w-0 flex-1">
