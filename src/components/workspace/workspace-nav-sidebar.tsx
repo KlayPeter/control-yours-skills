@@ -75,7 +75,7 @@ export function WorkspaceNavSidebar({
   return (
     <aside className="app-sidebar">
       <div className="app-sidebar-inner">
-        <div className={cn("flex flex-col", sidebarCollapsed ? "items-center gap-4 px-0 pt-1" : "gap-5 px-2 pt-0.5")}>
+        <div className={cn("flex flex-col", sidebarCollapsed ? "items-center gap-4 px-0 pt-8" : "gap-5 px-2 pt-0.5")}>
           <div className={cn("flex items-center w-full", sidebarCollapsed ? "justify-center" : "justify-end")}>
             <button
               type="button"
