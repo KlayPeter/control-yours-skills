@@ -138,7 +138,7 @@ export function WorkspaceDetailPanel({
               <StatusIndicator status={selectedStagedDetail.status} t={t} />
             </div>
             {isRemoteSource ? (
-              <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
                 {t.remoteSourceAnalysisOnly}
               </div>
             ) : null}
