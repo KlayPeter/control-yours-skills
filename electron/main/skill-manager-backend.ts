@@ -1024,6 +1024,22 @@ export class SkillManagerBackend {
     }
   }
 
+  async createWorkspaceFolder(input: { parentPath: string; folderName: string }): Promise<OperationResult<void>> {
+    try {
+      if (!input.folderName.trim()) {
+        return { ok: false, error: "Folder name cannot be empty." };
+      }
+      
+      const targetPath = path.join(input.parentPath, input.folderName.trim());
+      await fsp.mkdir(targetPath, { recursive: true });
+      
+      return { ok: true, data: undefined };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create folder.";
+      return { ok: false, error: message };
+    }
+  }
+
   async createSkillCategory(name: string): Promise<OperationResult<SkillCategoryRecord>> {
     const settings = this.getSettings();
     const installDir = settings.installDir.trim();

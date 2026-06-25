@@ -99,13 +99,17 @@ const browserFallbackApi: SkillManagerApi = {
     void _input;
     return unavailableResult<string>();
   },
-  installWorkspaceSkill: async (_input: InstallWorkspaceSkillInput) => {
+  installWorkspaceSkill: async (_input: any) => {
     void _input;
-    return unavailableResult<string>();
+    return unavailableResult<any>();
   },
   copyWorkspaceSkillToDirectory: async (_input: any) => {
     void _input;
-    return unavailableResult<string>();
+    return unavailableResult<any>();
+  },
+  createWorkspaceFolder: async (_input: any) => {
+    void _input;
+    return unavailableResult<void>();
   },
   createSkillCategory: async () => unavailableResult(),
   saveSettings: async () => unavailableResult<SettingsRecord>(),

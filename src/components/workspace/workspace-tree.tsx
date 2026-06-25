@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FolderOpen, Folder, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderOpen, Folder, Sparkles, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { WorkspaceSkillProviderKey, WorkspaceTreeNode, ImportedProjectRecord, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { IconActionButton } from "../ui/buttons";
@@ -15,6 +15,8 @@ export function WorkspaceTree({
   onCopyWorkspaceSkill,
   importedProjects,
   localInstallDir,
+  installDirTree,
+  onCreateWorkspaceFolder,
   emptyMessage
 }: {
   nodes: WorkspaceTreeNode[];
@@ -26,8 +28,10 @@ export function WorkspaceTree({
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
   onCopyWorkspaceSkill?: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
+  onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   importedProjects?: ImportedProjectRecord[];
   localInstallDir?: string;
+  installDirTree?: WorkspaceTreeNode[];
   emptyMessage: string;
 }) {
   const [copyTargetNode, setCopyTargetNode] = useState<{ node: WorkspaceTreeNode; rootPath: string } | null>(null);
@@ -59,42 +63,23 @@ export function WorkspaceTree({
       ))}
 
       {isLocalModalOpen && copyTargetNode && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold app-text mb-4">确认复制到本地</h2>
-            <p className="text-sm app-text-soft mb-6">
-              即将把技能 <strong>{copyTargetNode.node.name}</strong> 复制到当前的本地配置目录：
-              <br />
-              <code className="text-xs bg-black/5 dark:bg-white/5 px-1 py-0.5 rounded mt-2 inline-block">
-                {localInstallDir || "未设置本地目录"}
-              </code>
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                className="app-button px-4"
-                onClick={() => setIsLocalModalOpen(false)}
-              >
-                取消
-              </button>
-              <button
-                className="app-button-primary px-4"
-                onClick={() => {
-                  if (localInstallDir && onCopyWorkspaceSkill) {
-                    void onCopyWorkspaceSkill({
-                      sourceRoot: projectRoot,
-                      skillRootPath: copyTargetNode.rootPath,
-                      targetDirectory: localInstallDir
-                    });
-                  }
-                  setIsLocalModalOpen(false);
-                }}
-                disabled={!localInstallDir}
-              >
-                确认复制
-              </button>
-            </div>
-          </div>
-        </div>
+        <LocalFolderSelectionModal
+          nodeName={copyTargetNode.node.name}
+          localInstallDir={localInstallDir || ""}
+          installDirTree={installDirTree || []}
+          onClose={() => setIsLocalModalOpen(false)}
+          onCreateWorkspaceFolder={onCreateWorkspaceFolder}
+          onConfirm={(targetDirectory) => {
+            if (onCopyWorkspaceSkill) {
+              void onCopyWorkspaceSkill({
+                sourceRoot: projectRoot,
+                skillRootPath: copyTargetNode.rootPath,
+                targetDirectory
+              });
+            }
+            setIsLocalModalOpen(false);
+          }}
+        />
       )}
 
       {isProjectModalOpen && copyTargetNode && (
@@ -274,6 +259,145 @@ function ProjectSelectionModal({
             onClick={() => {
               const project = importedProjects.find(p => p.id === selectedProjectId);
               if (project) onConfirm(project.path);
+            }}
+          >
+            确认复制
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LocalFolderSelectionModal({
+  nodeName,
+  localInstallDir,
+  installDirTree,
+  onClose,
+  onConfirm,
+  onCreateWorkspaceFolder
+}: {
+  nodeName: string;
+  localInstallDir: string;
+  installDirTree: WorkspaceTreeNode[];
+  onClose: () => void;
+  onConfirm: (targetDirectory: string) => void;
+  onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
+}) {
+  const [selectedFolderId, setSelectedFolderId] = useState<string>("root");
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+
+  const folderNodes = installDirTree.filter(n => n.kind === "folder");
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim() || !onCreateWorkspaceFolder) return;
+    let parentPath = localInstallDir;
+    if (selectedFolderId !== "root") {
+      const selectedNode = folderNodes.find(n => n.id === selectedFolderId);
+      if (selectedNode) parentPath = selectedNode.absolutePath;
+    }
+
+    try {
+      await onCreateWorkspaceFolder({ parentPath, folderName: newFolderName.trim() });
+      setNewFolderName("");
+      setIsCreatingFolder(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+        <h2 className="text-lg font-semibold app-text mb-4">复制到本地分类</h2>
+        <p className="text-sm app-text-soft mb-4">
+          请选择要将技能 <strong>{nodeName}</strong> 复制到哪个目录：
+        </p>
+
+        <div className="max-h-[50vh] overflow-y-auto mb-6 border border-black/10 dark:border-white/10 rounded-lg">
+          <div className="flex flex-col">
+            <button
+              className={cn(
+                "flex items-center gap-2 px-4 py-3 text-left transition-colors border-b border-black/5 dark:border-white/5",
+                selectedFolderId === "root"
+                  ? "bg-blue-50 dark:bg-blue-900/20"
+                  : "hover:bg-black/5 dark:hover:bg-white/5"
+              )}
+              onClick={() => setSelectedFolderId("root")}
+            >
+              <Folder className={cn("h-4 w-4 shrink-0", selectedFolderId === "root" ? "text-blue-500" : "app-text-soft")} />
+              <div className="flex flex-col">
+                <span className={cn("text-sm font-medium", selectedFolderId === "root" ? "text-blue-600 dark:text-blue-400" : "app-text")}>根目录 (默认)</span>
+                <span className="text-xs app-text-soft truncate w-full mt-0.5" title={localInstallDir}>{localInstallDir}</span>
+              </div>
+            </button>
+            {folderNodes.map((folder) => (
+              <button
+                key={folder.id}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-3 pl-8 text-left transition-colors border-b border-black/5 dark:border-white/5 last:border-0",
+                  selectedFolderId === folder.id
+                    ? "bg-blue-50 dark:bg-blue-900/20"
+                    : "hover:bg-black/5 dark:hover:bg-white/5"
+                )}
+                onClick={() => setSelectedFolderId(folder.id)}
+              >
+                <Folder className={cn("h-4 w-4 shrink-0", selectedFolderId === folder.id ? "text-blue-500" : "app-text-soft")} />
+                <span className={cn("text-sm font-medium", selectedFolderId === folder.id ? "text-blue-600 dark:text-blue-400" : "app-text")}>{folder.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isCreatingFolder ? (
+          <div className="mb-6 flex items-center gap-2 p-3 bg-black/5 dark:bg-white/5 rounded-lg border border-black/10 dark:border-white/10">
+            <input
+              type="text"
+              autoFocus
+              className="flex-1 bg-transparent text-sm app-text focus:outline-none"
+              placeholder="输入新文件夹名称..."
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleCreateFolder();
+                if (e.key === 'Escape') {
+                  setIsCreatingFolder(false);
+                  setNewFolderName("");
+                }
+              }}
+            />
+            <button className="text-xs font-medium text-blue-500 hover:text-blue-600" onClick={() => void handleCreateFolder()}>创建</button>
+            <button className="text-xs font-medium app-text-soft hover:app-text" onClick={() => { setIsCreatingFolder(false); setNewFolderName(""); }}>取消</button>
+          </div>
+        ) : (
+          <div className="mb-6 flex justify-start">
+            <button 
+              className="flex items-center gap-1.5 text-sm font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+              onClick={() => setIsCreatingFolder(true)}
+            >
+              <FolderPlus className="h-4 w-4" />
+              新建分类文件夹
+            </button>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3">
+          <button className="app-button px-4" onClick={onClose}>
+            取消
+          </button>
+          <button
+            className="app-button-primary px-4"
+            disabled={!localInstallDir}
+            onClick={() => {
+              if (selectedFolderId === "root") {
+                onConfirm(localInstallDir);
+              } else {
+                const selectedNode = folderNodes.find(n => n.id === selectedFolderId);
+                if (selectedNode) {
+                  onConfirm(selectedNode.absolutePath);
+                }
+              }
             }}
           >
             确认复制

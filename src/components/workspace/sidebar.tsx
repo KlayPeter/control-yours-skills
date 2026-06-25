@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Folder, FolderOpen, Sparkles } from "lucide-
 import type { WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
 import { cn } from "@/lib/cn";
 import { SkillInstallMenu } from "./skill-install-menu";
+import { LocalFolderSelectionModal } from "./workspace-tree";
 
 const expandedStateStore = new Map<string, boolean>();
 
@@ -13,8 +14,10 @@ export function SidebarWorkspaceTree({
   onOpenPath,
   onInstallWorkspaceSkill,
   onCopyWorkspaceSkill,
+  onCreateWorkspaceFolder,
   importedProjects,
   localInstallDir,
+  installDirTree,
   defaultOpen = true
 }: {
   rootLabel: string;
@@ -27,8 +30,10 @@ export function SidebarWorkspaceTree({
     providerKey: WorkspaceSkillProviderKey
   ) => Promise<unknown>;
   onCopyWorkspaceSkill?: (input: any) => Promise<unknown>;
+  onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => Promise<unknown>;
   importedProjects?: any[];
   localInstallDir?: string;
+  installDirTree?: WorkspaceTreeNode[];
   defaultOpen?: boolean;
 }) {
   const nodeId = `root-${rootPath}`;
@@ -95,42 +100,23 @@ export function SidebarWorkspaceTree({
       ) : null}
 
       {isLocalModalOpen && copyTargetNode && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold app-text mb-4">确认复制到本地</h2>
-            <p className="text-sm app-text-soft mb-6">
-              即将把技能 <strong>{copyTargetNode.node.name}</strong> 复制到当前的本地配置目录：
-              <br />
-              <code className="text-xs bg-black/5 dark:bg-white/5 px-1 py-0.5 rounded mt-2 inline-block">
-                {localInstallDir || "未设置本地目录"}
-              </code>
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                className="app-button px-4"
-                onClick={() => setIsLocalModalOpen(false)}
-              >
-                取消
-              </button>
-              <button
-                className="app-button-primary px-4"
-                onClick={() => {
-                  if (localInstallDir && onCopyWorkspaceSkill) {
-                    void onCopyWorkspaceSkill({
-                      sourceRoot: rootPath,
-                      skillRootPath: copyTargetNode.rootPath,
-                      targetDirectory: localInstallDir
-                    });
-                  }
-                  setIsLocalModalOpen(false);
-                }}
-                disabled={!localInstallDir}
-              >
-                确认复制
-              </button>
-            </div>
-          </div>
-        </div>
+        <LocalFolderSelectionModal
+          nodeName={copyTargetNode.node.name}
+          localInstallDir={localInstallDir || ""}
+          installDirTree={installDirTree || []}
+          onClose={() => setIsLocalModalOpen(false)}
+          onCreateWorkspaceFolder={onCreateWorkspaceFolder}
+          onConfirm={(targetDirectory) => {
+            if (onCopyWorkspaceSkill) {
+              void onCopyWorkspaceSkill({
+                sourceRoot: rootPath,
+                skillRootPath: copyTargetNode.rootPath,
+                targetDirectory
+              });
+            }
+            setIsLocalModalOpen(false);
+          }}
+        />
       )}
 
       {isProjectModalOpen && copyTargetNode && (

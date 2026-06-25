@@ -63,6 +63,7 @@ export function WorkspacePrimarySection({
   onOpenLogsFromOverview,
   onInstallWorkspaceSkill,
   onCopyWorkspaceSkill,
+  onCreateWorkspaceFolder,
   onCopySkill,
   onMoveSkill,
   onCategoryChange,
@@ -125,6 +126,7 @@ export function WorkspacePrimarySection({
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
   onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
+  onCreateWorkspaceFolder: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   onSearchValueChange: (value: string) => void;
   onPickInstallDir: () => AsyncActionResult;
   onValidateInstallDir: () => AsyncActionResult;
@@ -173,6 +175,7 @@ export function WorkspacePrimarySection({
           onOpenPath={onOpenPath}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
           onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+          onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />
@@ -203,6 +206,7 @@ export function WorkspacePrimarySection({
           onRemoveProject={onRemoveProject}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
           onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+          onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />

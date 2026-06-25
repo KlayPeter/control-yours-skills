@@ -456,6 +456,14 @@ export function useSkillManager(initialSkillId?: string) {
 
         setNotice(t.workspaceSkillCopied);
         return result.data;
+      }),
+    createWorkspaceFolder: (input: { parentPath: string; folderName: string }) =>
+      runAction("创建分类文件夹中...", async () => {
+        const result = await api.createWorkspaceFolder(input);
+        if (!result.ok) {
+          throw new Error(result.error || "创建分类文件夹失败");
+        }
+        await refresh();
       })
   };
 }

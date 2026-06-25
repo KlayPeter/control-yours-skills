@@ -265,8 +265,9 @@ export interface SkillManagerApi {
   getInstalledSkillDetail(id: string): Promise<OperationResult<InstalledSkillDetail>>;
   rescanInstalledSkill(id: string): Promise<OperationResult<InstalledSkillDetail>>;
   exportInstalledSkill(input: ExportInstalledSkillInput): Promise<OperationResult<string>>;
-  installWorkspaceSkill(input: InstallWorkspaceSkillInput): Promise<OperationResult<string>>;
-  copyWorkspaceSkillToDirectory(input: CopyWorkspaceSkillInput): Promise<OperationResult<string>>;
+  installWorkspaceSkill(input: InstallWorkspaceSkillInput): Promise<OperationResult<InstalledSkillDetail>>;
+  copyWorkspaceSkillToDirectory(input: CopyWorkspaceSkillInput): Promise<OperationResult<void>>;
+  createWorkspaceFolder(input: { parentPath: string; folderName: string }): Promise<OperationResult<void>>;
   createSkillCategory(name: string): Promise<OperationResult<SkillCategoryRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;
   validateDirectory(targetPath: string): Promise<DirectoryValidationResult>;

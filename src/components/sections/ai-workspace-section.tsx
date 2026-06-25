@@ -17,6 +17,7 @@ export function AiWorkspaceSection({
   onOpenPath,
   onInstallWorkspaceSkill,
   onCopyWorkspaceSkill,
+  onCreateWorkspaceFolder,
   onCopyLocal,
   onCopyProject,
   searchValue,
@@ -32,6 +33,7 @@ export function AiWorkspaceSection({
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
   onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
+  onCreateWorkspaceFolder: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   onCopyLocal?: (skillRootPath: string) => void;
   onCopyProject?: (skillRootPath: string) => void;
   searchValue: string;
@@ -144,8 +146,10 @@ export function AiWorkspaceSection({
                 onOpenPath={onOpenPath}
                 onInstallWorkspaceSkill={onInstallWorkspaceSkill}
                 onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+                onCreateWorkspaceFolder={onCreateWorkspaceFolder}
                 importedProjects={snapshot.importedProjects}
                 localInstallDir={snapshot.settings.installDir}
+                installDirTree={snapshot.installDirTree}
                 emptyMessage={t.projectTreeEmpty || "暂无技能"}
               />
             </div>

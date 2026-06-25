@@ -31,7 +31,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const {
     router, snapshot, busyLabel, notice, error, isRefreshing, selectedSkillDetail,
     selectedStagedDetail, setNotice, setError, clearSelectedStagedDetail, refresh,
-    openPath, installWorkspaceSkill, copyWorkspaceSkillToDirectory,
+    openPath, installWorkspaceSkill, copyWorkspaceSkillToDirectory, createWorkspaceFolder,
     settingsDraft, setSettingsDraft, modalState, setModalState, stagedModalOpen,
     setStagedModalOpen, installConfirmContext, setInstallConfirmContext,
     moveCopyContext, setMoveCopyContext, sidebarTab, setSidebarTab, sidebarCollapsed,
@@ -177,6 +177,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
           openPath={openPath}
           handleInstallWorkspaceSkill={handleInstallWorkspaceSkill}
           onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
+          onCreateWorkspaceFolder={createWorkspaceFolder}
         />
 
         <div className="flex min-h-screen flex-col xl:h-screen xl:overflow-y-auto">
@@ -265,6 +266,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveStaged={removeStagedSources}
                   onCreateCategory={handleCreateCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
+                  onCreateWorkspaceFolder={createWorkspaceFolder}
                   onSaveSettings={() => saveSettings(settingsDraft)}
                   onSearchValueChange={setSearchValue}
                   searchValue={searchValue}
@@ -327,6 +329,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveStaged={removeStagedSources}
                   onCreateCategory={handleCreateCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
+                  onCreateWorkspaceFolder={createWorkspaceFolder}
                   onSaveSettings={() => saveSettings(settingsDraft)}
                   onSearchValueChange={setSearchValue}
                   searchValue={searchValue}

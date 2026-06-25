@@ -16,6 +16,7 @@ export function ProjectsSection({
   onRemoveProject,
   onInstallWorkspaceSkill,
   onCopyWorkspaceSkill,
+  onCreateWorkspaceFolder,
   searchValue,
   onSearchValueChange
 }: {
@@ -29,6 +30,7 @@ export function ProjectsSection({
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
   onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
+  onCreateWorkspaceFolder: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -107,8 +109,10 @@ export function ProjectsSection({
                   onOpenPath={onOpenPath}
                   onInstallWorkspaceSkill={onInstallWorkspaceSkill}
                   onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+                  onCreateWorkspaceFolder={onCreateWorkspaceFolder}
                   importedProjects={snapshot.importedProjects}
                   localInstallDir={snapshot.settings.installDir}
+                  installDirTree={snapshot.installDirTree}
                   emptyMessage={t.projectTreeEmpty || "这个项目里还没有识别到可安装的 Skill 文件夹。"}
                 />
               </div>

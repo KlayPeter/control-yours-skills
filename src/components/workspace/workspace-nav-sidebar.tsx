@@ -45,8 +45,9 @@ interface WorkspaceNavSidebarProps {
   handleQuickChooseInstallDir: () => void;
   snapshot: SkillManagerSnapshot | null;
   openPath: (path: string) => void;
-  handleInstallWorkspaceSkill: (sourceRoot: string, skillRootPath: string, providerKey: WorkspaceSkillProviderKey) => Promise<unknown>;
-  onCopyWorkspaceSkill?: (input: any) => Promise<unknown>;
+  handleInstallWorkspaceSkill: (sourceRoot: string, skillRootPath: string, providerKey: WorkspaceSkillProviderKey) => Promise<void>;
+  onCopyWorkspaceSkill: (input: { sourceRoot: string; skillRootPath: string; targetDirectory: string }) => Promise<void>;
+  onCreateWorkspaceFolder: (input: { parentPath: string; folderName: string }) => Promise<void>;
   setSidebarTab: (val: "projects" | "installDir") => void;
   pendingCount: number;
   failureCount: number;
@@ -67,7 +68,8 @@ export function WorkspaceNavSidebar({
   pendingCount,
   failureCount,
   handleImportProject,
-  onCopyWorkspaceSkill
+  onCopyWorkspaceSkill,
+  onCreateWorkspaceFolder
 }: WorkspaceNavSidebarProps) {
   return (
     <aside className="app-sidebar">
@@ -178,8 +180,10 @@ export function WorkspaceNavSidebar({
                       }}
                       onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
                       onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+                      onCreateWorkspaceFolder={onCreateWorkspaceFolder}
                       importedProjects={snapshot?.importedProjects}
                       localInstallDir={snapshot?.settings?.installDir}
+                      installDirTree={snapshot?.installDirTree}
                       rootLabel={project.name}
                       rootPath={project.path}
                     />
@@ -196,8 +200,10 @@ export function WorkspaceNavSidebar({
                     }}
                     onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
                     onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+                    onCreateWorkspaceFolder={onCreateWorkspaceFolder}
                     importedProjects={snapshot.importedProjects}
                     localInstallDir={snapshot.settings.installDir}
+                    installDirTree={snapshot.installDirTree}
                     rootLabel="安装目录"
                     rootPath={snapshot.settings.installDir}
                   />
