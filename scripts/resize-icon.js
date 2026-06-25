@@ -6,19 +6,19 @@ async function resizeIcon() {
   const temp = 'build/icon_temp.png';
   
   await sharp(original)
-    .extract({ left: 51, top: 51, width: 410, height: 410 })
-    .resize(460, 460, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .extract({ left: 26, top: 26, width: 460, height: 460 })
+    .resize(436, 436, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .extend({
-      top: 26,
-      bottom: 26,
-      left: 26,
-      right: 26,
+      top: 38,
+      bottom: 38,
+      left: 38,
+      right: 38,
       background: { r: 0, g: 0, b: 0, alpha: 0 }
     })
     .toFile(temp);
     
   fs.renameSync(temp, original);
-  console.log('Icon enlarged successfully!');
+  console.log('Icon resized to 436 (85%) successfully!');
 }
 
 resizeIcon().catch(console.error);
