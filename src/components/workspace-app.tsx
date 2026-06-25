@@ -65,8 +65,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
       t={t}
     />
   );
-  const showDetailLayout =
-    Boolean(detailPanel) && (section === "local-install" || section === "projects" || section === "staged" || section === "logs");
+  const showDetailLayout = false; // Disabled for now as per user request
 
   return (
     <div className="app-shell app-grid min-h-screen app-text">
