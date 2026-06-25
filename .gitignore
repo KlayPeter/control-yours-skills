@@ -11,3 +11,4 @@ release/
 tsconfig.tsbuildinfo
 npm-debug.log*
 .norgore
+.agent

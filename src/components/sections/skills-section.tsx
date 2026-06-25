@@ -1,6 +1,6 @@
 import { Eye, FolderOpen, Search, Copy, Move } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { InstalledSkillRecord, SkillCategoryRecord, SkillManagerSnapshot, WorkspaceTreeNode } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceTreeNode } from "@shared/contracts";
 
 import { SectionCard } from "../ui/cards";
 import { IconActionButton } from "../ui/buttons";
@@ -72,7 +72,6 @@ function getAllSkills(snapshot: SkillManagerSnapshot): GlobalSkillItem[] {
 
 export function SkillsSection({
   t,
-  installedSkills,
   selectedSkillId,
   searchValue,
   onSearchValueChange,
@@ -80,13 +79,11 @@ export function SkillsSection({
   onOpenPath,
   onCopySkill,
   onMoveSkill,
-  categories,
   selectedCategory,
   onCategoryChange,
   snapshot
 }: {
   t: TranslationDictionary;
-  installedSkills: InstalledSkillRecord[];
   selectedSkillId: string | null;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
@@ -94,7 +91,6 @@ export function SkillsSection({
   onOpenPath: (path: string) => AsyncActionResult;
   onCopySkill: (id: string) => AsyncActionResult;
   onMoveSkill: (id: string) => AsyncActionResult;
-  categories: SkillCategoryRecord[];
   selectedCategory: string;
   onCategoryChange: (value: string) => void;
   snapshot: SkillManagerSnapshot;
@@ -168,7 +164,7 @@ export function SkillsSection({
                     onClick={() => void onLoadSkillDetail(skill.id)}
                     type="button"
                   >
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 focus-visible:ring-2 focus-visible:ring-signal/45 focus-visible:outline-none rounded-md">
                       <p className="text-base font-semibold tracking-tight app-text">{skill.name}</p>
                       <span className="app-tag border border-white/10 bg-white/5 text-white/70 tracking-normal normal-case">
                         {skill.locationLabel}

@@ -1213,7 +1213,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   <WorkspacePrimarySection
                     dropzone={dropzone}
                     installPathConfigured={installPathConfigured}
-                    installedSkills={installedSkills}
+                    _installedSkills={installedSkills}
                     onClearStaged={clearStagedSources}
                     onChooseInstallDir={handleQuickChooseInstallDir}
                     onGoImport={() => router.push("/import")}
@@ -1271,7 +1271,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 <WorkspacePrimarySection
                   dropzone={dropzone}
                   installPathConfigured={installPathConfigured}
-                  installedSkills={installedSkills}
+                  _installedSkills={installedSkills}
                   onClearStaged={clearStagedSources}
                   onChooseInstallDir={handleQuickChooseInstallDir}
                   onGoImport={() => router.push("/import")}

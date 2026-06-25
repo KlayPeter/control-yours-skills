@@ -10,11 +10,13 @@ import type {
 
 import { SectionCard } from "../ui/cards";
 import { OverviewSection } from "../sections/overview-section";
-import { ImportSection } from "../sections/import-section";
-import { StagedSection } from "../sections/staged-section";
-import { SkillsSection } from "../sections/skills-section";
-import { LogsSection } from "../sections/logs-section";
-import { SettingsSection } from "../sections/settings-section";
+import dynamic from 'next/dynamic';
+
+const ImportSection = dynamic(() => import('../sections/import-section').then(mod => mod.ImportSection));
+const StagedSection = dynamic(() => import('../sections/staged-section').then(mod => mod.StagedSection));
+const SkillsSection = dynamic(() => import('../sections/skills-section').then(mod => mod.SkillsSection));
+const LogsSection = dynamic(() => import('../sections/logs-section').then(mod => mod.LogsSection));
+const SettingsSection = dynamic(() => import('../sections/settings-section').then(mod => mod.SettingsSection));
 
 type TranslationDictionary = Record<string, string>;
 type WorkspaceSection = "overview" | "import" | "staged" | "skills" | "logs" | "settings";
@@ -35,7 +37,7 @@ export function WorkspacePrimarySection({
   selectedSkillId,
   selectedLogId,
   searchValue,
-  installedSkills,
+  _installedSkills,
   settingsDraft,
   setSettingsDraft,
   dropzone,
@@ -84,7 +86,7 @@ export function WorkspacePrimarySection({
   selectedSkillId: string | null;
   selectedLogId: string | null;
   searchValue: string;
-  installedSkills: InstalledSkillRecord[];
+  _installedSkills: InstalledSkillRecord[];
   settingsDraft: SaveSettingsInput;
   setSettingsDraft: Dispatch<SetStateAction<SaveSettingsInput>>;
   dropzone: DropzoneState;
@@ -191,8 +193,6 @@ export function WorkspacePrimarySection({
     case "skills":
       return (
         <SkillsSection
-          categories={snapshot.installCategories}
-          installedSkills={installedSkills}
           onCategoryChange={onCategoryChange}
           onLoadSkillDetail={onLoadSkillDetail}
           onOpenPath={onOpenPath}

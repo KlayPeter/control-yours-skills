@@ -45,9 +45,10 @@ export function SidebarWorkspaceTree({
   return (
     <div className="rounded-[14px] border border-white/10 bg-black/10">
       <button
-        className="flex w-full items-center gap-2.5 px-2.5 py-2 text-left"
+        className="flex w-full items-center gap-2.5 px-2.5 py-2 text-left focus-visible:ring-2 focus-visible:ring-signal/45 focus-visible:outline-none rounded-xl"
         onClick={toggleOpen}
         type="button"
+        aria-label={open ? `Collapse ${rootLabel}` : `Expand ${rootLabel}`}
       >
         {open ? <ChevronDown className="h-4 w-4 shrink-0 app-text-soft" /> : <ChevronRight className="h-4 w-4 shrink-0 app-text-soft" />}
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] text-app-text-soft bg-black/5 dark:bg-white/5 shadow-[inset_0_0_0_1px_var(--app-border)]">
@@ -109,14 +110,14 @@ export function SidebarWorkspaceTreeNode({
   return (
     <div>
       <div className={cn(
-        "group relative flex items-center gap-2 rounded-xl transition-all overflow-hidden",
+        "group relative flex items-center gap-2 rounded-xl transition-colors overflow-hidden",
         isFolder 
           ? "px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
           : "px-2 py-2 my-0.5 border border-transparent hover:border-black/5 dark:hover:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm"
       )}>
         <button
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2 text-left before:absolute before:inset-0 transition-all duration-150",
+            "flex min-w-0 flex-1 items-center gap-2 text-left before:absolute before:inset-0 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-signal/45 focus-visible:outline-none rounded-md",
             isFolder ? "" : "group-hover:pr-[96px]"
           )}
           onClick={() => {
@@ -127,6 +128,7 @@ export function SidebarWorkspaceTreeNode({
             }
           }}
           type="button"
+          aria-label={isFolder ? (open ? `Collapse ${node.name}` : `Expand ${node.name}`) : `Open ${node.name}`}
         >
           {isFolder ? (
             <div className="flex items-center gap-1.5">
@@ -138,7 +140,7 @@ export function SidebarWorkspaceTreeNode({
               <Sparkles className="h-3.5 w-3.5 text-amber-600 dark:text-amber-300" />
             </div>
           )}
-          <span className={cn("truncate app-text", isFolder ? "text-[13px]" : "text-[12px] font-medium")} title={node.name}>{node.name}</span>
+          <span className={cn("truncate app-text min-w-0", isFolder ? "text-[13px]" : "text-[12px] font-medium")} title={node.name}>{node.name}</span>
         </button>
 
         {node.kind === "skill" && node.skill ? (
