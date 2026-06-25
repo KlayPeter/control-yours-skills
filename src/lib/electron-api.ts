@@ -103,6 +103,10 @@ const browserFallbackApi: SkillManagerApi = {
     void _input;
     return unavailableResult<string>();
   },
+  copyWorkspaceSkillToDirectory: async (_input: any) => {
+    void _input;
+    return unavailableResult<string>();
+  },
   createSkillCategory: async () => unavailableResult(),
   saveSettings: async () => unavailableResult<SettingsRecord>(),
   validateDirectory: async (targetPath: string): Promise<DirectoryValidationResult> => ({

@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 import { countSkillsInTree } from "@/lib/tree-utils";
@@ -15,6 +15,7 @@ export function ProjectsSection({
   onOpenPath,
   onRemoveProject,
   onInstallWorkspaceSkill,
+  onCopyWorkspaceSkill,
   searchValue,
   onSearchValueChange
 }: {
@@ -27,6 +28,7 @@ export function ProjectsSection({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
+  onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -104,6 +106,9 @@ export function ProjectsSection({
                   projectRoot={project.path}
                   onOpenPath={onOpenPath}
                   onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+                  onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+                  importedProjects={snapshot.importedProjects}
+                  localInstallDir={snapshot.settings.installDir}
                   emptyMessage={t.projectTreeEmpty || "这个项目里还没有识别到可安装的 Skill 文件夹。"}
                 />
               </div>

@@ -5,7 +5,8 @@ import type {
   SaveSettingsInput,
   SkillManagerSnapshot,
   WorkspaceSkillProviderKey,
-  WorkspaceSkillSource
+  WorkspaceSkillSource,
+  CopyWorkspaceSkillInput
 } from "@shared/contracts";
 
 import { SectionCard } from "../ui/cards";
@@ -61,6 +62,7 @@ export function WorkspacePrimarySection({
   onSelectLog,
   onOpenLogsFromOverview,
   onInstallWorkspaceSkill,
+  onCopyWorkspaceSkill,
   onCopySkill,
   onMoveSkill,
   onCategoryChange,
@@ -122,6 +124,7 @@ export function WorkspacePrimarySection({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
+  onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
   onSearchValueChange: (value: string) => void;
   onPickInstallDir: () => AsyncActionResult;
   onValidateInstallDir: () => AsyncActionResult;
@@ -168,6 +171,8 @@ export function WorkspacePrimarySection({
           t={t}
           onOpenSystemSourceModal={onOpenSystemSourceModal}
           onOpenPath={onOpenPath}
+          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+          onCopyWorkspaceSkill={onCopyWorkspaceSkill}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />
@@ -197,6 +202,7 @@ export function WorkspacePrimarySection({
           onOpenPath={onOpenPath}
           onRemoveProject={onRemoveProject}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+          onCopyWorkspaceSkill={onCopyWorkspaceSkill}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type {
   InstallWorkspaceSkillInput,
+  CopyWorkspaceSkillInput,
   InstalledSkillDetail,
   Locale,
   SaveSettingsInput,
@@ -31,6 +32,7 @@ const copy: Record<
     busyExportingSkill: string;
     busyRefreshingWorkspace: string;
     busyInstallingWorkspaceSkill: string;
+    busyCopyingWorkspaceSkill: string;
     settingsSaved: string;
     failedToSaveSettings: string;
     zipImportedAndParsed: string;
@@ -52,6 +54,8 @@ const copy: Record<
     failedToExportSkill: string;
     workspaceSkillInstalled: string;
     failedToInstallWorkspaceSkill: string;
+    workspaceSkillCopied: string;
+    failedToCopyWorkspaceSkill: string;
   }
 > = {
   "zh-CN": {
@@ -69,6 +73,7 @@ const copy: Record<
     busyExportingSkill: "正在导出技能",
     busyRefreshingWorkspace: "正在刷新工作区",
     busyInstallingWorkspaceSkill: "正在安装工作区技能",
+    busyCopyingWorkspaceSkill: "正在复制工作区技能",
     settingsSaved: "设置已保存。",
     failedToSaveSettings: "保存设置失败。",
     zipImportedAndParsed: "ZIP 已导入并解析。",
@@ -89,7 +94,9 @@ const copy: Record<
     skillExported: "技能已导出到目标目录。",
     failedToExportSkill: "导出技能失败。",
     workspaceSkillInstalled: "工作区技能已安装到系统目录。",
-    failedToInstallWorkspaceSkill: "安装工作区技能失败。"
+    failedToInstallWorkspaceSkill: "安装工作区技能失败。",
+    workspaceSkillCopied: "工作区技能已复制。",
+    failedToCopyWorkspaceSkill: "复制工作区技能失败。"
   },
   en: {
     failedToLoadSelectedSkill: "Failed to load the selected skill.",
@@ -106,6 +113,7 @@ const copy: Record<
     busyExportingSkill: "Exporting skill",
     busyRefreshingWorkspace: "Refreshing workspace",
     busyInstallingWorkspaceSkill: "Installing workspace skill",
+    busyCopyingWorkspaceSkill: "Copying workspace skill",
     settingsSaved: "Settings saved.",
     failedToSaveSettings: "Failed to save settings.",
     zipImportedAndParsed: "ZIP archive imported and parsed.",
@@ -126,7 +134,9 @@ const copy: Record<
     skillExported: "Skill exported to the target directory.",
     failedToExportSkill: "Failed to export the skill.",
     workspaceSkillInstalled: "Workspace skill installed to the system directory.",
-    failedToInstallWorkspaceSkill: "Failed to install the workspace skill."
+    failedToInstallWorkspaceSkill: "Failed to install the workspace skill.",
+    workspaceSkillCopied: "Workspace skill copied.",
+    failedToCopyWorkspaceSkill: "Failed to copy the workspace skill."
   }
 };
 
@@ -435,6 +445,16 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.workspaceSkillInstalled);
+        return result.data;
+      }),
+    copyWorkspaceSkillToDirectory: (input: CopyWorkspaceSkillInput) =>
+      runAction(t.busyCopyingWorkspaceSkill, async () => {
+        const result = await api.copyWorkspaceSkillToDirectory(input);
+        if (!result.ok) {
+          throw new Error(result.error || t.failedToCopyWorkspaceSkill);
+        }
+
+        setNotice(t.workspaceSkillCopied);
         return result.data;
       })
   };

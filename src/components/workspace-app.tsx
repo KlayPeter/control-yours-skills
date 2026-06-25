@@ -31,7 +31,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const {
     router, snapshot, busyLabel, notice, error, isRefreshing, selectedSkillDetail,
     selectedStagedDetail, setNotice, setError, clearSelectedStagedDetail, refresh,
-    openPath, installWorkspaceSkill,
+    openPath, installWorkspaceSkill, copyWorkspaceSkillToDirectory,
     settingsDraft, setSettingsDraft, modalState, setModalState, stagedModalOpen,
     setStagedModalOpen, installConfirmContext, setInstallConfirmContext,
     moveCopyContext, setMoveCopyContext, sidebarTab, setSidebarTab, sidebarCollapsed,
@@ -176,6 +176,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
           snapshot={snapshot}
           openPath={openPath}
           handleInstallWorkspaceSkill={handleInstallWorkspaceSkill}
+          onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
         />
 
         <div className="flex min-h-screen flex-col xl:h-screen xl:overflow-y-auto">
@@ -263,6 +264,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveProject={handleRemoveProject}
                   onRemoveStaged={removeStagedSources}
                   onCreateCategory={handleCreateCategory}
+                  onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
                   onSaveSettings={() => saveSettings(settingsDraft)}
                   onSearchValueChange={setSearchValue}
                   searchValue={searchValue}
@@ -324,6 +326,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveProject={handleRemoveProject}
                   onRemoveStaged={removeStagedSources}
                   onCreateCategory={handleCreateCategory}
+                  onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
                   onSaveSettings={() => saveSettings(settingsDraft)}
                   onSearchValueChange={setSearchValue}
                   searchValue={searchValue}

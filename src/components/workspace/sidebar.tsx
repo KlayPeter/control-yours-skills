@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Folder, FolderOpen, Sparkles } from "lucide-react";
 import type { WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
 import { cn } from "@/lib/cn";
-import { ProviderInstallButtons } from "../ui/buttons";
+import { SkillInstallMenu } from "./skill-install-menu";
 
 const expandedStateStore = new Map<string, boolean>();
 
@@ -12,6 +12,9 @@ export function SidebarWorkspaceTree({
   nodes,
   onOpenPath,
   onInstallWorkspaceSkill,
+  onCopyWorkspaceSkill,
+  importedProjects,
+  localInstallDir,
   defaultOpen = true
 }: {
   rootLabel: string;
@@ -23,6 +26,9 @@ export function SidebarWorkspaceTree({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => Promise<unknown>;
+  onCopyWorkspaceSkill?: (input: any) => Promise<unknown>;
+  importedProjects?: any[];
+  localInstallDir?: string;
   defaultOpen?: boolean;
 }) {
   const nodeId = `root-${rootPath}`;
@@ -33,6 +39,10 @@ export function SidebarWorkspaceTree({
     expandedStateStore.set(nodeId, defaultOpen);
     return defaultOpen;
   });
+
+  const [copyTargetNode, setCopyTargetNode] = useState<{ node: WorkspaceTreeNode; rootPath: string } | null>(null);
+  const [isLocalModalOpen, setIsLocalModalOpen] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   const toggleOpen = () => {
     setOpen((current) => {
@@ -63,11 +73,112 @@ export function SidebarWorkspaceTree({
         <div className="border-t border-white/10 px-2 py-2">
           <div className="space-y-1">
             {nodes.map((node) => (
-              <SidebarWorkspaceTreeNode key={node.id} node={node} projectRoot={rootPath} onOpenPath={onOpenPath} onInstallWorkspaceSkill={onInstallWorkspaceSkill} defaultOpen={defaultOpen} />
+              <SidebarWorkspaceTreeNode 
+                key={node.id} 
+                node={node} 
+                projectRoot={rootPath} 
+                onOpenPath={onOpenPath} 
+                onInstallWorkspaceSkill={onInstallWorkspaceSkill} 
+                onCopyLocal={(skillRootPath) => {
+                  setCopyTargetNode({ node, rootPath: skillRootPath });
+                  setIsLocalModalOpen(true);
+                }}
+                onCopyProject={(skillRootPath) => {
+                  setCopyTargetNode({ node, rootPath: skillRootPath });
+                  setIsProjectModalOpen(true);
+                }}
+                defaultOpen={defaultOpen} 
+              />
             ))}
           </div>
         </div>
       ) : null}
+
+      {isLocalModalOpen && copyTargetNode && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+            <h2 className="text-lg font-semibold app-text mb-4">确认复制到本地</h2>
+            <p className="text-sm app-text-soft mb-6">
+              即将把技能 <strong>{copyTargetNode.node.name}</strong> 复制到当前的本地配置目录：
+              <br />
+              <code className="text-xs bg-black/5 dark:bg-white/5 px-1 py-0.5 rounded mt-2 inline-block">
+                {localInstallDir || "未设置本地目录"}
+              </code>
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                className="app-button px-4"
+                onClick={() => setIsLocalModalOpen(false)}
+              >
+                取消
+              </button>
+              <button
+                className="app-button-primary px-4"
+                onClick={() => {
+                  if (localInstallDir && onCopyWorkspaceSkill) {
+                    void onCopyWorkspaceSkill({
+                      sourceRoot: rootPath,
+                      skillRootPath: copyTargetNode.rootPath,
+                      targetDirectory: localInstallDir
+                    });
+                  }
+                  setIsLocalModalOpen(false);
+                }}
+                disabled={!localInstallDir}
+              >
+                确认复制
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isProjectModalOpen && copyTargetNode && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+            <h2 className="text-lg font-semibold app-text mb-4">复制到导入的项目</h2>
+            <p className="text-sm app-text-soft mb-4">
+              请选择要将 <strong>{copyTargetNode.node.name}</strong> 复制到哪个已导入的项目中。
+            </p>
+            <div className="mb-6 max-h-[40vh] overflow-y-auto space-y-2 pr-2">
+              {importedProjects && importedProjects.length > 0 ? (
+                importedProjects.map((project) => (
+                  <button
+                    key={project.id}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-left"
+                    onClick={() => {
+                      if (onCopyWorkspaceSkill) {
+                        void onCopyWorkspaceSkill({
+                          sourceRoot: rootPath,
+                          skillRootPath: copyTargetNode.rootPath,
+                          targetDirectory: project.path
+                        });
+                      }
+                      setIsProjectModalOpen(false);
+                    }}
+                  >
+                    <Folder className="h-5 w-5 shrink-0 text-blue-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium app-text truncate">{project.name}</p>
+                      <p className="text-[11px] app-text-soft truncate opacity-75">{project.path}</p>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p className="text-sm app-text-soft py-4 text-center">暂无已导入的项目。</p>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <button
+                className="app-button px-4"
+                onClick={() => setIsProjectModalOpen(false)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -77,6 +188,8 @@ export function SidebarWorkspaceTreeNode({
   projectRoot,
   onOpenPath,
   onInstallWorkspaceSkill,
+  onCopyLocal,
+  onCopyProject,
   defaultOpen = false
 }: {
   node: WorkspaceTreeNode;
@@ -87,6 +200,8 @@ export function SidebarWorkspaceTreeNode({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => Promise<unknown>;
+  onCopyLocal?: (skillRootPath: string) => void;
+  onCopyProject?: (skillRootPath: string) => void;
   defaultOpen?: boolean;
 }) {
   const nodeId = `node-${projectRoot}-${node.absolutePath}`;
@@ -97,6 +212,7 @@ export function SidebarWorkspaceTreeNode({
     expandedStateStore.set(nodeId, defaultOpen);
     return defaultOpen;
   });
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isFolder = node.kind === "folder";
 
   const toggleOpen = () => {
@@ -110,7 +226,8 @@ export function SidebarWorkspaceTreeNode({
   return (
     <div>
       <div className={cn(
-        "group relative flex items-center gap-2 rounded-xl transition-colors overflow-hidden",
+        "group relative flex items-center gap-2 rounded-xl transition-colors",
+        isMenuOpen ? "z-50" : "z-0",
         isFolder 
           ? "px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800"
           : "px-2 py-2 my-0.5 border border-transparent hover:border-black/5 dark:hover:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm"
@@ -144,11 +261,21 @@ export function SidebarWorkspaceTreeNode({
         </button>
 
         {node.kind === "skill" && node.skill ? (
-          <div className="absolute right-0 top-0 bottom-0 flex items-center gap-1 pr-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 z-10">
-            <ProviderInstallButtons
+          <div className={cn(
+            "absolute right-0 top-0 bottom-0 flex items-center gap-1 pr-2 transition-opacity duration-150 z-10",
+            isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}>
+            <SkillInstallMenu
               onInstall={(providerKey) => {
                 void onInstallWorkspaceSkill(projectRoot, node.skill!.rootPath, providerKey);
               }}
+              onCopyLocal={() => {
+                if (onCopyLocal) onCopyLocal(node.skill!.rootPath);
+              }}
+              onCopyProject={() => {
+                if (onCopyProject) onCopyProject(node.skill!.rootPath);
+              }}
+              onOpenChange={setIsMenuOpen}
             />
           </div>
         ) : null}
@@ -156,7 +283,16 @@ export function SidebarWorkspaceTreeNode({
       {isFolder && open && node.children.length ? (
         <div className="ml-[8px] border-l border-white/10 pl-[4px]">
           {node.children.map((child) => (
-            <SidebarWorkspaceTreeNode key={child.id} node={child} projectRoot={projectRoot} onOpenPath={onOpenPath} onInstallWorkspaceSkill={onInstallWorkspaceSkill} defaultOpen={defaultOpen} />
+            <SidebarWorkspaceTreeNode 
+              key={child.id} 
+              node={child} 
+              projectRoot={projectRoot} 
+              onOpenPath={onOpenPath} 
+              onInstallWorkspaceSkill={onInstallWorkspaceSkill} 
+              onCopyLocal={onCopyLocal}
+              onCopyProject={onCopyProject}
+              defaultOpen={defaultOpen} 
+            />
           ))}
         </div>
       ) : null}

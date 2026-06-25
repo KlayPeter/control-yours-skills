@@ -58,6 +58,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     rescanInstalledSkill,
     createSkillCategory,
     installWorkspaceSkill,
+    copyWorkspaceSkillToDirectory,
     copySkill,
     moveSkill
   } = useSkillManager(initialSkillId);
@@ -457,6 +458,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     rescanInstalledSkill,
     createSkillCategory,
     installWorkspaceSkill,
+    copyWorkspaceSkillToDirectory,
     copySkill,
     moveSkill,
     settingsDraft,

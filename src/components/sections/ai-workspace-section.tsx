@@ -1,6 +1,6 @@
 import { Search } from "lucide-react";
 import { useState, useEffect } from "react";
-import type { SkillManagerSnapshot, WorkspaceSkillSource, WorkspaceTreeNode } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceSkillSource, WorkspaceTreeNode, WorkspaceSkillProviderKey, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 import { countSkillsInTree } from "@/lib/tree-utils";
@@ -15,6 +15,10 @@ export function AiWorkspaceSection({
   t,
   onOpenSystemSourceModal,
   onOpenPath,
+  onInstallWorkspaceSkill,
+  onCopyWorkspaceSkill,
+  onCopyLocal,
+  onCopyProject,
   searchValue,
   onSearchValueChange
 }: {
@@ -22,6 +26,14 @@ export function AiWorkspaceSection({
   t: TranslationDictionary;
   onOpenSystemSourceModal: (source: WorkspaceSkillSource) => void;
   onOpenPath: (path: string) => AsyncActionResult;
+  onInstallWorkspaceSkill: (
+    sourceRoot: string,
+    skillRootPath: string,
+    providerKey: WorkspaceSkillProviderKey
+  ) => AsyncActionResult;
+  onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
+  onCopyLocal?: (skillRootPath: string) => void;
+  onCopyProject?: (skillRootPath: string) => void;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -130,7 +142,10 @@ export function AiWorkspaceSection({
                 nodes={filterTree(activeSource.tree, searchValue)}
                 projectRoot={activeSource.path}
                 onOpenPath={onOpenPath}
-                onInstallWorkspaceSkill={() => {}}
+                onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+                onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+                importedProjects={snapshot.importedProjects}
+                localInstallDir={snapshot.settings.installDir}
                 emptyMessage={t.projectTreeEmpty || "暂无技能"}
               />
             </div>

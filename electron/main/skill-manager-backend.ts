@@ -15,6 +15,7 @@ import type {
   ExportInstalledSkillInput,
   ImportedProjectRecord,
   InstallWorkspaceSkillInput,
+  CopyWorkspaceSkillInput,
   InstallStagedSourcesInput,
   DirectoryValidationResult,
   InstallStrategy,
@@ -938,6 +939,87 @@ export class SkillManagerBackend {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to install the workspace skill.";
       await this.writeLog("install", "error", "Failed to install the workspace skill.", message, normalizedSkillRoot);
+      return { ok: false, error: message };
+    }
+  }
+
+  async copyWorkspaceSkillToDirectory(input: CopyWorkspaceSkillInput): Promise<OperationResult<string>> {
+    const settings = this.getSettings();
+    const targetRoot = path.resolve(input.targetDirectory);
+
+    const validation = await this.validateDirectory(targetRoot);
+    if (!validation.writable) {
+      return { ok: false, error: validation.error || "The target directory is not writable." };
+    }
+
+    const normalizedSourceRoot = path.resolve(input.sourceRoot);
+    const normalizedSkillRoot = path.resolve(input.skillRootPath);
+    const relativePath = path.relative(normalizedSourceRoot, normalizedSkillRoot);
+
+    if (
+      !relativePath ||
+      relativePath.startsWith("..") ||
+      path.isAbsolute(relativePath) ||
+      !fs.existsSync(path.join(normalizedSkillRoot, "SKILL.md"))
+    ) {
+      return { ok: false, error: "The selected workspace skill path is invalid." };
+    }
+
+    try {
+      const metadata = await detectSkillDirectory(normalizedSkillRoot);
+      const exportPath = await this.resolveInstallPath(targetRoot, metadata.slug, settings.conflictPolicy);
+
+      if (settings.conflictPolicy === "overwrite") {
+        await fsp.rm(exportPath, { recursive: true, force: true });
+      }
+
+      await this.ensureDirectory(path.dirname(exportPath));
+      await fsp.cp(normalizedSkillRoot, exportPath, {
+        recursive: true,
+        force: false
+      });
+
+      if (settings.installDir && exportPath.startsWith(settings.installDir)) {
+        const record: InstalledSkillRecord = {
+          id: randomUUID(),
+          name: metadata.name,
+          slug: metadata.slug,
+          description: metadata.description,
+          category: null,
+          installPath: exportPath,
+          skillMdPath: path.join(exportPath, "SKILL.md"),
+          sourceType: "localZip",
+          sourceValue: normalizedSkillRoot,
+          installedAt: nowIso(),
+          updatedAt: nowIso()
+        };
+
+        this.database.prepare("delete from installed_skills where install_path = ?").run(exportPath);
+        this.database
+          .prepare(
+            `
+              insert into installed_skills (
+                id, name, slug, description, category, install_path, skill_md_path, source_type, source_value, installed_at, updated_at
+              ) values (
+                @id, @name, @slug, @description, @category, @installPath, @skillMdPath, @sourceType, @sourceValue, @installedAt, @updatedAt
+              )
+            `
+          )
+          .run(record);
+      }
+
+      await this.writeLog(
+        "install",
+        "info",
+        `Copied workspace skill to ${targetRoot}`,
+        `${normalizedSkillRoot} -> ${exportPath}`,
+        null
+      );
+
+      return { ok: true, data: exportPath };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to copy the workspace skill.";
+      await this.writeLog("install", "error", "Failed to copy the workspace skill.", message, normalizedSkillRoot);
       return { ok: false, error: message };
     }
   }

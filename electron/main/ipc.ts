@@ -37,6 +37,9 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:install-workspace-skill", (_event, input) =>
     backend.installWorkspaceSkill(input)
   );
+  ipcMain.handle("skill-manager:copy-workspace-skill", (_event, input) =>
+    backend.copyWorkspaceSkillToDirectory(input)
+  );
   ipcMain.handle("skill-manager:create-skill-category", (_event, name: string) =>
     backend.createSkillCategory(name)
   );
