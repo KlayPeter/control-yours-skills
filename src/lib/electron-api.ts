@@ -5,6 +5,7 @@ import type {
   ExportInstalledSkillInput,
   InstalledSkillDetail,
   InstallWorkspaceSkillInput,
+  CopyWorkspaceSkillInput,
   LogRecord,
   OperationResult,
   SettingsRecord,
@@ -99,15 +100,15 @@ const browserFallbackApi: SkillManagerApi = {
     void _input;
     return unavailableResult<string>();
   },
-  installWorkspaceSkill: async (_input: any) => {
+  installWorkspaceSkill: async (_input: InstallWorkspaceSkillInput) => {
     void _input;
-    return unavailableResult<any>();
+    return unavailableResult<InstalledSkillDetail>();
   },
-  copyWorkspaceSkillToDirectory: async (_input: any) => {
+  copyWorkspaceSkillToDirectory: async (_input: CopyWorkspaceSkillInput) => {
     void _input;
-    return unavailableResult<any>();
+    return unavailableResult<void>();
   },
-  createWorkspaceFolder: async (_input: any) => {
+  createWorkspaceFolder: async (_input: { parentPath: string; folderName: string }) => {
     void _input;
     return unavailableResult<void>();
   },

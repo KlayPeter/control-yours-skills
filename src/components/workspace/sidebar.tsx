@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Folder, FolderOpen, Sparkles } from "lucide-react";
-import type { WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
+import type { WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput, ImportedProjectRecord } from "@shared/contracts";
 import { cn } from "@/lib/cn";
 import { SkillInstallMenu } from "./skill-install-menu";
 import { LocalFolderSelectionModal } from "./workspace-tree";
@@ -29,9 +29,9 @@ export function SidebarWorkspaceTree({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => Promise<unknown>;
-  onCopyWorkspaceSkill?: (input: any) => Promise<unknown>;
-  onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => Promise<unknown>;
-  importedProjects?: any[];
+  onCopyWorkspaceSkill?: (input: CopyWorkspaceSkillInput) => Promise<unknown> | void;
+  onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => Promise<unknown> | void;
+  importedProjects?: ImportedProjectRecord[];
   localInstallDir?: string;
   installDirTree?: WorkspaceTreeNode[];
   defaultOpen?: boolean;

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { DropzoneState } from "react-dropzone";
 import { Search, UploadCloud, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 import { countSkillsInTree } from "@/lib/tree-utils";
@@ -40,10 +40,7 @@ export function LocalInstallSection({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
-  onCopyWorkspaceSkill?: (input: {
-    sourceNode: { kind: string; absolutePath: string; skill?: { rootPath: string } };
-    targetDirectory: string;
-  }) => AsyncActionResult;
+  onCopyWorkspaceSkill?: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
   onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
