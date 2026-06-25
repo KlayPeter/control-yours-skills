@@ -69,26 +69,7 @@ export function OverviewSection({
   return (
     <div className="space-y-6">
       <SectionCard title={t.capabilityOverviewTitle} subtitle={t.capabilityOverviewSubtitle}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <OverviewMetric label={t.overviewMetricInstalled} value={installDirSkillCount} />
-          <OverviewMetric label={t.overviewMetricStaged} value={snapshot.summary.stagedCount} />
-          
-          <div className="app-card p-4 flex flex-col">
-            <p className="text-xs uppercase tracking-[0.16em] app-text-soft mb-3">{t.overviewMetricSystem}</p>
-            <div className="flex flex-col gap-1.5 flex-1 justify-center">
-              {snapshot.systemSkillSources.map(s => (
-                <div key={s.id} className="flex justify-between items-center">
-                   <span className="text-sm font-medium app-text">{s.label}</span>
-                   <span className="text-sm font-semibold app-text-soft">{s.skillCount}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          <OverviewMetric label={t.overviewMetricProjects} value={importedProjectCount} />
-        </div>
-
-        <div className="mt-6 grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           <CapabilityCard
             body={
               installPathConfigured

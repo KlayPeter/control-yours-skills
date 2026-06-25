@@ -24,19 +24,19 @@ export function SidebarWorkspaceTree({
   const [open, setOpen] = useState(true);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/10">
+    <div className="rounded-[14px] border border-white/10 bg-black/10">
       <button
-        className="flex w-full items-center gap-3 px-3 py-3 text-left"
+        className="flex w-full items-center gap-2.5 px-2.5 py-2 text-left"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >
-        {open ? <ChevronDown className="h-4 w-4 app-text-soft" /> : <ChevronRight className="h-4 w-4 app-text-soft" />}
-        <span className="app-sidebar-project-icon">
-          <FolderOpen className="h-4 w-4" />
+        {open ? <ChevronDown className="h-4 w-4 shrink-0 app-text-soft" /> : <ChevronRight className="h-4 w-4 shrink-0 app-text-soft" />}
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] text-app-text-soft bg-black/5 dark:bg-white/5 shadow-[inset_0_0_0_1px_var(--app-border)]">
+          <FolderOpen className="h-3.5 w-3.5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium app-text" title={rootLabel}>{rootLabel}</span>
-          <span className="mt-1 block truncate text-xs app-text-soft" title={rootPath}>{rootPath}</span>
+          <span className="block truncate text-[13px] font-medium app-text" title={rootLabel}>{rootLabel}</span>
+          <span className="mt-0.5 block truncate text-[11px] app-text-soft opacity-75" title={rootPath}>{rootPath}</span>
         </span>
       </button>
       {open ? (
