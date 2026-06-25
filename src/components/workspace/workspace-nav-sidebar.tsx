@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PanelLeftClose, PanelLeftOpen, LayoutDashboard, Sparkles, HardDriveDownload, FolderOpen, Logs, Settings, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { LogoIcon } from "@/components/ui/logo-icon";
 import { SidebarWorkspaceTree } from "./sidebar";
 import type { WorkspaceSection } from "../workspace-app";
 import type { TranslationDictionary } from "@/locales/translations";
@@ -90,7 +91,7 @@ export function WorkspaceNavSidebar({
           </div>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3 min-w-0 flex-1 transition-opacity duration-300">
-              <img src="/logo.svg" alt="Logo" className="h-10 w-10 text-signal dark:text-white" />
+              <LogoIcon className="h-10 w-10 text-signal dark:text-white shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-semibold app-text">{t.appName}</p>
                 <p className="mt-0.5 truncate text-[11px] app-text-soft leading-none">{t.appTitle}</p>
