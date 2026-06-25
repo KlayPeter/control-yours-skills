@@ -103,6 +103,12 @@
         }
       ]
     },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "hardenedRuntime": false
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
