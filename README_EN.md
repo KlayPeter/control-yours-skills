@@ -8,7 +8,7 @@
       <img src="https://img.shields.io/github/v/release/KlayPeter/control-yours-skills?style=flat-square&color=007AFF" alt="Latest Release" />
     </a>
     <a href="https://nodejs.org/">
-      <img src="https://img.shields.io/badge/Node.js-24+-43853D?style=flat-square&logo=node.js&logoColor=white" alt="Node Version" />
+      <img src="https://img.shields.io/badge/Node.js-20+-43853D?style=flat-square&logo=node.js&logoColor=white" alt="Node Version" />
     </a>
     <a href="https://www.electronjs.org/">
       <img src="https://img.shields.io/badge/Electron-Desktop-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" />
@@ -72,7 +72,7 @@ Head over to our [Releases Page](https://github.com/KlayPeter/control-yours-skil
 
 ### Requirements
 - OS: Windows, macOS, or Linux
-- Node.js: `v24+`
+- Node.js: `v20+`
 - npm: `v11+`
 
 ### Quick Start
