@@ -87,9 +87,12 @@ export function WorkspaceNavSidebar({
             {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
           {!sidebarCollapsed && (
-            <div className="min-w-0 flex-1 transition-opacity duration-300">
-              <p className="truncate text-sm font-semibold app-text">{t.appName}</p>
-              <p className="mt-0.5 truncate text-xs app-text-soft">{t.appTitle}</p>
+            <div className="flex items-center gap-3 min-w-0 flex-1 transition-opacity duration-300">
+              <img src="/logo.svg" alt="Logo" className="h-7 w-7 text-signal dark:text-white" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold app-text">{t.appName}</p>
+                <p className="mt-0.5 truncate text-[11px] app-text-soft leading-none">{t.appTitle}</p>
+              </div>
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.png" alt="Control Your Skills Logo" width="120" />
+  <img src="public/logo.svg" alt="Control Your Skills Logo" width="120" />
   <h1>✨ Control Your Skills ✨</h1>
   <p><strong>Your Ultimate Local-First AI Skill Manager & Hub</strong></p>
 
