@@ -7,8 +7,8 @@ import { SourceBadge, StrategyBadge, StatusIndicator } from "../ui/badges";
 import { IconActionButton, CopyButton } from "../ui/buttons";
 import { RelativeTimeText } from "../ui/typography";
 
+import type { WorkspaceSection } from "../workspace-app";
 type TranslationDictionary = Record<string, string>;
-type WorkspaceSection = "overview" | "import" | "staged" | "skills" | "logs" | "settings";
 type AsyncActionResult<T = unknown> = void | Promise<T>;
 
 export function logTone(log: LogRecord) {
@@ -60,7 +60,7 @@ export function WorkspaceDetailPanel({
   onParseStaged: (ids: string[]) => AsyncActionResult;
   onInstallStaged: (ids: string[]) => AsyncActionResult;
 }) {
-  if (section === "skills" && selectedSkillDetail) {
+  if (section === "local-install" && selectedSkillDetail) {
     return (
       <SectionCard
         title={selectedSkillDetail.name}

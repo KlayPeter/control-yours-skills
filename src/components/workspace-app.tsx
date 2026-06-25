@@ -1,886 +1,56 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import type { Route } from "next";
-import { useDropzone } from "react-dropzone";
-import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
-  FolderPlus,
   FolderOpen,
-  HardDriveDownload,
-  LayoutDashboard,
   LoaderCircle,
-  Logs,
-  PanelLeftClose,
-  PanelLeftOpen,
   RefreshCcw,
-  Settings2,
-  UploadCloud,
   X
 } from "lucide-react";
-
-import type {
-  Locale,
-  SaveSettingsInput,
-  WorkspaceSkillProviderKey,
-  WorkspaceSkillSource
-} from "@shared/contracts";
 
 import { SourceViewerModal } from "./workspace/source-viewer-modal";
 import { WorkspaceDetailPanel } from "./workspace/workspace-detail-panel";
 import { WorkspacePrimarySection } from "./workspace/workspace-primary-section";
-import { SidebarWorkspaceTree } from "./workspace/sidebar";
-import { getSkillManagerApi } from "@/lib/electron-api";
-import { useSkillManager } from "@/hooks/use-skill-manager";
 import { cn } from "@/lib/cn";
+import { WorkspaceNavSidebar, navLabel } from "./workspace/workspace-nav-sidebar";
+import { useWorkspaceAppLogic } from "@/hooks/use-workspace-app-logic";
+export type { TranslationDictionary } from "@/locales/translations";
 
-type WorkspaceSection = "overview" | "import" | "staged" | "skills" | "logs" | "settings";
-type TranslationDictionary = Record<string, string>;
+export type WorkspaceSection = "overview" | "ai-workspace" | "local-install" | "projects" | "staged" | "logs" | "settings";
 
 interface WorkspaceAppProps {
   section: WorkspaceSection;
   initialSkillId?: string;
 }
 
-const navItems: Array<{
-  section: WorkspaceSection;
-  href: Route;
-  icon: typeof LayoutDashboard;
-}> = [
-  { section: "overview", href: "/", icon: LayoutDashboard },
-  { section: "import", href: "/import", icon: UploadCloud },
-  { section: "skills", href: "/skills", icon: HardDriveDownload },
-  { section: "logs", href: "/logs", icon: Logs },
-  { section: "settings", href: "/settings", icon: Settings2 }
-];
 
-const zhCnTranslations: TranslationDictionary = {
-  appName: "Control Your Skills",
-  appTitle: "技能管理台",
-  appDescription: "在一个界面里导入、查看、安装和整理本地技能。",
-  workspaceHeader: "工作区",
-  runtime: "运行环境",
-  runtimeDevData: "开发数据：仓库 data/",
-  runtimeProdData: "生产数据：Electron userData",
-  runtimeFrontend: "前端",
-  runtimeInstallDir: "安装目录",
-  unavailable: "不可用",
-  notConfiguredYet: "尚未配置",
-  loadingWorkspace: "正在加载工作区",
-  loadingWorkspaceSubtitle: "正在读取当前技能数据",
-  loadingWorkspaceBody: "请稍候，正在准备工作区快照。",
-  refresh: "刷新",
-  openInstallFolder: "打开安装目录",
-  defaultInstallDirectoryLabel: "默认安装目录：",
-  sectionOverview: "概览",
-  sectionImport: "导入",
-  sectionStaged: "暂存区",
-  sectionSkills: "已安装技能",
-  sectionLogs: "日志",
-  sectionSettings: "设置",
-  overviewInstallDir: "安装目录",
-  workspaceSkillDirectories: "系统技能目录",
-  workspaceSkillDirectoriesSubtitle: "系统来源：只读取这台电脑上的 Codex、Claude 和 Agents 技能目录。",
-  projectDirectories: "已导入项目",
-  projectDirectoriesSubtitle: "当前工作区正在跟踪的项目技能目录。",
-  recentInstalls: "最近安装",
-  recentInstallsSubtitle: "最近成功安装的技能。",
-  recentFailures: "最近失败",
-  recentFailuresSubtitle: "最近的解析或安装失败记录。",
-  capabilityOverviewTitle: "这个应用可以帮你做什么",
-  capabilityOverviewSubtitle: "将您分散在各个地方的 AI Skills 进行统一管理、跨平台互通和快捷下发。无论是在电脑的各个系统软件中，还是在外部独立项目中，您都能在这里一站式管理它们。",
-  capabilityInstallTitle: "管理本地统一库",
-  capabilityInstallBody: "选择一个本地文件夹作为您的「Skills 统一仓库」。您可以自定义分类目录（如 video, img 等），不仅能存放新导入的技能，还能接收从其他地方移动/复制过来的技能。",
-  capabilityImportTitle: "快捷导入与暂存",
-  capabilityImportBody: "通过 ZIP 包或 GitHub 链接快速引入新技能，它们会进入暂存区等待您的检查。确认无误后即可自动安装到您的统一仓库中。",
-  capabilitySystemTitle: "打通各大 AI 平台",
-  capabilitySystemBody: "自动探测并实时同步您电脑中 .codex、.claude、.agents 等平台的技能池。您可以在各个平台之间无缝进行复制和共享。",
-  capabilityProjectTitle: "纳管外部独立项目",
-  capabilityProjectBody: "如果您的某个业务项目里也包含了很多专属 Skills，直接导入项目根目录即可将它们纳入管理版图，实现跨项目的技能分发。",
-  capabilityStatusConfigured: "已就绪",
-  capabilityStatusNeedsSetup: "待配置",
-  overviewMetricInstalled: "本地目录 Skills",
-  overviewMetricStaged: "暂存来源",
-  overviewMetricSystem: "系统目录",
-  overviewMetricProjects: "外部导入项目",
-  projectSkillBrowserSubtitle: "项目来源：从你导入的本地项目里识别 Skill 文件夹，可直接安装到系统目录。",
-  projectTreeEmpty: "这个项目里还没有识别到可安装的 Skill 文件夹。",
-  noInstallRecordsYet: "还没有安装记录",
-  noInstallRecordsYetDescription: "首次成功安装技能后，这里会出现记录。",
-  noRecentFailures: "最近没有失败",
-  noRecentFailuresDescription: "当前没有新的失败记录。",
-  noDescriptionAvailable: "暂无描述。",
-  view: "查看",
-  delete: "删除",
-  importProject: "导入项目",
-  openFolder: "打开目录",
-  skillCount: "技能数",
-  localZipImport: "导入本地 ZIP",
-  localZipImportSubtitle: "从本地 ZIP 压缩包导入技能。",
-  localZipDropTitle: "把 ZIP 拖到这里，或使用下面的按钮选择",
-  localZipDropHelp: "应用会自动识别压缩包里的 SKILL.md。",
-  chooseZip: "选择 ZIP",
-  importToStaged: "导入到暂存区",
-  installNow: "立即安装",
-  addRemoteSource: "添加远程来源",
-  addRemoteSourceSubtitle: "当前支持 GitHub 仓库地址和直链 ZIP。远程来源会先做识别与说明，暂不直接一键安装。",
-  remoteSourceLabel: "远程地址",
-  remoteSourcePlaceholder: "https://github.com/owner/repo 或 https://example.com/skill.zip",
-  analyzeNow: "立即识别",
-  addToStaged: "加入暂存区",
-  enterRemoteSourceUrl: "请先输入远程来源地址。",
-  stagedSources: "暂存来源",
-  stagedSourcesSubtitle: "识别结果会显示在这里；本地 ZIP 可直接安装，远程来源当前提供说明和手动步骤。",
-  importQueueTitle: "导入后的下一步",
-  importQueueSubtitle: "这里不再重复列出全部暂存来源，只保留当前状态摘要。逐条查看、安装或清理请前往暂存区。",
-  importQueueInstallable: "可直接安装",
-  importQueueManual: "待查看说明",
-  importQueueErrors: "需要处理",
-  importQueueFootnote: "导入页负责把来源送进暂存区，真正的逐条处理集中在“暂存区”，这样导入、预览、安装三步会更清楚。",
-  toImport: "前往导入",
-  parseSelected: "解析所选",
-  installSelected: "安装所选",
-  removeSelected: "移除所选",
-  clearStaging: "清空暂存区",
-  stagingAreaEmpty: "暂存区为空",
-  stagingAreaEmptyDescription: "先导入 ZIP 或添加远程来源。",
-  waitingForMetadataParsing: "等待解析元数据。",
-  installedSkills: "全局搜索库",
-  installedSkillsSubtitle: "汇总所有本地目录、系统级目录和项目下的技能，方便跨目录统一搜索和管理。",
-  allCategories: "全部分类",
-  installedMetricCategories: "有效分类",
-  installedMetricSourceTypes: "来源类型",
-  searchPlaceholder: "按名称、slug 或描述搜索",
-  noInstalledSkillsYet: "还没有已安装技能",
-  noInstalledSkillsYetDescription: "成功安装后，这里会显示技能。",
-  operationLogs: "操作日志",
-  operationLogsSubtitle: "最近的系统、设置、暂存和安装事件。",
-  noLogsYet: "还没有日志",
-  noLogsYetDescription: "执行操作后，这里会显示日志。",
-  noExtraDetail: "没有更多详情。",
-  settingsTitle: "设置",
-  settingsSubtitle: "配置安装路径和默认行为。",
-  defaultInstallDirectory: "默认安装目录",
-  installDirPlaceholder: "选择已安装技能的存放位置",
-  tempDirectory: "临时目录",
-  tempDirPlaceholderPrefix: "可选临时目录",
-  choose: "选择",
-  validate: "验证",
-  conflictPolicy: "冲突策略",
-  conflictRename: "重命名",
-  conflictSkip: "跳过",
-  conflictOverwrite: "覆盖",
-  interfaceLanguage: "界面语言",
-  languageChinese: "中文",
-  languageEnglish: "英文",
-  saveSettings: "保存设置",
-  installPathRequired: "需要安装路径",
-  installPathRequiredSubtitle: "安装技能前请先设置安装目录",
-  installPathRequiredBody: "请先进入设置，配置默认安装目录。",
-  quickStartTitle: "开始使用",
-  quickStartSubtitle: "第一次使用时，按这三步走会最顺。",
-  quickStartStepInstallTitle: "1. 先设置安装目录",
-  quickStartStepInstallBody: "选一个专门存放已安装 skill 的目录，后续导入和导出都会更稳定。",
-  quickStartStepImportTitle: "2. 导入第一个 skill",
-  quickStartStepImportBody: "推荐先从本地 ZIP 开始，导入后可以先预览再决定是否安装。",
-  quickStartStepReviewTitle: "3. 查看暂存结果并安装",
-  quickStartStepReviewBody: "解析成功后去暂存区确认内容，再执行安装。",
-  quickStartStatusDone: "已完成",
-  quickStartStatusTodo: "待完成",
-  quickStartChooseInstallDir: "选择安装目录",
-  quickStartGoImport: "前往导入",
-  quickStartGoStaged: "查看暂存区",
-  quickStartStagedDisabled: "导入一个 skill 后，这里会出现可安装结果。",
-  installDirectoryWritable: "安装目录可写。",
-  installDirectoryInvalid: "安装目录无效或不可写。",
-  tempDirectoryEmptyNotice: "临时目录为空，将使用默认运行时目录。",
-  tempDirectoryWritable: "临时目录可写。",
-  tempDirectoryInvalid: "临时目录无效或不可写。",
-  droppedFilePathUnavailable: "当前环境无法获取拖入文件的路径。",
-  sourceBadgeLocalZip: "本地 ZIP",
-  sourceBadgeGithubRepo: "GitHub 仓库",
-  sourceBadgeRemoteZip: "远程 ZIP",
-  statusInstalled: "已安装",
-  statusReady: "就绪",
-  statusError: "错误",
-  statusProcessing: "处理中",
-  statusPending: "待处理",
-  installedSkillDetail: "已安装技能详情",
-  installedSkillRecordMissing: "记录仍在，但磁盘上的文件已缺失。",
-  rescan: "重新扫描",
-  installedStatus: "已安装",
-  installPath: "安装路径",
-  installedAt: "安装时间",
-  noDescriptionExtractedForSkill: "暂未提取到描述。",
-  stagedSourceDetail: "暂存来源详情",
-  stagedSourceDetailSubtitle: "安装前先查看解析结果和预览。",
-  reparse: "重新解析",
-  install: "安装",
-  sourceValue: "来源值",
-  archivePath: "压缩包路径",
-  archivePathPending: "尚未生成",
-  skillRoot: "技能根目录",
-  skillRootPending: "尚未识别",
-  errorLabel: "错误",
-  noSkillMdPreview: "暂时没有可预览的 SKILL.md。",
-  logDetail: "日志详情",
-  logType: "类型",
-  relatedId: "关联 ID",
-  none: "无",
-  time: "时间",
-  logLevelInfo: "信息",
-  logLevelWarning: "警告",
-  logLevelError: "错误",
-  modalInstalledSkills: "已安装技能",
-  modalNoSkills: "未检测到技能",
-  providerFound: "已找到",
-  providerMissing: "缺失",
-  remoteSourceAnalysisOnly: "远程来源当前只做识别和说明，不会直接安装。",
-  stagedNextInstall: "下一步：可以直接安装，或先看详情确认内容。",
-  stagedNextManual: "下一步：打开详情查看说明和手动安装步骤。",
-  stagedNextError: "下一步：重新解析，或移除这个来源。",
-  stagedNextProcessing: "下一步：等待解析完成后再继续。",
-  stagedNextPending: "下一步：先触发解析，再决定是否安装。",
-  stagedNextInstalled: "下一步：这个来源已经安装完成。",
-  browserFallbackNotice: "当前页面未运行在 Electron 桌面壳中。"
-};
-
-const enTranslations: TranslationDictionary = {
-  appName: "Control Your Skills",
-  appTitle: "Skill Workspace",
-  appDescription: "Import, inspect, install, and organize local skills in one place.",
-  workspaceHeader: "Workspace",
-  runtime: "Runtime",
-  runtimeDevData: "Dev data: repository data/",
-  runtimeProdData: "Prod data: Electron userData",
-  runtimeFrontend: "Frontend",
-  runtimeInstallDir: "Install directory",
-  unavailable: "Unavailable",
-  notConfiguredYet: "Not configured yet",
-  loadingWorkspace: "Loading workspace",
-  loadingWorkspaceSubtitle: "Reading your current skill data",
-  loadingWorkspaceBody: "Please wait while the workspace snapshot is being prepared.",
-  refresh: "Refresh",
-  openInstallFolder: "Open install folder",
-  defaultInstallDirectoryLabel: "Default install directory:",
-  sectionOverview: "Overview",
-  sectionImport: "Import",
-  sectionStaged: "Staged",
-  sectionSkills: "Installed skills",
-  sectionLogs: "Logs",
-  sectionSettings: "Settings",
-  overviewInstallDir: "Install directory",
-  workspaceSkillDirectories: "System skill directories",
-  workspaceSkillDirectoriesSubtitle: "System sources: read Codex, Claude, and Agents skill directories already on this machine.",
-  projectDirectories: "Imported projects",
-  projectDirectoriesSubtitle: "Projects whose skill folders are being tracked in this workspace.",
-  recentInstalls: "Recent installs",
-  recentInstallsSubtitle: "The most recently installed skills.",
-  recentFailures: "Recent failures",
-  recentFailuresSubtitle: "Recent parse or install failures.",
-  capabilityOverviewTitle: "What this app helps you do",
-  capabilityOverviewSubtitle: "Start by understanding the core capabilities: choose an install directory, import and stage skills, inspect system skill folders, and scan projects for skill directories.",
-  capabilityInstallTitle: "Choose an install directory",
-  capabilityInstallBody: "Set the default directory where imported skills will be installed and organized.",
-  capabilityImportTitle: "Import and stage skills",
-  capabilityImportBody: "Import local ZIP packages directly, or analyze GitHub repositories and remote ZIP files before deciding what to do next.",
-  capabilitySystemTitle: "Inspect system skills",
-  capabilitySystemBody: "Automatically scan .codex, .claude, and .agents directories so you can review and export existing skills.",
-  capabilityProjectTitle: "Scan project skills",
-  capabilityProjectBody: "Import local projects to detect skill folders already living inside the repository structure.",
-  capabilityStatusConfigured: "Configured",
-  capabilityStatusNeedsSetup: "Needs setup",
-  overviewMetricInstalled: "Installed skills",
-  overviewMetricStaged: "Staged sources",
-  overviewMetricSystem: "System folders",
-  overviewMetricProjects: "Imported projects",
-  projectSkillBrowserSubtitle: "Project sources: detect skill folders inside imported local projects and install them into system directories.",
-  projectTreeEmpty: "No installable skill folders have been detected in this project yet.",
-  noInstallRecordsYet: "No install records yet",
-  noInstallRecordsYetDescription: "Installed skills will appear here after the first successful install.",
-  noRecentFailures: "No recent failures",
-  noRecentFailuresDescription: "There are no new failure records right now.",
-  noDescriptionAvailable: "No description available.",
-  view: "View",
-  delete: "Delete",
-  importProject: "Import project",
-  openFolder: "Open folder",
-  skillCount: "Skill count",
-  localZipImport: "Import local ZIP",
-  localZipImportSubtitle: "Import a skill package from a local ZIP archive.",
-  localZipDropTitle: "Drop a ZIP here, or choose one below",
-  localZipDropHelp: "The app will detect the SKILL.md inside the archive automatically.",
-  chooseZip: "Choose ZIP",
-  importToStaged: "Import to staged",
-  installNow: "Install now",
-  addRemoteSource: "Add remote source",
-  addRemoteSourceSubtitle: "Currently supports GitHub repository URLs and direct ZIP downloads. Remote sources are analyzed first and are not installed in one click yet.",
-  remoteSourceLabel: "Remote URL",
-  remoteSourcePlaceholder: "https://github.com/owner/repo or https://example.com/skill.zip",
-  analyzeNow: "Analyze now",
-  addToStaged: "Add to staged",
-  enterRemoteSourceUrl: "Enter a remote source URL first.",
-  stagedSources: "Staged sources",
-  stagedSourcesSubtitle: "Recognition results appear here. Local ZIP sources can be installed directly, while remote sources currently provide guidance and manual steps.",
-  importQueueTitle: "What happens after import",
-  importQueueSubtitle: "This page now keeps only a compact staging summary. For item-by-item review, install, or cleanup, use the staged section.",
-  importQueueInstallable: "Ready to install",
-  importQueueManual: "Needs manual review",
-  importQueueErrors: "Needs attention",
-  importQueueFootnote: "The import page is now focused on bringing sources into staging. Detailed review and follow-up actions live in the staged section.",
-  toImport: "Go to import",
-  parseSelected: "Parse selected",
-  installSelected: "Install selected",
-  removeSelected: "Remove selected",
-  clearStaging: "Clear staging",
-  stagingAreaEmpty: "Staging area is empty",
-  stagingAreaEmptyDescription: "Import a ZIP or add a remote source to start.",
-  waitingForMetadataParsing: "Waiting for metadata parsing.",
-  installedSkills: "Installed skills",
-  installedSkillsSubtitle: "Installed library: these skills have been copied into the default install directory and can be searched, reviewed, and exported.",
-  allCategories: "All categories",
-  installedMetricCategories: "Active categories",
-  installedMetricSourceTypes: "Source types",
-  searchPlaceholder: "Search by name, slug, or description",
-  noInstalledSkillsYet: "No installed skills yet",
-  noInstalledSkillsYetDescription: "Installed skills will show up here after a successful install.",
-  operationLogs: "Operation logs",
-  operationLogsSubtitle: "Recent system, settings, staging, and install events.",
-  noLogsYet: "No logs yet",
-  noLogsYetDescription: "Logs will appear after operations run.",
-  noExtraDetail: "No extra detail.",
-  settingsTitle: "Settings",
-  settingsSubtitle: "Configure install paths and default behavior.",
-  defaultInstallDirectory: "Default install directory",
-  installDirPlaceholder: "Choose where installed skills should be stored",
-  tempDirectory: "Temporary directory",
-  tempDirPlaceholderPrefix: "Optional temp directory",
-  choose: "Choose",
-  validate: "Validate",
-  conflictPolicy: "Conflict policy",
-  conflictRename: "Rename",
-  conflictSkip: "Skip",
-  conflictOverwrite: "Overwrite",
-  interfaceLanguage: "Interface language",
-  languageChinese: "Chinese",
-  languageEnglish: "English",
-  saveSettings: "Save settings",
-  installPathRequired: "Install path required",
-  installPathRequiredSubtitle: "Set an install directory before installing skills",
-  installPathRequiredBody: "Open Settings and configure the default install directory first.",
-  quickStartTitle: "Get started",
-  quickStartSubtitle: "For a first run, this three-step path is the smoothest one.",
-  quickStartStepInstallTitle: "1. Choose an install directory",
-  quickStartStepInstallBody: "Pick a dedicated folder for installed skills so imports and exports stay predictable.",
-  quickStartStepImportTitle: "2. Import your first skill",
-  quickStartStepImportBody: "Starting with a local ZIP is the easiest path because you can preview it before installing.",
-  quickStartStepReviewTitle: "3. Review staged results and install",
-  quickStartStepReviewBody: "Once parsing succeeds, open the staged area, confirm the details, and install.",
-  quickStartStatusDone: "Done",
-  quickStartStatusTodo: "To do",
-  quickStartChooseInstallDir: "Choose install dir",
-  quickStartGoImport: "Go to import",
-  quickStartGoStaged: "Open staged",
-  quickStartStagedDisabled: "This step becomes available after you import a skill.",
-  installDirectoryWritable: "Install directory is writable.",
-  installDirectoryInvalid: "Install directory is invalid or not writable.",
-  tempDirectoryEmptyNotice: "Temporary directory is empty; the default runtime path will be used.",
-  tempDirectoryWritable: "Temporary directory is writable.",
-  tempDirectoryInvalid: "Temporary directory is invalid or not writable.",
-  droppedFilePathUnavailable: "The dropped file path is unavailable in this environment.",
-  sourceBadgeLocalZip: "Local ZIP",
-  sourceBadgeGithubRepo: "GitHub repo",
-  sourceBadgeRemoteZip: "Remote ZIP",
-  statusInstalled: "Installed",
-  statusReady: "Ready",
-  statusError: "Error",
-  statusProcessing: "Processing",
-  statusPending: "Pending",
-  installedSkillDetail: "Installed skill detail",
-  installedSkillRecordMissing: "The record exists, but files are missing on disk.",
-  rescan: "Rescan",
-  installedStatus: "Installed",
-  installPath: "Install path",
-  installedAt: "Installed at",
-  noDescriptionExtractedForSkill: "No description extracted yet.",
-  stagedSourceDetail: "Staged source detail",
-  stagedSourceDetailSubtitle: "Review recognition results, installation guidance, and preview content.",
-  reparse: "Reparse",
-  install: "Install",
-  sourceValue: "Source value",
-  archivePath: "Archive path",
-  archivePathPending: "Not created yet",
-  skillRoot: "Skill root",
-  skillRootPending: "Not detected yet",
-  errorLabel: "Error",
-  noSkillMdPreview: "No SKILL.md preview is available yet.",
-  logDetail: "Log detail",
-  logType: "Type",
-  relatedId: "Related ID",
-  none: "None",
-  time: "Time",
-  logLevelInfo: "Info",
-  logLevelWarning: "Warning",
-  logLevelError: "Error",
-  modalInstalledSkills: "Installed skills",
-  modalNoSkills: "No skills detected",
-  providerFound: "Found",
-  providerMissing: "Missing",
-  remoteSourceAnalysisOnly: "Remote sources are currently analyzed for review only and are not installed directly.",
-  stagedNextInstall: "Next: install this source directly, or open the detail view first.",
-  stagedNextManual: "Next: open the detail view for guidance and manual installation steps.",
-  stagedNextError: "Next: re-parse this source or remove it from staging.",
-  stagedNextProcessing: "Next: wait for parsing to finish before taking action.",
-  stagedNextPending: "Next: parse the source before deciding whether to install it.",
-  stagedNextInstalled: "Next: this source has already been installed.",
-  browserFallbackNotice: "This page is not running inside the Electron desktop shell."
-};
-
-const translations: Record<Locale, TranslationDictionary> = {
-  "zh-CN": zhCnTranslations,
-  en: enTranslations
-};
-
-function sectionTitle(section: WorkspaceSection, t: TranslationDictionary) {
-  switch (section) {
-    case "overview":
-      return t.sectionOverview;
-    case "import":
-      return t.sectionImport;
-    case "staged":
-      return t.sectionStaged;
-    case "skills":
-      return t.sectionSkills;
-    case "logs":
-      return t.sectionLogs;
-    case "settings":
-      return t.sectionSettings;
-  }
-}
-
-function navLabel(section: WorkspaceSection, t: TranslationDictionary) {
-  return sectionTitle(section, t);
-}
-
-function headerPathValue(section: WorkspaceSection, snapshot: ReturnType<typeof useSkillManager>["snapshot"], t: TranslationDictionary) {
-  if (!snapshot) {
-    return t.notConfiguredYet;
-  }
-
-  return snapshot.settings.installDir || t.notConfiguredYet;
-}
-
-function readCachedTheme(): "light" | "dark" {
-  if (typeof window === "undefined") {
-    return "light";
-  }
-
-  const cached = window.localStorage.getItem("control-your-skills-theme");
-  return cached === "dark" ? "dark" : "light";
-}
-
-
-
-let globalSidebarCollapsed = false;
 
 export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
-  const router = useRouter();
+  const logic = useWorkspaceAppLogic(section, initialSkillId);
   const {
-    snapshot,
-    busyLabel,
-    notice,
-    error,
-    isRefreshing,
-    selectedSkillId,
-    selectedStagedId,
-    selectedLogId,
-    selectedSkillDetail,
-    selectedStagedDetail,
-    setNotice,
-    setError,
-    setSelectedLogId,
-    clearSelectedStagedDetail,
-    refresh,
-    loadSkillDetail,
-    loadStagedDetail,
-    saveSettings,
-    validateDirectory,
-    importLocalArchive,
-    addRemoteSource,
-    parseStagedSources,
-    installStagedSources,
-    removeStagedSources,
-    clearStagedSources,
-    openPath,
-    pickArchiveFile,
-    pickDirectory,
-    rescanInstalledSkill,
-    createSkillCategory,
-    installWorkspaceSkill,
-    copySkill,
-    moveSkill
-  } = useSkillManager(initialSkillId);
-  const [remoteUrl, setRemoteUrl] = useState("");
-  const [selectedStageIds, setSelectedStageIds] = useState<string[]>([]);
-  const [searchValue, setSearchValue] = useState("");
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
-  const [settingsDraft, setSettingsDraft] = useState<SaveSettingsInput>({
-    installDir: "",
-    tempDir: "",
-    projectDirs: [],
-    skillCategories: [],
-    defaultSkillCategory: "",
-    conflictPolicy: "rename",
-    theme: readCachedTheme(),
-    locale: "zh-CN",
-    ai: {
-      enabled: true,
-      provider: "deepseek",
-      baseUrl: "https://api.deepseek.com",
-      apiKey: "",
-      model: "deepseek-v4-pro"
-    }
-  });
-  const [modalState, setModalState] = useState<{
-    title: string;
-    subtitle?: string;
-    sources: WorkspaceSkillSource[];
-  } | null>(null);
-  const [stagedModalOpen, setStagedModalOpen] = useState(false);
-  const [installConfirmContext, setInstallConfirmContext] = useState<{
-    sourceRoot: string;
-  skillRootPath: string;
-    providerKey: WorkspaceSkillProviderKey;
-  } | null>(null);
-  const [moveCopyContext, setMoveCopyContext] = useState<{
-    id: string;
-    action: "copy" | "move";
-  } | null>(null);
-  const [sidebarTab, setSidebarTab] = useState<"projects" | "installDir">("projects");
-  const [sidebarCollapsed, setSidebarCollapsedState] = useState(globalSidebarCollapsed);
-
-  const setSidebarCollapsed = (val: boolean) => {
-    globalSidebarCollapsed = val;
-    setSidebarCollapsedState(val);
-  };
-
-  const locale = snapshot?.settings.locale || settingsDraft.locale;
-  const t = translations[locale];
-  const selectedLog = snapshot?.logs.find((item) => item.id === selectedLogId) || null;
-  const installPathConfigured = Boolean(snapshot?.settings.installDir.trim());
-  const headerPath = headerPathValue(section, snapshot, t);
-  const installedSkills = useMemo(() => {
-    if (!snapshot) {
-      return [];
-    }
-
-    const term = searchValue.trim().toLowerCase();
-    return snapshot.installedSkills.filter((skill) => {
-      const matchesCategory = !selectedCategoryFilter || skill.category === selectedCategoryFilter;
-      if (!matchesCategory) {
-        return false;
-      }
-
-      if (!term) {
-        return true;
-      }
-
-      return (
-        skill.name.toLowerCase().includes(term) ||
-        skill.slug.toLowerCase().includes(term) ||
-        skill.description?.toLowerCase().includes(term)
-      );
-    });
-  }, [searchValue, selectedCategoryFilter, snapshot]);
-
-  useEffect(() => {
-    if (!snapshot) {
-      return;
-    }
-
-    setSettingsDraft({
-      installDir: snapshot.settings.installDir || "",
-      tempDir: snapshot.settings.tempDir || "",
-      projectDirs: snapshot.settings.projectDirs || [],
-      skillCategories: snapshot.settings.skillCategories || [],
-      defaultSkillCategory: snapshot.settings.defaultSkillCategory || "",
-      conflictPolicy: snapshot.settings.conflictPolicy,
-      theme: snapshot.settings.theme,
-      locale: snapshot.settings.locale,
-      ai: snapshot.settings.ai
-    });
-  }, [snapshot]);
-
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setNotice(null);
-    }, 2600);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [notice, setNotice]);
-
-  useEffect(() => {
-    if (!error) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setError(null);
-    }, 4200);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [error, setError]);
-
-  const dropzone = useDropzone({
-    accept: {
-      "application/zip": [".zip"]
-    },
-    multiple: false,
-    onDropAccepted: (files, event) => {
-      void (async () => {
-        let realPath = "";
-        
-        // 1. Try extracting from raw DragEvent dataTransfer
-        const dragEvent = event as unknown as { dataTransfer?: { files?: Array<{ path?: string }> } };
-        if (dragEvent?.dataTransfer?.files?.[0]?.path) {
-          realPath = dragEvent.dataTransfer.files[0].path;
-        }
-        
-        // 2. Try extracting from raw ChangeEvent target (input click)
-        const changeEvent = event as unknown as { target?: { files?: { path?: string }[] } };
-        if (!realPath && changeEvent?.target?.files?.[0]?.path) {
-          realPath = changeEvent.target.files[0].path;
-        }
-
-        // 3. Fallback to API / manipulated file
-        if (!realPath) {
-          const file = files[0];
-          const api = getSkillManagerApi();
-          const lastKnown = api.getLastKnownFilePath ? api.getLastKnownFilePath() : "";
-          const apiResult = api.getPathForFile ? api.getPathForFile(file) : undefined;
-          const fallbackPath = (file as unknown as { path?: string }).path;
-          realPath = lastKnown || apiResult || fallbackPath || "";
-        }
-
-        if (!realPath) {
-          setError(t.droppedFilePathUnavailable);
-          return;
-        }
-
-        await importLocalArchive(realPath);
-        router.push("/staged");
-      })();
-    }
-  });
-
-  const pendingCount = snapshot?.stagedSources.filter((item) => item.status === "pending").length || 0;
-  const failureCount = snapshot?.summary.failedCount || 0;
-  const activeTheme = snapshot ? snapshot.settings.theme : settingsDraft.theme;
-
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    document.documentElement.dataset.theme = activeTheme;
-
-    window.localStorage.setItem("control-your-skills-theme", activeTheme);
-  }, [activeTheme]);
-
-  const toggleStageSelection = (id: string) => {
-    setSelectedStageIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-    );
-  };
-
-  const updateProjectDirs = async (projectDirs: string[]) => {
-    const nextSettings = {
-      ...settingsDraft,
-      projectDirs: [...new Set(projectDirs.map((item) => item.trim()).filter(Boolean))]
-    };
-    setSettingsDraft(nextSettings);
-    await saveSettings(nextSettings);
-  };
-
-  const handleImportProject = async () => {
-    const initialPath =
-      settingsDraft.projectDirs[settingsDraft.projectDirs.length - 1] || snapshot?.runtime.homeDir;
-    const result = await pickDirectory(initialPath);
-    if (result.ok && result.data) {
-      await updateProjectDirs([...settingsDraft.projectDirs, result.data]);
-    }
-  };
-
-  const handleRemoveProject = async (projectPath: string) => {
-    await updateProjectDirs(settingsDraft.projectDirs.filter((item) => item !== projectPath));
-  };
-
-  const handleCreateCategory = async () => {
-    const categoryName = newCategoryName.trim();
-    if (!categoryName) {
-      return;
-    }
-
-    const created = await createSkillCategory(categoryName);
-    if (!created) {
-      return;
-    }
-
-    setSettingsDraft((current) => {
-      const nextCategories = [...new Set([...current.skillCategories, created.name])];
-      return {
-        ...current,
-        skillCategories: nextCategories,
-        defaultSkillCategory: current.defaultSkillCategory || created.name
-      };
-    });
-    setNewCategoryName("");
-  };
-
-  const handleInstallWorkspaceSkill = async (
-    sourceRoot: string,
-    skillRootPath: string,
-    providerKey: WorkspaceSkillProviderKey
-  ) => {
-    const skip = localStorage.getItem("skip-install-confirm") === "true";
-    if (skip) {
-      await installWorkspaceSkill({ sourceRoot, skillRootPath, providerKey });
-    } else {
-      setInstallConfirmContext({ sourceRoot, skillRootPath, providerKey });
-    }
-  };
-
-  const openSystemSourceModal = (source: WorkspaceSkillSource) => {
-    setModalState({
-      title: source.label,
-      subtitle: source.path,
-      sources: [source]
-    });
-  };
-
-  const importZipWithPicker = async (mode: "staged" | "install") => {
-    const result = await pickArchiveFile();
-    if (!result.ok || !result.data) {
-      return;
-    }
-
-    const created = await importLocalArchive(result.data);
-    if (mode === "install" && created) {
-      await installStagedSources([created.id], settingsDraft.defaultSkillCategory || undefined);
-      router.push("/skills");
-      return;
-    }
-
-    if (created) {
-      await loadStagedDetail(created.id);
-      setStagedModalOpen(true);
-    }
-  };
-
-  const handleRemoteAction = async () => {
-    if (!remoteUrl.trim()) {
-      setError(t.enterRemoteSourceUrl);
-      return;
-    }
-
-    const created = await addRemoteSource(remoteUrl.trim());
-    setRemoteUrl("");
-
-    if (!created) {
-      return;
-    }
-
-    await refresh();
-    await loadStagedDetail(created.id);
-    setStagedModalOpen(true);
-
-    try {
-      await parseStagedSources([created.id]);
-      await loadStagedDetail(created.id);
-    } catch (parseError) {
-      const message = parseError instanceof Error ? parseError.message : t.operationFailed;
-      setError(message);
-      await loadStagedDetail(created.id);
-      return;
-    }
-
-  };
-
-  const openStagedDetailModal = async (stagedId: string) => {
-    await loadStagedDetail(stagedId);
-    setStagedModalOpen(true);
-  };
-
-  const handleInstallWithProgress = async (stagedId: string) => {
-    await installStagedSources([stagedId], settingsDraft.defaultSkillCategory || undefined);
-    await refresh();
-  };
-
-  const handleInstallManyWithProgress = async (ids: string[]) => {
-    if (ids.length === 0) {
-      return;
-    }
-
-    await handleInstallWithProgress(ids[0]);
-  };
-
-  const handlePickInstallDir = async () => {
-    const result = await pickDirectory(settingsDraft.installDir);
-    if (result.ok && result.data) {
-      setSettingsDraft((current) => ({
-        ...current,
-        installDir: result.data || current.installDir
-      }));
-    }
-  };
-
-  const handleQuickChooseInstallDir = async () => {
-    const initialPath = settingsDraft.installDir || snapshot?.runtime.homeDir;
-    const result = await pickDirectory(initialPath);
-    if (!result.ok || !result.data) {
-      return;
-    }
-
-    const nextSettings = {
-      ...settingsDraft,
-      installDir: result.data
-    };
-    setSettingsDraft(nextSettings);
-    await saveSettings(nextSettings);
-  };
-
-  const handleValidateInstallDir = async () => {
-    const result = await validateDirectory(settingsDraft.installDir);
-    setNotice(result.writable ? t.installDirectoryWritable : result.error || t.installDirectoryInvalid);
-  };
-
-  const handlePickTempDir = async () => {
-    const result = await pickDirectory(settingsDraft.tempDir || snapshot?.runtime.dataRoot);
-    if (result.ok && result.data) {
-      setSettingsDraft((current) => ({
-        ...current,
-        tempDir: result.data || current.tempDir
-      }));
-    }
-  };
-
-  const handleValidateTempDir = async () => {
-    if (!settingsDraft.tempDir.trim()) {
-      setNotice(t.tempDirectoryEmptyNotice);
-      return;
-    }
-
-    const result = await validateDirectory(settingsDraft.tempDir);
-    setNotice(result.writable ? t.tempDirectoryWritable : result.error || t.tempDirectoryInvalid);
-  };
+    router, snapshot, busyLabel, notice, error, isRefreshing, selectedSkillDetail,
+    selectedStagedDetail, setNotice, setError, clearSelectedStagedDetail, refresh,
+    openPath, installWorkspaceSkill,
+    settingsDraft, setSettingsDraft, modalState, setModalState, stagedModalOpen,
+    setStagedModalOpen, installConfirmContext, setInstallConfirmContext,
+    moveCopyContext, setMoveCopyContext, sidebarTab, setSidebarTab, sidebarCollapsed,
+    setSidebarCollapsed, t, selectedLog, installPathConfigured, headerPath,
+    dropzone, pendingCount, failureCount, activeTheme,
+    handleImportProject, handleRemoveProject, handleCreateCategory,
+    handleInstallWorkspaceSkill, openSystemSourceModal, importZipWithPicker,
+    handleRemoteAction, openStagedDetailModal, handleInstallWithProgress,
+    handleInstallManyWithProgress, handlePickInstallDir, handleQuickChooseInstallDir,
+    handleValidateInstallDir, handlePickTempDir, handleValidateTempDir,
+    searchValue, setSearchValue,
+    selectedCategoryFilter, setSelectedCategoryFilter, newCategoryName,
+    setNewCategoryName, remoteUrl, setRemoteUrl, primarySectionCategory,
+    copySkill, moveSkill,
+    selectedSkillId, selectedStagedId, selectedLogId, installedSkills, selectedStageIds,
+    setSelectedLogId, loadStagedDetail, installStagedSources, parseStagedSources,
+    removeStagedSources, clearStagedSources, toggleStageSelection, saveSettings,
+    rescanInstalledSkill, pickDirectory
+  } = logic;
 
   const detailPanel = (
     <WorkspaceDetailPanel
@@ -896,8 +66,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     />
   );
   const showDetailLayout =
-    Boolean(detailPanel) && (section === "skills" || section === "staged" || section === "logs");
-  const primarySectionCategory = section === "import" ? settingsDraft.defaultSkillCategory : selectedCategoryFilter;
+    Boolean(detailPanel) && (section === "local-install" || section === "projects" || section === "staged" || section === "logs");
 
   return (
     <div className="app-shell app-grid min-h-screen app-text">
@@ -911,7 +80,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         title={modalState?.title || t.modalInstalledSkills}
       />
 
-      {section === "import" && stagedModalOpen && selectedStagedDetail ? (
+      {section === "local-install" && stagedModalOpen && selectedStagedDetail ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => {
           setStagedModalOpen(false);
           clearSelectedStagedDetail();
@@ -994,168 +163,21 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         "grid min-h-screen grid-cols-1 xl:h-screen xl:overflow-hidden transition-all duration-300",
         sidebarCollapsed ? "xl:grid-cols-[84px,minmax(0,1fr)]" : "xl:grid-cols-[340px,minmax(0,1fr)]"
       )}>
-        <aside className="app-sidebar">
-          <div className="app-sidebar-inner">
-            <div className={cn("flex items-center gap-3 px-2", sidebarCollapsed && "justify-center px-0")}>
-              <button
-                type="button"
-                className={cn(
-                  "flex shrink-0 items-center justify-center app-text transition-all",
-                  sidebarCollapsed ? "h-10 w-10 rounded-[16px] app-surface-subtle shadow-[0_12px_24px_rgba(15,23,42,0.18)]" : "h-8 w-8 rounded-[12px] hover:bg-black/5 dark:hover:bg-white/5 -ml-1"
-                )}
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                title={sidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
-              >
-                {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-              </button>
-              {!sidebarCollapsed && (
-                <div className="min-w-0 flex-1 transition-opacity duration-300">
-                  <p className="truncate text-sm font-semibold app-text">{t.appName}</p>
-                  <p className="mt-0.5 truncate text-xs app-text-soft">{t.appTitle}</p>
-                </div>
-              )}
-            </div>
-
-            <nav className={cn("mt-6 space-y-1.5", sidebarCollapsed && "px-1")}>
-              {navItems.filter(item => item.section !== "settings").map((item) => {
-                const Icon = item.icon;
-                const active = item.section === section;
-                return (
-                  <Link
-                    key={item.section}
-                    className={cn(
-                      "app-sidebar-nav-item",
-                      active && "app-sidebar-nav-item-active",
-                      sidebarCollapsed && "justify-center px-0"
-                    )}
-                    href={item.href}
-                    title={sidebarCollapsed ? navLabel(item.section, t) : undefined}
-                  >
-                    <span className={cn("flex min-w-0 items-center gap-3", sidebarCollapsed && "justify-center")}>
-                      <span className={cn("app-sidebar-nav-icon", active && "app-sidebar-nav-icon-active", sidebarCollapsed && "h-10 w-10 rounded-[12px]")}>
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      {!sidebarCollapsed && <span className="truncate font-medium">{navLabel(item.section, t)}</span>}
-                    </span>
-                    {!sidebarCollapsed && item.section === "staged" && pendingCount ? (
-                      <span className="app-sidebar-count app-sidebar-count-signal">{pendingCount}</span>
-                    ) : null}
-                    {!sidebarCollapsed && item.section === "logs" && failureCount ? (
-                      <span className="app-sidebar-count app-sidebar-count-danger">{failureCount}</span>
-                    ) : null}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {!sidebarCollapsed && (
-            <section className="mt-8 flex min-h-0 flex-1 flex-col border-t pt-5 transition-opacity" style={{ borderColor: "var(--app-border)" }}>
-              <div className="flex items-center justify-between gap-3 px-2">
-                <div className="flex items-center gap-2">
-                  <button 
-                    className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "projects" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
-                    onClick={() => setSidebarTab("projects")}
-                  >
-                    已导入项目
-                  </button>
-                  <span className="text-xs text-black/10 dark:text-white/10">|</span>
-                  <button 
-                    className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "installDir" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
-                    onClick={() => setSidebarTab("installDir")}
-                  >
-                    本地安装
-                  </button>
-                </div>
-                {sidebarTab === "projects" ? (
-                  <button
-                    aria-label={t.importProject}
-                    className="app-sidebar-ghost-button"
-                    onClick={() => void handleImportProject()}
-                    title={t.importProject}
-                    type="button"
-                  >
-                    <FolderPlus className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <button
-                    aria-label={t.quickStartChooseInstallDir}
-                    className="app-sidebar-ghost-button"
-                    onClick={() => void handleQuickChooseInstallDir()}
-                    title={t.quickStartChooseInstallDir}
-                    type="button"
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              <div className="app-scrollbar-hidden mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                {sidebarTab === "projects" ? (
-                  snapshot?.importedProjects.length ? (
-                    snapshot.importedProjects.map((project, index) => (
-                      <SidebarWorkspaceTree
-                        key={project.id}
-                        defaultOpen={index === 0}
-                        nodes={project.tree}
-                        onOpenPath={(targetPath) => {
-                          void openPath(targetPath);
-                        }}
-                        onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
-                        rootLabel={project.name}
-                        rootPath={project.path}
-                      />
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">尚未导入项目</div>
-                  )
-                ) : (
-                  snapshot?.installDirTree && snapshot.installDirTree.length > 0 ? (
-                    <SidebarWorkspaceTree
-                      nodes={snapshot.installDirTree}
-                      onOpenPath={(targetPath) => {
-                        void openPath(targetPath);
-                      }}
-                      onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
-                      rootLabel="安装目录"
-                      rootPath={snapshot.settings.installDir}
-                    />
-                  ) : (
-                    <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">
-                      {!snapshot?.settings.installDir ? "未配置安装目录" : "安装目录为空"}
-                    </div>
-                  )
-                )}
-              </div>
-            </section>
-            )}
-
-            <div className={cn("mt-auto flex flex-col pt-4", sidebarCollapsed && "px-1")}>
-              {navItems.filter(item => item.section === "settings").map((item) => {
-                const Icon = item.icon;
-                const active = item.section === section;
-                return (
-                  <Link
-                    key={item.section}
-                    className={cn(
-                      "app-sidebar-nav-item",
-                      active && "app-sidebar-nav-item-active",
-                      sidebarCollapsed && "justify-center px-0"
-                    )}
-                    href={item.href}
-                    title={sidebarCollapsed ? navLabel(item.section, t) : undefined}
-                  >
-                    <span className={cn("flex min-w-0 items-center gap-3", sidebarCollapsed && "justify-center")}>
-                      <span className={cn("app-sidebar-nav-icon", active && "app-sidebar-nav-icon-active", sidebarCollapsed && "h-10 w-10 rounded-[12px]")}>
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      {!sidebarCollapsed && <span className="truncate font-medium">{navLabel(item.section, t)}</span>}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
+        <WorkspaceNavSidebar
+          section={section}
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
+          t={t}
+          sidebarTab={sidebarTab}
+          setSidebarTab={setSidebarTab}
+          pendingCount={pendingCount}
+          failureCount={failureCount}
+          handleImportProject={handleImportProject}
+          handleQuickChooseInstallDir={handleQuickChooseInstallDir}
+          snapshot={snapshot}
+          openPath={openPath}
+          handleInstallWorkspaceSkill={handleInstallWorkspaceSkill}
+        />
 
         <div className="flex min-h-screen flex-col xl:h-screen xl:overflow-y-auto">
           <header className="app-topbar">
@@ -1163,7 +185,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               <div>
                 <p className="text-[11px] uppercase tracking-[0.28em] app-text-soft">{t.workspaceHeader}</p>
                 <h2 className="mt-2 text-[2rem] font-semibold tracking-tight app-text">
-                  {sectionTitle(section, t)}
+                  {navLabel(section, t)}
                 </h2>
               </div>
 
@@ -1211,76 +233,21 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr),minmax(360px,0.85fr)]">
                 <div>
                   <WorkspacePrimarySection
-                    dropzone={dropzone}
-                    installPathConfigured={installPathConfigured}
-                    _installedSkills={installedSkills}
-                    onClearStaged={clearStagedSources}
-                    onChooseInstallDir={handleQuickChooseInstallDir}
-                    onGoImport={() => router.push("/import")}
-                    onGoStaged={() => router.push("/staged")}
-                    onImportProject={handleImportProject}
-                    onImportZip={importZipWithPicker}
-                    onLoadSkillDetail={loadSkillDetail}
-                    onLoadStagedDetail={loadStagedDetail}
-                    onOpenStagedDetail={openStagedDetailModal}
-                    onOpenLogsFromOverview={(logId) => {
-                      setSelectedLogId(logId);
-                      router.push("/logs");
-                    }}
-                    onOpenPath={openPath}
-                    onOpenSystemSourceModal={openSystemSourceModal}
-                    onInstallStaged={installStagedSources}
-                    onParseStaged={parseStagedSources}
-                    onPickInstallDir={handlePickInstallDir}
-                    onPickTempDir={handlePickTempDir}
-                    onRemoteAction={handleRemoteAction}
-                    onRemoteUrlChange={setRemoteUrl}
-                    onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
-                    onRemoveProject={handleRemoveProject}
-                    onRemoveStaged={removeStagedSources}
-                    onCreateCategory={handleCreateCategory}
-                    onCopySkill={(id) => setMoveCopyContext({ id, action: "copy" })}
-                    onMoveSkill={(id) => setMoveCopyContext({ id, action: "move" })}
-                    onCategoryChange={setSelectedCategoryFilter}
-                    onSaveSettings={() => saveSettings(settingsDraft)}
-                    onSearchValueChange={setSearchValue}
-                    onSelectLog={setSelectedLogId}
-                    onToggleStageSelection={toggleStageSelection}
-                    onValidateInstallDir={handleValidateInstallDir}
-                    onValidateTempDir={handleValidateTempDir}
-                    newCategoryName={newCategoryName}
-                    remoteUrl={remoteUrl}
-                    searchValue={searchValue}
-                    section={section}
-                    selectedCategory={primarySectionCategory}
-                    selectedLogId={selectedLogId}
-                    selectedSkillId={selectedSkillId}
-                    selectedStageIds={selectedStageIds}
-                    selectedStagedId={selectedStagedId}
-                    onNewCategoryNameChange={setNewCategoryName}
-                    setSettingsDraft={setSettingsDraft}
-                    settingsDraft={settingsDraft}
-                    snapshot={snapshot}
-                    t={t}
-                  />
-                </div>
-                <div>{detailPanel}</div>
-              </div>
-            ) : (
-              <div>
-                <WorkspacePrimarySection
                   dropzone={dropzone}
                   installPathConfigured={installPathConfigured}
-                  _installedSkills={installedSkills}
+                  installedSkills={installedSkills}
                   onClearStaged={clearStagedSources}
                   onChooseInstallDir={handleQuickChooseInstallDir}
-                  onGoImport={() => router.push("/import")}
-                  onGoStaged={() => router.push("/staged")}
+                  onGoImport={() => router.push("/local-install" as import("next").Route)}
+                  onGoStaged={() => router.push("/staged" as import("next").Route)}
+                  onGoAiWorkspace={() => router.push("/ai-workspace" as import("next").Route)}
+                  onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
+                  onGoProjects={() => router.push("/projects" as import("next").Route)}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
-                  onLoadSkillDetail={loadSkillDetail}
                   onLoadStagedDetail={loadStagedDetail}
                   onOpenStagedDetail={openStagedDetailModal}
+                  onInstallStagedWithProgress={handleInstallWithProgress}
                   onOpenLogsFromOverview={(logId) => {
                     setSelectedLogId(logId);
                     router.push("/logs");
@@ -1293,22 +260,21 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onPickTempDir={handlePickTempDir}
                   onRemoteAction={handleRemoteAction}
                   onRemoteUrlChange={setRemoteUrl}
+                  onCopySkill={(id) => setMoveCopyContext({ id, action: "copy" })}
+                  onMoveSkill={(id) => setMoveCopyContext({ id, action: "move" })}
+                  remoteUrl={remoteUrl}
                   onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
                   onRemoveProject={handleRemoveProject}
                   onRemoveStaged={removeStagedSources}
                   onCreateCategory={handleCreateCategory}
-                  onCopySkill={(id) => setMoveCopyContext({ id, action: "copy" })}
-                  onMoveSkill={(id) => setMoveCopyContext({ id, action: "move" })}
-                  onCategoryChange={setSelectedCategoryFilter}
                   onSaveSettings={() => saveSettings(settingsDraft)}
                   onSearchValueChange={setSearchValue}
+                  searchValue={searchValue}
                   onSelectLog={setSelectedLogId}
                   onToggleStageSelection={toggleStageSelection}
+                  onCategoryChange={setSelectedCategoryFilter}
                   onValidateInstallDir={handleValidateInstallDir}
                   onValidateTempDir={handleValidateTempDir}
-                  newCategoryName={newCategoryName}
-                  remoteUrl={remoteUrl}
-                  searchValue={searchValue}
                   section={section}
                   selectedCategory={primarySectionCategory}
                   selectedLogId={selectedLogId}
@@ -1316,6 +282,68 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   selectedStageIds={selectedStageIds}
                   selectedStagedId={selectedStagedId}
                   onNewCategoryNameChange={setNewCategoryName}
+                  newCategoryName={newCategoryName}
+                  setSettingsDraft={setSettingsDraft}
+                  settingsDraft={settingsDraft}
+                  snapshot={snapshot}
+                  t={t}
+                />
+                </div>
+                <div>{detailPanel}</div>
+              </div>
+            ) : (
+              <div>
+                <WorkspacePrimarySection
+                  dropzone={dropzone}
+                  installPathConfigured={installPathConfigured}
+                  installedSkills={installedSkills}
+                  onClearStaged={clearStagedSources}
+                  onChooseInstallDir={handleQuickChooseInstallDir}
+                  onGoImport={() => router.push("/local-install" as import("next").Route)}
+                  onGoStaged={() => router.push("/staged" as import("next").Route)}
+                  onGoAiWorkspace={() => router.push("/ai-workspace" as import("next").Route)}
+                  onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
+                  onGoProjects={() => router.push("/projects" as import("next").Route)}
+                  onImportProject={handleImportProject}
+                  onImportZip={importZipWithPicker}
+                  onLoadStagedDetail={loadStagedDetail}
+                  onOpenStagedDetail={openStagedDetailModal}
+                  onInstallStagedWithProgress={handleInstallWithProgress}
+                  onOpenLogsFromOverview={(logId) => {
+                    setSelectedLogId(logId);
+                    router.push("/logs");
+                  }}
+                  onOpenPath={openPath}
+                  onOpenSystemSourceModal={openSystemSourceModal}
+                  onInstallStaged={installStagedSources}
+                  onParseStaged={parseStagedSources}
+                  onPickInstallDir={handlePickInstallDir}
+                  onPickTempDir={handlePickTempDir}
+                  onRemoteAction={handleRemoteAction}
+                  onRemoteUrlChange={setRemoteUrl}
+                  onCopySkill={(id) => setMoveCopyContext({ id, action: "copy" })}
+                  onMoveSkill={(id) => setMoveCopyContext({ id, action: "move" })}
+                  remoteUrl={remoteUrl}
+                  onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
+                  onRemoveProject={handleRemoveProject}
+                  onRemoveStaged={removeStagedSources}
+                  onCreateCategory={handleCreateCategory}
+                  onSaveSettings={() => saveSettings(settingsDraft)}
+                  onSearchValueChange={setSearchValue}
+                  searchValue={searchValue}
+                  onSelectLog={setSelectedLogId}
+                  onToggleStageSelection={toggleStageSelection}
+                  onCategoryChange={setSelectedCategoryFilter}
+                  onValidateInstallDir={handleValidateInstallDir}
+                  onValidateTempDir={handleValidateTempDir}
+                  section={section}
+                  selectedCategory={primarySectionCategory}
+                  selectedLogId={selectedLogId}
+                  selectedSkillId={selectedSkillId}
+                  selectedStageIds={selectedStageIds}
+                  selectedStagedId={selectedStagedId}
+                  onNewCategoryNameChange={setNewCategoryName}
+                  newCategoryName={newCategoryName}
                   setSettingsDraft={setSettingsDraft}
                   settingsDraft={settingsDraft}
                   snapshot={snapshot}

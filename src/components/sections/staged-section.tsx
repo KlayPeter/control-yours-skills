@@ -1,18 +1,40 @@
 import Link from "next/link";
 import { Eye, Plus, RefreshCcw, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { SkillManagerSnapshot } from "@shared/contracts";
+import type { SkillManagerSnapshot, StagedSourceRecord } from "@shared/contracts";
 
 import { SectionCard } from "../ui/cards";
 import { SourceBadge, StatusIndicator } from "../ui/badges";
 import { IconActionButton } from "../ui/buttons";
 import { OverviewMetric, RelativeTimeText } from "../ui/typography";
 import { EmptyState } from "../ui/empty-state";
-import {
-  canInstallStagedSource,
-  isRemoteStagedSource,
-  stagedNextStepLabel
-} from "./import-section";
+export function isRemoteStagedSource(source: Pick<StagedSourceRecord, "sourceType">) {
+  return source.sourceType === "githubRepo" || source.sourceType === "remoteZip";
+}
+
+export function canInstallStagedSource(source: Pick<StagedSourceRecord, "sourceType" | "status">) {
+  return source.status === "ready" && !isRemoteStagedSource(source);
+}
+
+export function stagedNextStepLabel(source: StagedSourceRecord, t: TranslationDictionary) {
+  if (source.status === "installed") {
+    return t.stagedNextInstalled;
+  }
+
+  if (canInstallStagedSource(source)) {
+    return t.stagedNextInstall;
+  }
+
+  if (source.status === "error") {
+    return t.stagedNextError;
+  }
+
+  if (source.status === "processing") {
+    return t.stagedNextProcessing;
+  }
+
+  return t.stagedNextPending;
+}
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -59,7 +81,8 @@ export function StagedSection({
           <div className="flex flex-wrap gap-2">
             <Link
               className="app-button"
-              href="/import"
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              href={"/local-install" as any}
             >
               {t.toImport}
             </Link>

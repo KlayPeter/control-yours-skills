@@ -1,10 +1,8 @@
-import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceSkillSource } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceSkillSource } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 
 import { CapabilityGrid } from "./overview/CapabilityGrid";
-import { SystemSkillDirectories } from "./overview/SystemSkillDirectories";
-import { ProjectDirectories } from "./overview/ProjectDirectories";
-import { LocalInstallDirectory } from "./overview/LocalInstallDirectory";
+import { OverviewStatsGrid } from "./overview/OverviewStatsGrid";
 import { RecentFailures } from "./overview/RecentFailures";
 import { countSkillsInTree } from "@/lib/tree-utils";
 
@@ -20,10 +18,11 @@ export function OverviewSection({
   onGoStaged,
   onOpenSystemSourceModal,
   onImportProject,
-  onRemoveProject,
   onOpenPath,
   onOpenLogsFromOverview,
-  onInstallWorkspaceSkill
+  onGoAiWorkspace,
+  onGoLocalInstall,
+  onGoProjects
 }: {
   snapshot: SkillManagerSnapshot;
   installPathConfigured: boolean;
@@ -33,14 +32,11 @@ export function OverviewSection({
   onGoStaged: () => AsyncActionResult;
   onOpenSystemSourceModal: (source: WorkspaceSkillSource) => void;
   onImportProject: () => AsyncActionResult;
-  onRemoveProject: (projectPath: string) => AsyncActionResult;
   onOpenPath: (path: string) => AsyncActionResult;
   onOpenLogsFromOverview: (logId: string) => void;
-  onInstallWorkspaceSkill: (
-    sourceRoot: string,
-    skillRootPath: string,
-    providerKey: WorkspaceSkillProviderKey
-  ) => AsyncActionResult;
+  onGoAiWorkspace: () => void;
+  onGoLocalInstall: () => void;
+  onGoProjects: () => void;
 }) {
   const systemSkillCount = snapshot.systemSkillSources.reduce((total, source) => total + source.skillCount, 0);
   const detectedSystemSources = snapshot.systemSkillSources.filter((source) => source.exists).length;
@@ -49,6 +45,15 @@ export function OverviewSection({
 
   return (
     <div className="space-y-6">
+      <OverviewStatsGrid
+        snapshot={snapshot}
+        t={t}
+        onGoAiWorkspace={onGoAiWorkspace}
+        onGoLocalInstall={onGoLocalInstall}
+        onGoProjects={onGoProjects}
+        onGoStaged={onGoStaged}
+      />
+
       <SectionCard title={t.capabilityOverviewTitle} subtitle={t.capabilityOverviewSubtitle}>
         <CapabilityGrid
           snapshot={snapshot}
@@ -64,38 +69,6 @@ export function OverviewSection({
           detectedSystemSources={detectedSystemSources}
           importedProjectCount={importedProjectCount}
           importedProjectSkillCount={importedProjectSkillCount}
-        />
-      </SectionCard>
-
-      <SectionCard title={t.workspaceSkillDirectories} subtitle={t.workspaceSkillDirectoriesSubtitle}>
-        <SystemSkillDirectories
-          snapshot={snapshot}
-          t={t}
-          onOpenSystemSourceModal={onOpenSystemSourceModal}
-          onOpenPath={onOpenPath}
-        />
-      </SectionCard>
-
-      <SectionCard title={t.projectDirectories} subtitle={t.projectSkillBrowserSubtitle}>
-        <ProjectDirectories
-          snapshot={snapshot}
-          t={t}
-          onOpenPath={onOpenPath}
-          onRemoveProject={onRemoveProject}
-          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-        />
-      </SectionCard>
-
-      <SectionCard
-        title={t.localInstallDirectory || "本地安装目录 (Local Install Directory)"}
-        subtitle={t.localInstallDirectorySubtitle || "查看和管理您本地统一归档的技能与分类"}
-      >
-        <LocalInstallDirectory
-          snapshot={snapshot}
-          t={t}
-          installPathConfigured={installPathConfigured}
-          onOpenPath={onOpenPath}
-          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
         />
       </SectionCard>
 

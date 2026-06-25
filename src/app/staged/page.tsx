@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { WorkspaceApp } from "@/components/workspace-app";
 
 export default function StagedPage() {
-  redirect("/import");
+  return <WorkspaceApp section="staged" />;
 }

@@ -12,32 +12,35 @@ import { SectionCard } from "../ui/cards";
 import { OverviewSection } from "../sections/overview-section";
 import dynamic from 'next/dynamic';
 
-const ImportSection = dynamic(() => import('../sections/import-section').then(mod => mod.ImportSection));
 const StagedSection = dynamic(() => import('../sections/staged-section').then(mod => mod.StagedSection));
-const SkillsSection = dynamic(() => import('../sections/skills-section').then(mod => mod.SkillsSection));
 const LogsSection = dynamic(() => import('../sections/logs-section').then(mod => mod.LogsSection));
 const SettingsSection = dynamic(() => import('../sections/settings-section').then(mod => mod.SettingsSection));
+const AiWorkspaceSection = dynamic(() => import('../sections/ai-workspace-section').then(mod => mod.AiWorkspaceSection));
+const LocalInstallSection = dynamic(() => import('../sections/local-install-section').then(mod => mod.LocalInstallSection));
+const ProjectsSection = dynamic(() => import('../sections/projects-section').then(mod => mod.ProjectsSection));
 
+import type { WorkspaceSection } from "../workspace-app";
 type TranslationDictionary = Record<string, string>;
-type WorkspaceSection = "overview" | "import" | "staged" | "skills" | "logs" | "settings";
 type AsyncActionResult<T = unknown> = void | Promise<T>;
 
 export function WorkspacePrimarySection({
   section,
   snapshot,
   t,
+  installedSkills,
   installPathConfigured,
   onChooseInstallDir,
   onGoImport,
   onGoStaged,
+  onGoAiWorkspace,
+  onGoLocalInstall,
+  onGoProjects,
   remoteUrl,
   onRemoteUrlChange,
   selectedStageIds,
   selectedStagedId,
-  selectedSkillId,
   selectedLogId,
   searchValue,
-  _installedSkills,
   settingsDraft,
   setSettingsDraft,
   dropzone,
@@ -54,10 +57,15 @@ export function WorkspacePrimarySection({
   onClearStaged,
   onLoadStagedDetail,
   onOpenStagedDetail,
-  onLoadSkillDetail,
+  onInstallStagedWithProgress,
   onSelectLog,
   onOpenLogsFromOverview,
   onInstallWorkspaceSkill,
+  onCopySkill,
+  onMoveSkill,
+  onCategoryChange,
+  selectedCategory,
+  selectedSkillId,
   onSearchValueChange,
   onPickInstallDir,
   onValidateInstallDir,
@@ -66,19 +74,23 @@ export function WorkspacePrimarySection({
   onSaveSettings,
   onCreateCategory,
   newCategoryName,
-  onNewCategoryNameChange,
-  selectedCategory,
-  onCategoryChange,
-  onCopySkill,
-  onMoveSkill
+  onNewCategoryNameChange
 }: {
   section: WorkspaceSection;
   snapshot: SkillManagerSnapshot | null;
   t: TranslationDictionary;
+  installedSkills: InstalledSkillRecord[];
   installPathConfigured: boolean;
   onChooseInstallDir: () => AsyncActionResult;
   onGoImport: () => AsyncActionResult;
   onGoStaged: () => AsyncActionResult;
+  onGoAiWorkspace: () => void;
+  onGoLocalInstall: () => void;
+  onGoProjects: () => void;
+  onCopySkill: (id: string) => void;
+  onMoveSkill: (id: string) => void;
+  onCategoryChange: (value: string) => void;
+  selectedCategory: string;
   remoteUrl: string;
   onRemoteUrlChange: (value: string) => void;
   selectedStageIds: string[];
@@ -86,7 +98,6 @@ export function WorkspacePrimarySection({
   selectedSkillId: string | null;
   selectedLogId: string | null;
   searchValue: string;
-  _installedSkills: InstalledSkillRecord[];
   settingsDraft: SaveSettingsInput;
   setSettingsDraft: Dispatch<SetStateAction<SaveSettingsInput>>;
   dropzone: DropzoneState;
@@ -100,10 +111,10 @@ export function WorkspacePrimarySection({
   onParseStaged: (ids: string[]) => AsyncActionResult;
   onInstallStaged: (ids: string[]) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
-  onClearStaged: () => AsyncActionResult;
+  onClearStaged: () => Promise<number | undefined>;
   onLoadStagedDetail: (id: string) => AsyncActionResult;
-  onOpenStagedDetail: (id: string) => AsyncActionResult;
-  onLoadSkillDetail: (id: string) => AsyncActionResult;
+  onOpenStagedDetail: (id: string) => void;
+  onInstallStagedWithProgress: (id: string) => Promise<void>;
   onSelectLog: (logId: string) => void;
   onOpenLogsFromOverview: (logId: string) => void;
   onInstallWorkspaceSkill: (
@@ -120,10 +131,6 @@ export function WorkspacePrimarySection({
   onCreateCategory: () => AsyncActionResult;
   newCategoryName: string;
   onNewCategoryNameChange: (value: string) => void;
-  selectedCategory: string;
-  onCategoryChange: (value: string) => void;
-  onCopySkill: (id: string) => void;
-  onMoveSkill: (id: string) => void;
 }) {
   if (!snapshot) {
     return (
@@ -147,31 +154,51 @@ export function WorkspacePrimarySection({
           onOpenLogsFromOverview={onOpenLogsFromOverview}
           onOpenPath={onOpenPath}
           onOpenSystemSourceModal={onOpenSystemSourceModal}
-          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-          onRemoveProject={onRemoveProject}
+          onGoAiWorkspace={onGoAiWorkspace}
+          onGoLocalInstall={onGoLocalInstall}
+          onGoProjects={onGoProjects}
           snapshot={snapshot}
           t={t}
         />
       );
-    case "import":
+    case "ai-workspace":
       return (
-        <ImportSection
-          dropzone={dropzone}
-          installPathConfigured={installPathConfigured}
-          onCategoryChange={onCategoryChange}
-          onImportZip={onImportZip}
-          onOpenStagedDetail={onOpenStagedDetail}
-          onParseStaged={onParseStaged}
-          onRemoveStaged={onRemoveStaged}
-          onRemoteAction={onRemoteAction}
-          onRemoteUrlChange={onRemoteUrlChange}
-          onGoStaged={onGoStaged}
-          remoteUrl={remoteUrl}
-          selectedCategory={selectedCategory}
-          selectedStagedId={selectedStagedId}
+        <AiWorkspaceSection
           snapshot={snapshot}
           t={t}
-          onInstallStaged={onInstallStaged}
+          onOpenSystemSourceModal={onOpenSystemSourceModal}
+          onOpenPath={onOpenPath}
+          searchValue={searchValue}
+          onSearchValueChange={onSearchValueChange}
+        />
+      );
+    case "local-install":
+      return (
+        <LocalInstallSection
+          dropzone={dropzone}
+          installPathConfigured={installPathConfigured}
+          onImportZip={onImportZip}
+          onRemoteAction={onRemoteAction}
+          onRemoteUrlChange={onRemoteUrlChange}
+          remoteUrl={remoteUrl}
+          snapshot={snapshot}
+          t={t}
+          onOpenPath={onOpenPath}
+          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+          searchValue={searchValue}
+          onSearchValueChange={onSearchValueChange}
+        />
+      );
+    case "projects":
+      return (
+        <ProjectsSection
+          snapshot={snapshot}
+          t={t}
+          onOpenPath={onOpenPath}
+          onRemoveProject={onRemoveProject}
+          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+          searchValue={searchValue}
+          onSearchValueChange={onSearchValueChange}
         />
       );
     case "staged":
@@ -186,22 +213,6 @@ export function WorkspacePrimarySection({
           onToggleStageSelection={onToggleStageSelection}
           selectedStageIds={selectedStageIds}
           selectedStagedId={selectedStagedId}
-          snapshot={snapshot}
-          t={t}
-        />
-      );
-    case "skills":
-      return (
-        <SkillsSection
-          onCategoryChange={onCategoryChange}
-          onLoadSkillDetail={onLoadSkillDetail}
-          onOpenPath={onOpenPath}
-          onCopySkill={onCopySkill}
-          onMoveSkill={onMoveSkill}
-          onSearchValueChange={onSearchValueChange}
-          searchValue={searchValue}
-          selectedCategory={selectedCategory}
-          selectedSkillId={selectedSkillId}
           snapshot={snapshot}
           t={t}
         />
