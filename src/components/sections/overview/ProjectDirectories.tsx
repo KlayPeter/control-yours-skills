@@ -41,7 +41,11 @@ export function ProjectDirectories({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <IconActionButton icon={FolderOpen} label={t.openFolder} onClick={() => void onOpenPath(project.path)} />
-                  <IconActionButton icon={Trash2} label={t.delete} onClick={() => void onRemoveProject(project.path)} tone="danger" />
+                  <IconActionButton icon={Trash2} label={t.delete} onClick={() => {
+                    if (window.confirm(t.confirmDelete || "确定要删除吗？此操作不可撤销。")) {
+                      void onRemoveProject(project.path);
+                    }
+                  }} tone="danger" />
                 </div>
               </div>
               <div className="border-t border-black/10 dark:border-white/10 px-5 py-4">

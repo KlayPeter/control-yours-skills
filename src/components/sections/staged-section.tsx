@@ -108,7 +108,11 @@ export function StagedSection({
             <button
               className={cn("app-button", selectedStageIds.length === 0 && "cursor-not-allowed opacity-60")}
               disabled={selectedStageIds.length === 0}
-              onClick={() => void onRemoveStaged(selectedStageIds)}
+              onClick={() => {
+                if (window.confirm(t.confirmDelete || "确定要删除吗？此操作不可撤销。")) {
+                  void onRemoveStaged(selectedStageIds);
+                }
+              }}
               type="button"
             >
               {t.removeSelected}
@@ -116,7 +120,11 @@ export function StagedSection({
             <button
               className={cn("app-button", snapshot.stagedSources.length === 0 && "cursor-not-allowed opacity-60")}
               disabled={snapshot.stagedSources.length === 0}
-              onClick={() => void onClearStaged()}
+              onClick={() => {
+                if (window.confirm(t.confirmClearAll || "确定要清空全部暂存项吗？")) {
+                  void onClearStaged();
+                }
+              }}
               type="button"
             >
               {t.clearStaging}
@@ -201,7 +209,11 @@ export function StagedSection({
                     <IconActionButton
                       icon={Trash2}
                       label={t.delete}
-                      onClick={() => void onRemoveStaged([item.id])}
+                      onClick={() => {
+                        if (window.confirm(t.confirmDelete || "确定要删除吗？此操作不可撤销。")) {
+                          void onRemoveStaged([item.id]);
+                        }
+                      }}
                       tone="danger"
                     />
                   </div>

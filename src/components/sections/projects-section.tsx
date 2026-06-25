@@ -4,7 +4,7 @@ import { SectionCard } from "../ui/cards";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 import { countSkillsInTree } from "@/lib/tree-utils";
 import { IconActionButton } from "../ui/buttons";
-import { X } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -87,9 +87,13 @@ export function ProjectsSection({
               subtitle={project.path}
               actions={
                 <IconActionButton
-                  icon={X}
+                  icon={Trash2}
                   label={t.delete || "移除"}
-                  onClick={() => onRemoveProject(project.path)}
+                  onClick={() => {
+                    if (window.confirm(t.confirmDelete || "确定要移除吗？此操作不可撤销。")) {
+                      onRemoveProject(project.path);
+                    }
+                  }}
                   tone="danger"
                 />
               }
