@@ -52,7 +52,7 @@ Break the silos between different AI platforms and projects. As long as there ar
 We are constantly evolving to make skill management effortless and intelligent. Here is what's coming next:
 
 - [ ] **🔗 URL One-Click Install**: Found an amazing skill on GitHub? Just paste the link! The system will automatically parse the repository and seamlessly install the skill into your designated local category—no manual downloading required.
-- [ ] **🧠 AI-Powered Skill Discovery**: A robust search engine driven by AI. Simply type _"Find some skills for making logos"_, and our AI will fetch, evaluate, and recommend the best matching skills with detailed reviews.
+- [ ] **🧠 AI-Powered Skill Discovery**: A robust search engine driven by AI. Simply type _"Find some skills for making logos"_, and our AI will fetch, evaluate, and recommend the best matching skills with detailed reviews. *(Note: To ensure privacy and flexibility, the required AI models/API keys for this feature will be configured by the user.)*
 - [ ] **🏆 Skill Leaderboard & Trends**: Discover fresh capabilities through our curated leaderboards. Explore "Trending Repos", "Fastest Rising Stars", and "Top Rated" skills across various thematic categories to keep your AI toolkit cutting-edge.
 
 ---
