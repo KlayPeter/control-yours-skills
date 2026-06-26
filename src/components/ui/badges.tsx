@@ -69,9 +69,13 @@ export function SourceBadge({
   const label =
     source === "localZip"
       ? t.sourceBadgeLocalZip
+      : source === "localFolder"
+        ? t.sourceBadgeLocalFolder
       : source === "githubRepo"
         ? t.sourceBadgeGithubRepo
-        : t.sourceBadgeRemoteZip;
+        : source === "localDir"
+          ? t.sourceBadgeLocalDirectory
+          : t.sourceBadgeRemoteZip;
 
   return (
     <span className="app-surface-subtle rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.16em] app-text-soft">

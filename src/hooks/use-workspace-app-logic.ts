@@ -47,6 +47,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     saveSettings,
     validateDirectory,
     importLocalArchive,
+    importLocalFolder,
     addRemoteSource,
     parseStagedSources,
     installStagedSources,
@@ -327,6 +328,37 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     }
   };
 
+  const importFolderWithPicker = async (mode: "staged" | "install") => {
+    const initialPath =
+      settingsDraft.projectDirs[settingsDraft.projectDirs.length - 1] ||
+      snapshot?.settings.installDir ||
+      snapshot?.runtime.homeDir;
+    const result = await pickDirectory(initialPath);
+    if (!result.ok || !result.data) {
+      return;
+    }
+
+    const imported = await importLocalFolder(result.data);
+    if (!imported) {
+      return;
+    }
+
+    if (mode === "install" && imported.records.length > 0) {
+      await installStagedSources(
+        imported.records.map((record) => record.id),
+        settingsDraft.defaultSkillCategory || undefined
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      router.push("/local-install" as any);
+      return;
+    }
+
+    if (imported.records[0]) {
+      await loadStagedDetail(imported.records[0].id);
+      setStagedModalOpen(true);
+    }
+  };
+
   const handleRemoteAction = async () => {
     if (!remoteUrl.trim()) {
       setError(t.enterRemoteSourceUrl);
@@ -448,6 +480,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     saveSettings,
     validateDirectory,
     importLocalArchive,
+    importLocalFolder,
     addRemoteSource,
     parseStagedSources,
     installStagedSources,
@@ -494,6 +527,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     handleInstallWorkspaceSkill,
     openSystemSourceModal,
     importZipWithPicker,
+    importFolderWithPicker,
     handleRemoteAction,
     openStagedDetailModal,
     handleInstallWithProgress,

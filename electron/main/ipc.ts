@@ -9,6 +9,9 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:import-local-archive", (_event, filePath: string) =>
     backend.importLocalArchive(filePath)
   );
+  ipcMain.handle("skill-manager:import-local-folder", (_event, folderPath: string) =>
+    backend.importLocalFolder(folderPath)
+  );
   ipcMain.handle("skill-manager:add-remote-source", (_event, url: string) =>
     backend.addRemoteSource(url)
   );

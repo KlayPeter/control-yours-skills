@@ -23,6 +23,7 @@ const copy: Record<
     operationFailed: string;
     busySavingSettings: string;
     busyImportingZip: string;
+    busyImportingFolder: string;
     busyAddingRemoteSource: string;
     busyParsingStagedSources: string;
     busyInstallingSkills: string;
@@ -36,7 +37,9 @@ const copy: Record<
     settingsSaved: string;
     failedToSaveSettings: string;
     zipImportedAndParsed: string;
+    folderImportedAndParsed: string;
     failedToImportZip: string;
+    failedToImportFolder: string;
     remoteSourceAddedToStaging: string;
     failedToAddRemoteSource: string;
     stagedSourcesParsed: string;
@@ -64,6 +67,7 @@ const copy: Record<
     operationFailed: "操作失败。",
     busySavingSettings: "正在保存设置",
     busyImportingZip: "正在导入 ZIP",
+    busyImportingFolder: "正在导入文件夹",
     busyAddingRemoteSource: "正在添加远程来源",
     busyParsingStagedSources: "正在解析暂存来源",
     busyInstallingSkills: "正在安装技能",
@@ -77,7 +81,9 @@ const copy: Record<
     settingsSaved: "设置已保存。",
     failedToSaveSettings: "保存设置失败。",
     zipImportedAndParsed: "ZIP 已导入并解析。",
+    folderImportedAndParsed: "文件夹中的技能已导入暂存区。",
     failedToImportZip: "导入 ZIP 失败。",
+    failedToImportFolder: "导入文件夹失败。",
     remoteSourceAddedToStaging: "远程来源已加入暂存区。",
     failedToAddRemoteSource: "添加远程来源失败。",
     stagedSourcesParsed: "暂存来源已解析。",
@@ -104,6 +110,7 @@ const copy: Record<
     operationFailed: "Operation failed.",
     busySavingSettings: "Saving settings",
     busyImportingZip: "Importing ZIP",
+    busyImportingFolder: "Importing folder",
     busyAddingRemoteSource: "Adding remote source",
     busyParsingStagedSources: "Parsing staged sources",
     busyInstallingSkills: "Installing skills",
@@ -117,7 +124,9 @@ const copy: Record<
     settingsSaved: "Settings saved.",
     failedToSaveSettings: "Failed to save settings.",
     zipImportedAndParsed: "ZIP archive imported and parsed.",
+    folderImportedAndParsed: "Skill folders imported into staging.",
     failedToImportZip: "Failed to import the ZIP archive.",
+    failedToImportFolder: "Failed to import the folder.",
     remoteSourceAddedToStaging: "Remote source added to staging.",
     failedToAddRemoteSource: "Failed to add the remote source.",
     stagedSourcesParsed: "Staged sources parsed.",
@@ -332,6 +341,24 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.zipImportedAndParsed);
+        return result.data;
+      }),
+    importLocalFolder: (folderPath: string) =>
+      runAction(t.busyImportingFolder, async () => {
+        const result = await api.importLocalFolder(folderPath);
+        if (!result.ok || !result.data) {
+          throw new Error(result.error || t.failedToImportFolder);
+        }
+
+        if (result.data.records[0]) {
+          await loadStagedDetail(result.data.records[0].id);
+        }
+
+        setNotice(
+          result.data.importedCount > 1
+            ? `${t.folderImportedAndParsed} (${result.data.importedCount})`
+            : t.folderImportedAndParsed
+        );
         return result.data;
       }),
     addRemoteSource: (url: string) =>

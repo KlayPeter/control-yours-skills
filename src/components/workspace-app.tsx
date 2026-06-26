@@ -39,7 +39,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     setSidebarCollapsed, t, selectedLog, installPathConfigured, headerPath,
     dropzone, pendingCount, failureCount, activeTheme,
     handleImportProject, handleRemoveProject, handleCreateCategory,
-    handleInstallWorkspaceSkill, openSystemSourceModal, importZipWithPicker,
+    handleInstallWorkspaceSkill, openSystemSourceModal, importZipWithPicker, importFolderWithPicker,
     handleRemoteAction, openStagedDetailModal, handleInstallWithProgress,
     handleInstallManyWithProgress, handlePickInstallDir, handleQuickChooseInstallDir,
     handleValidateInstallDir, handlePickTempDir, handleValidateTempDir,
@@ -245,6 +245,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onGoProjects={() => router.push("/projects" as import("next").Route)}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
+                  onImportFolder={importFolderWithPicker}
                   onLoadStagedDetail={loadStagedDetail}
                   onOpenStagedDetail={openStagedDetailModal}
                   onInstallStagedWithProgress={handleInstallWithProgress}
@@ -308,6 +309,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onGoProjects={() => router.push("/projects" as import("next").Route)}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
+                  onImportFolder={importFolderWithPicker}
                   onLoadStagedDetail={loadStagedDetail}
                   onOpenStagedDetail={openStagedDetailModal}
                   onInstallStagedWithProgress={handleInstallWithProgress}

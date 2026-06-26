@@ -13,6 +13,7 @@ import extractZip from "extract-zip";
 import type {
   EnvironmentInfo,
   ExportInstalledSkillInput,
+  FolderImportResult,
   ImportedProjectRecord,
   InstallWorkspaceSkillInput,
   CopyWorkspaceSkillInput,
@@ -39,7 +40,7 @@ import type { RuntimePaths } from "./runtime-paths";
 import { resolveRuntimePaths } from "./runtime-paths";
 import { detectEnvironment, hasRequiredTools } from "./utils/environment";
 import { analyzeRemoteSource, parseInstallStrategy, requiresArchiveExtraction, serializeInstallStrategy } from "./utils/remote-analysis";
-import { detectSkillDirectory, slugifySkillName } from "./utils/skill-parser";
+import { detectSkillDirectory, discoverSkillDirectories, slugifySkillName } from "./utils/skill-parser";
 import { detectSourceType, resolveGitHubArchiveUrl, validateRemoteSource } from "./utils/source-url";
 import {
   resolveSystemProviderSkillPath,
@@ -449,6 +450,86 @@ export class SkillManagerBackend {
     return { ok: true, data: refreshed };
   }
 
+  async importLocalFolder(folderPath: string): Promise<OperationResult<FolderImportResult>> {
+    const normalizedFolderPath = folderPath.trim();
+    if (!normalizedFolderPath) {
+      return { ok: false, error: "Please choose a local folder." };
+    }
+
+    const stats = await fsp.stat(normalizedFolderPath).catch(() => null);
+    if (!stats?.isDirectory()) {
+      return { ok: false, error: "The selected folder does not exist or is not a directory." };
+    }
+
+    const discoveredSkills = await discoverSkillDirectories(normalizedFolderPath);
+    if (discoveredSkills.length === 0) {
+      return { ok: false, error: "No SKILL.md file was found in the selected folder." };
+    }
+
+    const existingByPath = new Set(this.listStagedSources().map((item) => item.sourceValue));
+    const records: StagedSourceRecord[] = [];
+    const skippedPaths: string[] = [];
+
+    for (const skill of discoveredSkills) {
+      if (existingByPath.has(skill.rootPath)) {
+        skippedPaths.push(skill.rootPath);
+        continue;
+      }
+
+      const created = this.insertStagedSource("localFolder", skill.rootPath);
+      this.updateStagedSource(created.id, {
+        status: "ready",
+        detectedName: skill.name,
+        detectedDescription: skill.description,
+        archivePath: null,
+        skillRootPath: skill.rootPath,
+        skillMdPath: skill.skillMdPath,
+        analysisMethod: "rules",
+        analysisSummary: "Local folder skill detected from an existing directory.",
+        installStrategy: {
+          type: "archiveCopy",
+          title: "Folder copy install",
+          reason: "This local folder already contains a valid skill and can be copied into the managed repository.",
+          command: null,
+          workingDirectory: null,
+          prerequisiteSteps: [],
+          manualSteps: [],
+          requiredTools: [],
+          supportedPlatforms: ["win32", "darwin", "linux"],
+          canAutoInstall: true
+        },
+        readmeUrl: null,
+        readmeExcerpt: null,
+        errorMessage: null,
+        updatedAt: nowIso()
+      });
+
+      const refreshed = this.getStagedSource(created.id);
+      if (refreshed) {
+        records.push(refreshed);
+      }
+    }
+
+    await this.writeLog(
+      "staged",
+      "info",
+      `Imported local folder with ${records.length} detected skill${records.length === 1 ? "" : "s"}.`,
+      normalizedFolderPath,
+      null
+    );
+
+    return {
+      ok: true,
+      data: {
+        sourcePath: normalizedFolderPath,
+        importedCount: records.length,
+        skippedCount: skippedPaths.length,
+        records,
+        skippedPaths
+      }
+    };
+  }
+
   async addRemoteSource(url: string): Promise<OperationResult<StagedSourceRecord>> {
     const validation = validateRemoteSource(url);
     if (!validation.ok) {
@@ -506,6 +587,35 @@ export class SkillManagerBackend {
             installStrategy: analysis.installStrategy,
             readmeUrl: analysis.readmeUrl,
             readmeExcerpt: analysis.readmeExcerpt,
+            errorMessage: null,
+            updatedAt: nowIso()
+          });
+        } else if (staged.sourceType === "localFolder") {
+          const parsed = await detectSkillDirectory(staged.sourceValue);
+          parsedSourceName = parsed.name;
+          this.updateStagedSource(id, {
+            status: "ready",
+            detectedName: parsed.name,
+            detectedDescription: parsed.description,
+            archivePath: null,
+            skillRootPath: parsed.rootPath,
+            skillMdPath: parsed.skillMdPath,
+            analysisMethod: "rules",
+            analysisSummary: "Local folder source detected and parsed from SKILL.md.",
+            installStrategy: {
+              type: "archiveCopy",
+              title: "Folder copy install",
+              reason: "Local folder sources can be installed by copying the skill directory.",
+              command: null,
+              workingDirectory: null,
+              prerequisiteSteps: [],
+              manualSteps: [],
+              requiredTools: [],
+              supportedPlatforms: ["win32", "darwin", "linux"],
+              canAutoInstall: true
+            },
+            readmeUrl: null,
+            readmeExcerpt: null,
             errorMessage: null,
             updatedAt: nowIso()
           });
@@ -1442,6 +1552,14 @@ export class SkillManagerBackend {
     if (staged.sourceType === "localZip") {
       if (!fs.existsSync(staged.sourceValue)) {
         throw new Error("The selected ZIP archive no longer exists on disk.");
+      }
+
+      return staged.sourceValue;
+    }
+
+    if (staged.sourceType === "localFolder") {
+      if (!fs.existsSync(staged.sourceValue)) {
+        throw new Error("The selected skill folder no longer exists on disk.");
       }
 
       return staged.sourceValue;

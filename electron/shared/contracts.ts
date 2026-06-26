@@ -1,5 +1,5 @@
 export type ConflictPolicy = "skip" | "overwrite" | "rename";
-export type SourceType = "localZip" | "githubRepo" | "remoteZip";
+export type SourceType = "localZip" | "localFolder" | "localDir" | "githubRepo" | "remoteZip";
 export type SourceStatus = "pending" | "processing" | "ready" | "installed" | "error";
 export type LogLevel = "info" | "warning" | "error";
 export type LogType = "system" | "settings" | "staged" | "install";
@@ -88,6 +88,14 @@ export interface StagedSourceRecord {
 
 export interface StagedSourceDetail extends StagedSourceRecord {
   markdown: string | null;
+}
+
+export interface FolderImportResult {
+  sourcePath: string;
+  importedCount: number;
+  skippedCount: number;
+  records: StagedSourceRecord[];
+  skippedPaths: string[];
 }
 
 export interface InstalledSkillRecord {
@@ -256,6 +264,7 @@ export interface CopyWorkspaceSkillInput {
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
+  importLocalFolder(folderPath: string): Promise<OperationResult<FolderImportResult>>;
   addRemoteSource(url: string): Promise<OperationResult<StagedSourceRecord>>;
   parseStagedSources(ids: string[]): Promise<OperationResult<StagedSourceRecord[]>>;
   installStagedSources(input: InstallStagedSourcesInput): Promise<OperationResult<InstalledSkillRecord[]>>;

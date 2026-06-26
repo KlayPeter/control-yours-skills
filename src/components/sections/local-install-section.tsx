@@ -1,11 +1,10 @@
 import { useState } from "react";
 import type { DropzoneState } from "react-dropzone";
-import { Search, UploadCloud, FolderPlus } from "lucide-react";
+import { Search, UploadCloud, FolderPlus, FolderInput } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { WorkspaceTree } from "../workspace/workspace-tree";
-import { countSkillsInTree } from "@/lib/tree-utils";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -17,6 +16,7 @@ export function LocalInstallSection({
   remoteUrl,
   onRemoteUrlChange,
   onImportZip,
+  onImportFolder,
   onRemoteAction,
   snapshot,
   onOpenPath,
@@ -32,6 +32,7 @@ export function LocalInstallSection({
   remoteUrl: string;
   onRemoteUrlChange: (value: string) => void;
   onImportZip: (mode: "staged" | "install") => AsyncActionResult;
+  onImportFolder: (mode: "staged" | "install") => AsyncActionResult;
   onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   snapshot: SkillManagerSnapshot;
   onOpenPath: (path: string) => AsyncActionResult;
@@ -101,6 +102,28 @@ export function LocalInstallSection({
               >
                 {t.chooseZip}
               </button>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title={t.localFolderImport || "导入本地文件夹"} subtitle={t.localFolderImportSubtitle || "从本地目录批量导入技能"}>
+          <div className="app-surface-subtle rounded-3xl p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-signal/10 text-signal">
+                <FolderInput className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm app-text">{t.localFolderImportHelp || "选择一个目录并递归识别其中的技能文件夹。"}</p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    className="app-button"
+                    onClick={() => void onImportFolder("staged")}
+                    type="button"
+                  >
+                    {t.chooseFolder || "选择文件夹"}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </SectionCard>

@@ -10,6 +10,8 @@ export interface ParsedSkillMetadata {
   skillMdPath: string;
 }
 
+export interface DiscoveredSkillDirectory extends ParsedSkillMetadata {}
+
 const IGNORED_DIRECTORIES = new Set([
   ".git",
   ".github",
@@ -177,6 +179,25 @@ export async function detectSkillDirectory(searchRoot: string): Promise<ParsedSk
   };
 }
 
+export async function discoverSkillDirectories(searchRoot: string): Promise<DiscoveredSkillDirectory[]> {
+  const matchedDirectories = await findManagedSkillDirectories(searchRoot, 0);
+
+  return Promise.all(
+    matchedDirectories.map(async (rootPath) => {
+      const skillMdPath = path.join(rootPath, "SKILL.md");
+      const markdown = await fs.readFile(skillMdPath, "utf8");
+      const metadata = extractSkillMetadata(markdown, path.basename(rootPath));
+
+      return {
+        ...metadata,
+        markdown,
+        rootPath,
+        skillMdPath
+      };
+    })
+  );
+}
+
 async function findSkillDirectories(searchRoot: string, depth: number): Promise<string[]> {
   const discovered: string[] = [];
   const skillMdPath = path.join(searchRoot, "SKILL.md");
@@ -197,6 +218,33 @@ async function findSkillDirectories(searchRoot: string, depth: number): Promise<
 
     const nestedPath = path.join(searchRoot, entry.name);
     const nestedMatches = await findSkillDirectories(nestedPath, depth + 1);
+    discovered.push(...nestedMatches);
+  }
+
+  return discovered;
+}
+
+async function findManagedSkillDirectories(searchRoot: string, depth: number): Promise<string[]> {
+  const discovered: string[] = [];
+  const skillMdPath = path.join(searchRoot, "SKILL.md");
+
+  if (await exists(skillMdPath)) {
+    discovered.push(searchRoot);
+    return discovered;
+  }
+
+  if (depth >= MAX_SKILL_SCAN_DEPTH) {
+    return discovered;
+  }
+
+  const childEntries = await fs.readdir(searchRoot, { withFileTypes: true });
+  for (const entry of childEntries) {
+    if (!entry.isDirectory() || IGNORED_DIRECTORIES.has(entry.name.toLowerCase())) {
+      continue;
+    }
+
+    const nestedPath = path.join(searchRoot, entry.name);
+    const nestedMatches = await findManagedSkillDirectories(nestedPath, depth + 1);
     discovered.push(...nestedMatches);
   }
 

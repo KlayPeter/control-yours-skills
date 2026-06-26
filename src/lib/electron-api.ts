@@ -3,6 +3,7 @@
 import type {
   DirectoryValidationResult,
   ExportInstalledSkillInput,
+  FolderImportResult,
   InstalledSkillDetail,
   InstallWorkspaceSkillInput,
   CopyWorkspaceSkillInput,
@@ -88,6 +89,7 @@ function unavailableResult<T>(
 const browserFallbackApi: SkillManagerApi = {
   getSnapshot: async () => fallbackSnapshot,
   importLocalArchive: async () => unavailableResult<StagedSourceRecord>(),
+  importLocalFolder: async () => unavailableResult<FolderImportResult>(),
   addRemoteSource: async () => unavailableResult<StagedSourceRecord>(),
   parseStagedSources: async () => unavailableResult<StagedSourceRecord[]>(),
   installStagedSources: async () => unavailableResult(),

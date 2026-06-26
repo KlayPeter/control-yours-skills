@@ -21,6 +21,7 @@ window.addEventListener("change", (e) => {
 const api: SkillManagerApi = {
   getSnapshot: () => ipcRenderer.invoke("skill-manager:get-snapshot"),
   importLocalArchive: (filePath) => ipcRenderer.invoke("skill-manager:import-local-archive", filePath),
+  importLocalFolder: (folderPath) => ipcRenderer.invoke("skill-manager:import-local-folder", folderPath),
   addRemoteSource: (url) => ipcRenderer.invoke("skill-manager:add-remote-source", url),
   parseStagedSources: (ids) => ipcRenderer.invoke("skill-manager:parse-staged-sources", ids),
   installStagedSources: (input) => ipcRenderer.invoke("skill-manager:install-staged-sources", input),

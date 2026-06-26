@@ -51,6 +51,7 @@ export function WorkspacePrimarySection({
   onOpenSystemSourceModal,
   onOpenPath,
   onImportZip,
+  onImportFolder,
   onRemoteAction,
   onParseStaged,
   onInstallStaged,
@@ -110,6 +111,7 @@ export function WorkspacePrimarySection({
   onOpenSystemSourceModal: (source: WorkspaceSkillSource) => void;
   onOpenPath: (path: string) => AsyncActionResult;
   onImportZip: (mode: "staged" | "install") => AsyncActionResult;
+  onImportFolder: (mode: "staged" | "install") => AsyncActionResult;
   onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
   onInstallStaged: (ids: string[]) => AsyncActionResult;
@@ -186,6 +188,7 @@ export function WorkspacePrimarySection({
           dropzone={dropzone}
           installPathConfigured={installPathConfigured}
           onImportZip={onImportZip}
+          onImportFolder={onImportFolder}
           onRemoteAction={onRemoteAction}
           onRemoteUrlChange={onRemoteUrlChange}
           remoteUrl={remoteUrl}
