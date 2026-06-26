@@ -1189,6 +1189,42 @@ export class SkillManagerBackend {
     };
   }
 
+  async updateInstalledSkillCategory(input: {
+    id: string;
+    category: string | null;
+  }): Promise<OperationResult<InstalledSkillRecord>> {
+    const installed = this.getInstalledSkill(input.id);
+    if (!installed) {
+      return { ok: false, error: "The selected installed skill could not be found." };
+    }
+
+    const nextCategory = input.category ? this.resolveInstallCategory(input.category) : null;
+    this.database
+      .prepare(
+        `
+          update installed_skills
+          set category = ?, updated_at = ?
+          where id = ?
+        `
+      )
+      .run(nextCategory, nowIso(), input.id);
+
+    await this.writeLog(
+      "settings",
+      "info",
+      `Updated installed skill category: ${installed.name}`,
+      nextCategory || "(uncategorized)",
+      installed.id
+    );
+
+    const refreshed = this.getInstalledSkill(input.id);
+    if (!refreshed) {
+      return { ok: false, error: "The updated installed skill could not be reloaded." };
+    }
+
+    return { ok: true, data: refreshed };
+  }
+
   async saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>> {
     const installDir = input.installDir.trim();
     const tempDir = input.tempDir.trim();

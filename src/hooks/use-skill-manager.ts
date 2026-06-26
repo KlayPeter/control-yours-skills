@@ -34,6 +34,7 @@ const copy: Record<
     busyRefreshingWorkspace: string;
     busyInstallingWorkspaceSkill: string;
     busyCopyingWorkspaceSkill: string;
+    busyUpdatingSkillCategory: string;
     settingsSaved: string;
     failedToSaveSettings: string;
     zipImportedAndParsed: string;
@@ -59,6 +60,8 @@ const copy: Record<
     failedToInstallWorkspaceSkill: string;
     workspaceSkillCopied: string;
     failedToCopyWorkspaceSkill: string;
+    skillCategoryUpdated: string;
+    failedToUpdateSkillCategory: string;
   }
 > = {
   "zh-CN": {
@@ -78,6 +81,7 @@ const copy: Record<
     busyRefreshingWorkspace: "正在刷新工作区",
     busyInstallingWorkspaceSkill: "正在安装工作区技能",
     busyCopyingWorkspaceSkill: "正在复制工作区技能",
+    busyUpdatingSkillCategory: "正在更新技能分类",
     settingsSaved: "设置已保存。",
     failedToSaveSettings: "保存设置失败。",
     zipImportedAndParsed: "ZIP 已导入并解析。",
@@ -102,7 +106,9 @@ const copy: Record<
     workspaceSkillInstalled: "工作区技能已安装到系统目录。",
     failedToInstallWorkspaceSkill: "安装工作区技能失败。",
     workspaceSkillCopied: "工作区技能已复制。",
-    failedToCopyWorkspaceSkill: "复制工作区技能失败。"
+    failedToCopyWorkspaceSkill: "复制工作区技能失败。",
+    skillCategoryUpdated: "技能分类已更新。",
+    failedToUpdateSkillCategory: "更新技能分类失败。"
   },
   en: {
     failedToLoadSelectedSkill: "Failed to load the selected skill.",
@@ -121,6 +127,7 @@ const copy: Record<
     busyRefreshingWorkspace: "Refreshing workspace",
     busyInstallingWorkspaceSkill: "Installing workspace skill",
     busyCopyingWorkspaceSkill: "Copying workspace skill",
+    busyUpdatingSkillCategory: "Updating skill category",
     settingsSaved: "Settings saved.",
     failedToSaveSettings: "Failed to save settings.",
     zipImportedAndParsed: "ZIP archive imported and parsed.",
@@ -145,7 +152,9 @@ const copy: Record<
     workspaceSkillInstalled: "Workspace skill installed to the system directory.",
     failedToInstallWorkspaceSkill: "Failed to install the workspace skill.",
     workspaceSkillCopied: "Workspace skill copied.",
-    failedToCopyWorkspaceSkill: "Failed to copy the workspace skill."
+    failedToCopyWorkspaceSkill: "Failed to copy the workspace skill.",
+    skillCategoryUpdated: "Skill category updated.",
+    failedToUpdateSkillCategory: "Failed to update the skill category."
   }
 };
 
@@ -326,6 +335,17 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.settingsSaved);
+        return result.data;
+      }),
+    updateInstalledSkillCategory: (input: { id: string; category: string | null }) =>
+      runAction(t.busyUpdatingSkillCategory, async () => {
+        const result = await api.updateInstalledSkillCategory(input);
+        if (!result.ok || !result.data) {
+          throw new Error(result.error || t.failedToUpdateSkillCategory);
+        }
+
+        await loadSkillDetail(input.id);
+        setNotice(t.skillCategoryUpdated);
         return result.data;
       }),
     validateDirectory: (targetPath: string) => api.validateDirectory(targetPath),

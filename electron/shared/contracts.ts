@@ -261,6 +261,11 @@ export interface CopyWorkspaceSkillInput {
   targetDirectory: string;
 }
 
+export interface UpdateInstalledSkillCategoryInput {
+  id: string;
+  category: string | null;
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -278,6 +283,7 @@ export interface SkillManagerApi {
   copyWorkspaceSkillToDirectory(input: CopyWorkspaceSkillInput): Promise<OperationResult<void>>;
   createWorkspaceFolder(input: { parentPath: string; folderName: string }): Promise<OperationResult<void>>;
   createSkillCategory(name: string): Promise<OperationResult<SkillCategoryRecord>>;
+  updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;
   validateDirectory(targetPath: string): Promise<DirectoryValidationResult>;
   openPath(targetPath: string): Promise<OperationResult<void>>;

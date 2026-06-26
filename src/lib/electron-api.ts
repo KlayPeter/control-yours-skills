@@ -4,6 +4,7 @@ import type {
   DirectoryValidationResult,
   ExportInstalledSkillInput,
   FolderImportResult,
+  InstalledSkillRecord,
   InstalledSkillDetail,
   InstallWorkspaceSkillInput,
   CopyWorkspaceSkillInput,
@@ -115,6 +116,7 @@ const browserFallbackApi: SkillManagerApi = {
     return unavailableResult<void>();
   },
   createSkillCategory: async () => unavailableResult(),
+  updateInstalledSkillCategory: async () => unavailableResult<InstalledSkillRecord>(),
   saveSettings: async () => unavailableResult<SettingsRecord>(),
   validateDirectory: async (targetPath: string): Promise<DirectoryValidationResult> => ({
     path: targetPath,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DropzoneState } from "react-dropzone";
-import { Search, UploadCloud, FolderPlus, FolderInput } from "lucide-react";
+import { Search, UploadCloud, FolderPlus, FolderInput, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
@@ -23,6 +23,7 @@ export function LocalInstallSection({
   onInstallWorkspaceSkill,
   onCreateWorkspaceFolder,
   onCopyWorkspaceSkill,
+  onUpdateInstalledSkillCategory,
   searchValue,
   onSearchValueChange
 }: {
@@ -43,6 +44,7 @@ export function LocalInstallSection({
   ) => AsyncActionResult;
   onCopyWorkspaceSkill?: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
   onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
+  onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -70,6 +72,23 @@ export function LocalInstallSection({
   };
 
   const filteredTree = filterTree(installTree, searchValue);
+  const filteredInstalledSkills = snapshot.installedSkills.filter((skill) => {
+    const term = searchValue.trim().toLowerCase();
+    if (!term) {
+      return true;
+    }
+
+    return (
+      skill.name.toLowerCase().includes(term) ||
+      skill.slug.toLowerCase().includes(term) ||
+      skill.description?.toLowerCase().includes(term) ||
+      skill.category?.toLowerCase().includes(term)
+    );
+  });
+  const availableCategories = [...new Set([
+    ...snapshot.settings.skillCategories,
+    ...snapshot.installCategories.map((category) => category.name)
+  ])].sort((left, right) => left.localeCompare(right));
 
   return (
     <div className="space-y-6">
@@ -159,7 +178,7 @@ export function LocalInstallSection({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 app-text-soft" />
           <input
             type="text"
-            placeholder={t.search || "搜索..."}
+            placeholder={t.searchPlaceholder || "搜索..."}
             value={searchValue}
             onChange={(e) => onSearchValueChange(e.target.value)}
             className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-black/40 pl-10 pr-4 py-2 text-sm app-text focus-visible:ring-2 focus-visible:ring-signal/45 focus-visible:outline-none transition-all"
@@ -218,6 +237,63 @@ export function LocalInstallSection({
           </button>
         )}
       </div>
+
+      <SectionCard
+        title={t.installedSkillsSubtitle || "中心仓库技能"}
+        subtitle="为中心仓库里的技能分配分类，后续推荐分类和同步都会以这里为准。"
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredInstalledSkills.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-black/15 dark:border-white/15 bg-black/5 dark:bg-black/10 px-4 py-6 text-sm app-text-soft">
+              {t.noInstalledSkillsYetDescription || "成功安装后，这里会显示技能。"}
+            </div>
+          ) : (
+            filteredInstalledSkills.map((skill) => (
+              <div key={skill.id} className="app-surface-subtle rounded-3xl p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium app-text" title={skill.name}>{skill.name}</p>
+                    <p className="mt-1 line-clamp-2 text-xs app-text-soft">{skill.description || t.noDescriptionAvailable}</p>
+                  </div>
+                  <button
+                    className="app-icon-button shrink-0"
+                    onClick={() => void onOpenPath(skill.installPath)}
+                    type="button"
+                    title={t.openFolder}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <label className="block text-xs uppercase tracking-[0.16em] app-text-soft">
+                    当前分类
+                  </label>
+                  <select
+                    className="app-input h-10 w-full rounded-2xl px-3 text-sm"
+                    onChange={(event) =>
+                      void onUpdateInstalledSkillCategory({
+                        id: skill.id,
+                        category: event.target.value || null
+                      })
+                    }
+                    value={skill.category || ""}
+                  >
+                    <option value="">未分类</option>
+                    {availableCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="truncate text-xs app-text-soft" title={skill.installPath}>
+                    {skill.installPath}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </SectionCard>
 
       <SectionCard 
         title={t.localInstallDirectory || "本地安装目录 (Local Install Directory)"} 

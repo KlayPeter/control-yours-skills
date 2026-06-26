@@ -77,6 +77,7 @@ export function WorkspacePrimarySection({
   onValidateTempDir,
   onSaveSettings,
   onCreateCategory,
+  onUpdateInstalledSkillCategory,
   newCategoryName,
   onNewCategoryNameChange
 }: {
@@ -136,6 +137,7 @@ export function WorkspacePrimarySection({
   onValidateTempDir: () => AsyncActionResult;
   onSaveSettings: () => AsyncActionResult;
   onCreateCategory: () => AsyncActionResult;
+  onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   newCategoryName: string;
   onNewCategoryNameChange: (value: string) => void;
 }) {
@@ -198,6 +200,7 @@ export function WorkspacePrimarySection({
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
           onCopyWorkspaceSkill={onCopyWorkspaceSkill}
           onCreateWorkspaceFolder={onCreateWorkspaceFolder}
+          onUpdateInstalledSkillCategory={onUpdateInstalledSkillCategory}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />

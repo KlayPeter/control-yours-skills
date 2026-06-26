@@ -49,6 +49,9 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:create-skill-category", (_event, name: string) =>
     backend.createSkillCategory(name)
   );
+  ipcMain.handle("skill-manager:update-installed-skill-category", (_event, input) =>
+    backend.updateInstalledSkillCategory(input)
+  );
   ipcMain.handle("skill-manager:save-settings", (_event, input: SaveSettingsInput) =>
     backend.saveSettings(input)
   );
