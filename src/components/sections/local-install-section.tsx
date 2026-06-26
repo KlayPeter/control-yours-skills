@@ -4,6 +4,7 @@ import { Search, UploadCloud, FolderPlus, FolderInput, FolderOpen } from "lucide
 import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
+import { OverviewMetric } from "../ui/typography";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 
 type TranslationDictionary = Record<string, string>;
@@ -89,9 +90,28 @@ export function LocalInstallSection({
     ...snapshot.settings.skillCategories,
     ...snapshot.installCategories.map((category) => category.name)
   ])].sort((left, right) => left.localeCompare(right));
+  const uncategorizedCount = snapshot.installedSkills.filter((skill) => !skill.category).length;
+  const categorizedCount = snapshot.installedSkills.length - uncategorizedCount;
+  const sortedInstalledSkills = [...filteredInstalledSkills].sort((left, right) => {
+    const leftCategory = left.category || "zzz";
+    const rightCategory = right.category || "zzz";
+    return leftCategory.localeCompare(rightCategory) || left.name.localeCompare(right.name);
+  });
 
   return (
     <div className="space-y-6">
+      <SectionCard
+        title={t.centerRepositoryTitle || "中心仓库总览"}
+        subtitle={t.centerRepositorySubtitle || "这里是系统正式纳管的技能主版本库，分类、推荐和后续同步都会以这里为准。"}
+      >
+        <div className="grid gap-4 md:grid-cols-4">
+          <OverviewMetric label={t.sectionSkills || "已纳管技能"} value={snapshot.installedSkills.length} />
+          <OverviewMetric label={t.installedMetricCategories || "分类数"} value={availableCategories.length} />
+          <OverviewMetric label={t.categorizedSkillsLabel || "已分类"} value={categorizedCount} />
+          <OverviewMetric label={t.uncategorizedSkillsLabel || "未分类"} value={uncategorizedCount} />
+        </div>
+      </SectionCard>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SectionCard title={t.localZipImport} subtitle={t.localZipImportSubtitle}>
           <div
@@ -239,20 +259,25 @@ export function LocalInstallSection({
       </div>
 
       <SectionCard
-        title={t.installedSkillsSubtitle || "中心仓库技能"}
-        subtitle="为中心仓库里的技能分配分类，后续推荐分类和同步都会以这里为准。"
+        title={t.centerRepositorySkillsTitle || "中心仓库技能"}
+        subtitle={t.centerRepositorySkillsSubtitle || "为中心仓库里的技能分配分类，后续推荐分类和同步都会以这里为准。"}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filteredInstalledSkills.length === 0 ? (
+          {sortedInstalledSkills.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-black/15 dark:border-white/15 bg-black/5 dark:bg-black/10 px-4 py-6 text-sm app-text-soft">
               {t.noInstalledSkillsYetDescription || "成功安装后，这里会显示技能。"}
             </div>
           ) : (
-            filteredInstalledSkills.map((skill) => (
+            sortedInstalledSkills.map((skill) => (
               <div key={skill.id} className="app-surface-subtle rounded-3xl p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium app-text" title={skill.name}>{skill.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-medium app-text" title={skill.name}>{skill.name}</p>
+                      <span className="rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 text-[11px] app-text-soft">
+                        {skill.category || t.unclassifiedOption || "未分类"}
+                      </span>
+                    </div>
                     <p className="mt-1 line-clamp-2 text-xs app-text-soft">{skill.description || t.noDescriptionAvailable}</p>
                   </div>
                   <button
@@ -296,8 +321,8 @@ export function LocalInstallSection({
       </SectionCard>
 
       <SectionCard 
-        title={t.localInstallDirectory || "本地安装目录 (Local Install Directory)"} 
-        subtitle={t.localInstallDirectorySubtitle || "查看和管理您本地统一归档的技能与分类"}
+        title={t.localInstallDirectory || "中心仓库目录"} 
+        subtitle={t.localInstallDirectorySubtitle || "查看和管理中心仓库在磁盘上的真实目录结构"}
       >
         <div className="mt-4">
           <WorkspaceTree
