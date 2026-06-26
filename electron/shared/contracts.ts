@@ -279,3 +279,27 @@ export interface SkillManagerApi {
   getPathForFile?(file: File): string;
   getLastKnownFilePath?(): string;
 }
+
+export interface UpdateInfo {
+  version: string;
+  releaseDate: string;
+}
+
+export interface ProgressInfo {
+  total: number;
+  delta: number;
+  transferred: number;
+  percent: number;
+  bytesPerSecond: number;
+}
+
+export interface AppUpdaterApi {
+  check(): void;
+  download(): void;
+  install(): void;
+  onUpdateAvailable(callback: (info: UpdateInfo) => void): () => void;
+  onUpdateNotAvailable(callback: () => void): () => void;
+  onDownloadProgress(callback: (info: ProgressInfo) => void): () => void;
+  onUpdateDownloaded(callback: () => void): () => void;
+  onError(callback: (error: string) => void): () => void;
+}

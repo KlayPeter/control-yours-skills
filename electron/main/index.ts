@@ -5,6 +5,7 @@ import { app, BrowserWindow } from "electron";
 import { registerIpcHandlers } from "./ipc";
 import { startProductionRenderer } from "./production-server";
 import { SkillManagerBackend } from "./skill-manager-backend";
+import { setupUpdater } from "./updater";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
@@ -33,6 +34,8 @@ function createWindow(rendererUrl: string) {
   if (isDevelopment) {
     window.webContents.openDevTools({ mode: "detach" });
   }
+
+  return window;
 }
 
 async function bootstrap() {
@@ -51,7 +54,10 @@ async function bootstrap() {
     app.dock?.setIcon(iconPath);
   }
 
-  createWindow(rendererUrl);
+  const mainWindow = createWindow(rendererUrl);
+
+  // Setup updater
+  setupUpdater(mainWindow);
 
   if (productionRenderer) {
     app.on("before-quit", () => {
@@ -61,7 +67,8 @@ async function bootstrap() {
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow(rendererUrl);
+      const w = createWindow(rendererUrl);
+      setupUpdater(w);
     }
   });
 }

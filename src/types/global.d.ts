@@ -1,4 +1,4 @@
-import type { SkillManagerApi } from "@shared/contracts";
+import type { SkillManagerApi, AppUpdaterApi } from "@shared/contracts";
 
 declare global {
   interface File {
@@ -7,6 +7,7 @@ declare global {
 
   interface Window {
     skillManager?: SkillManagerApi;
+    appUpdater?: AppUpdaterApi;
   }
 }
 

@@ -12,6 +12,7 @@ import {
 import { SourceViewerModal } from "./workspace/source-viewer-modal";
 import { WorkspaceDetailPanel } from "./workspace/workspace-detail-panel";
 import { WorkspacePrimarySection } from "./workspace/workspace-primary-section";
+import { AutoUpdaterDialog } from "./workspace/auto-updater-dialog";
 import { cn } from "@/lib/cn";
 import { WorkspaceNavSidebar, navLabel } from "./workspace/workspace-nav-sidebar";
 import { useWorkspaceAppLogic } from "@/hooks/use-workspace-app-logic";
@@ -69,6 +70,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   return (
     <div className="app-shell app-grid min-h-screen app-text">
+      <AutoUpdaterDialog />
       <SourceViewerModal
         onClose={() => setModalState(null)}
         onOpenPath={(targetPath) => void openPath(targetPath)}

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 
-import type { SkillManagerApi } from "@shared/contracts";
+import type { SkillManagerApi, AppUpdaterApi } from "@shared/contracts";
 
 let lastKnownFilePath = "";
 
@@ -47,3 +47,36 @@ const api: SkillManagerApi = {
 };
 
 contextBridge.exposeInMainWorld("skillManager", api);
+
+const updaterApi: AppUpdaterApi = {
+  check: () => ipcRenderer.send("updater:check"),
+  download: () => ipcRenderer.send("updater:download"),
+  install: () => ipcRenderer.send("updater:install"),
+  onUpdateAvailable: (callback) => {
+    const handler = (_event: any, info: any) => callback(info);
+    ipcRenderer.on("updater:update-available", handler);
+    return () => ipcRenderer.removeListener("updater:update-available", handler);
+  },
+  onUpdateNotAvailable: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("updater:update-not-available", handler);
+    return () => ipcRenderer.removeListener("updater:update-not-available", handler);
+  },
+  onDownloadProgress: (callback) => {
+    const handler = (_event: any, info: any) => callback(info);
+    ipcRenderer.on("updater:download-progress", handler);
+    return () => ipcRenderer.removeListener("updater:download-progress", handler);
+  },
+  onUpdateDownloaded: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("updater:update-downloaded", handler);
+    return () => ipcRenderer.removeListener("updater:update-downloaded", handler);
+  },
+  onError: (callback) => {
+    const handler = (_event: any, error: any) => callback(error);
+    ipcRenderer.on("updater:error", handler);
+    return () => ipcRenderer.removeListener("updater:error", handler);
+  }
+};
+
+contextBridge.exposeInMainWorld("appUpdater", updaterApi);

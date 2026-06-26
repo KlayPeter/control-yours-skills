@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PanelLeftClose, PanelLeftOpen, LayoutDashboard, Sparkles, HardDriveDownload, FolderOpen, Logs, Settings, FolderPlus } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, LayoutDashboard, Sparkles, HardDriveDownload, FolderOpen, Logs, Settings, FolderPlus, RefreshCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { LogoIcon } from "@/components/ui/logo-icon";
 import { SidebarWorkspaceTree } from "./sidebar";
@@ -247,6 +247,25 @@ export function WorkspaceNavSidebar({
               </Link>
             );
           })}
+          
+          <button
+            onClick={() => {
+              // @ts-expect-error accessing custom property
+              window.__triggerUpdateCheck?.();
+            }}
+            className={cn(
+              "app-sidebar-nav-item mt-2",
+              sidebarCollapsed && "justify-center px-0"
+            )}
+            title={sidebarCollapsed ? "Check for Updates" : undefined}
+          >
+            <span className={cn("flex min-w-0 items-center gap-3", sidebarCollapsed && "justify-center")}>
+              <span className={cn("app-sidebar-nav-icon", sidebarCollapsed && "h-10 w-10 rounded-[12px]")}>
+                <RefreshCcw className="h-4 w-4" />
+              </span>
+              {!sidebarCollapsed && <span className="truncate font-medium text-[13px]">Check for Updates</span>}
+            </span>
+          </button>
         </div>
       </div>
     </aside>
