@@ -149,6 +149,17 @@ export function WorkspaceDetailPanel({
               <p>{t.sourceValue}: {selectedStagedDetail.sourceValue}</p>
               <p>{t.archivePath}: {selectedStagedDetail.archivePath || t.archivePathPending}</p>
               <p>{t.skillRoot}: {selectedStagedDetail.skillRootPath || t.skillRootPending}</p>
+              {selectedStagedDetail.selectedCategory ? (
+                <p>{t.installCategoryLabel || "安装分类"}: {selectedStagedDetail.selectedCategory}</p>
+              ) : null}
+              {selectedStagedDetail.suggestedCategory ? (
+                <p>
+                  {t.recommendedCategory || "推荐分类"}: {selectedStagedDetail.suggestedCategory}
+                  {selectedStagedDetail.classificationConfidence != null
+                    ? ` (${Math.round(selectedStagedDetail.classificationConfidence * 100)}%)`
+                    : ""}
+                </p>
+              ) : null}
               {selectedStagedDetail.analysisMethod ? <p>识别方式: {detailLabel}</p> : null}
               {selectedStagedDetail.readmeUrl ? <p>README: {selectedStagedDetail.readmeUrl}</p> : null}
               {selectedStagedDetail.errorMessage ? <p>{t.errorLabel}: {selectedStagedDetail.errorMessage}</p> : null}
@@ -159,6 +170,15 @@ export function WorkspaceDetailPanel({
             <div className="app-surface-subtle rounded-3xl p-4">
               <p className="text-xs uppercase tracking-[0.16em] app-text-soft">用途总结</p>
               <p className="mt-3 text-sm leading-6 app-text">{selectedStagedDetail.analysisSummary}</p>
+            </div>
+          ) : null}
+
+          {selectedStagedDetail.classificationReason ? (
+            <div className="app-surface-subtle rounded-3xl p-4">
+              <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
+                {t.recommendedCategory || "推荐分类"}
+              </p>
+              <p className="mt-3 text-sm leading-6 app-text">{selectedStagedDetail.classificationReason}</p>
             </div>
           ) : null}
 

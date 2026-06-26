@@ -82,6 +82,10 @@ export function createDatabase(paths: RuntimePaths) {
       install_strategy text,
       readme_url text,
       readme_excerpt text,
+      suggested_category text,
+      selected_category text,
+      classification_reason text,
+      classification_confidence real,
       error_message text,
       created_at text not null,
       updated_at text not null
@@ -193,6 +197,18 @@ export function createDatabase(paths: RuntimePaths) {
   }
   if (!stagedColumns.some((column) => column.name === "readme_excerpt")) {
     database.exec("alter table staged_sources add column readme_excerpt text;");
+  }
+  if (!stagedColumns.some((column) => column.name === "suggested_category")) {
+    database.exec("alter table staged_sources add column suggested_category text;");
+  }
+  if (!stagedColumns.some((column) => column.name === "selected_category")) {
+    database.exec("alter table staged_sources add column selected_category text;");
+  }
+  if (!stagedColumns.some((column) => column.name === "classification_reason")) {
+    database.exec("alter table staged_sources add column classification_reason text;");
+  }
+  if (!stagedColumns.some((column) => column.name === "classification_confidence")) {
+    database.exec("alter table staged_sources add column classification_confidence real;");
   }
   const installedColumns = database
     .prepare("pragma table_info(installed_skills)")

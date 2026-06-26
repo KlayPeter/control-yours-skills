@@ -40,6 +40,7 @@ import type { RuntimePaths } from "./runtime-paths";
 import { resolveRuntimePaths } from "./runtime-paths";
 import { detectEnvironment, hasRequiredTools } from "./utils/environment";
 import { analyzeRemoteSource, parseInstallStrategy, requiresArchiveExtraction, serializeInstallStrategy } from "./utils/remote-analysis";
+import { classifySkill } from "./utils/skill-classification";
 import { detectSkillDirectory, discoverSkillDirectories, slugifySkillName } from "./utils/skill-parser";
 import { detectSourceType, resolveGitHubArchiveUrl, validateRemoteSource } from "./utils/source-url";
 import {
@@ -86,6 +87,10 @@ interface StagedRow {
   install_strategy: string | null;
   readme_url: string | null;
   readme_excerpt: string | null;
+  suggested_category: string | null;
+  selected_category: string | null;
+  classification_reason: string | null;
+  classification_confidence: number | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
@@ -196,6 +201,10 @@ function toStagedRecord(row: StagedRow): StagedSourceRecord {
     installStrategy: parseInstallStrategy(row.install_strategy),
     readmeUrl: row.readme_url,
     readmeExcerpt: row.readme_excerpt,
+    suggestedCategory: row.suggested_category,
+    selectedCategory: row.selected_category,
+    classificationReason: row.classification_reason,
+    classificationConfidence: row.classification_confidence,
     errorMessage: row.error_message,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -245,6 +254,20 @@ async function safeReadText(filePath: string | null) {
   } catch {
     return null;
   }
+}
+
+function toLocalReadmeExcerpt(markdown: string | null) {
+  if (!markdown) {
+    return null;
+  }
+
+  return markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 10)
+    .join("\n")
+    .slice(0, 1200);
 }
 
 export class SkillManagerBackend {
@@ -325,7 +348,7 @@ export class SkillManagerBackend {
         if (existing) {
           updateStmt.run({
             installPath: skill.installPath,
-            category: skill.category,
+            category: skill.category ?? existing.category,
             name: skill.name,
             description: skill.description
           });
@@ -476,6 +499,16 @@ export class SkillManagerBackend {
         continue;
       }
 
+      const readmeExcerpt = await this.readLocalReadmeExcerpt(skill.rootPath, skill.skillMdPath);
+      const classification = classifySkill({
+        name: skill.name,
+        description: skill.description,
+        sourceValue: skill.rootPath,
+        skillRootPath: skill.rootPath,
+        markdown: skill.markdown,
+        readmeExcerpt
+      });
+
       const created = this.insertStagedSource("localFolder", skill.rootPath);
       this.updateStagedSource(created.id, {
         status: "ready",
@@ -499,7 +532,11 @@ export class SkillManagerBackend {
           canAutoInstall: true
         },
         readmeUrl: null,
-        readmeExcerpt: null,
+        readmeExcerpt,
+        suggestedCategory: classification.suggestedCategory,
+        selectedCategory: null,
+        classificationReason: classification.classificationReason,
+        classificationConfidence: classification.classificationConfidence,
         errorMessage: null,
         updatedAt: nowIso()
       });
@@ -576,6 +613,12 @@ export class SkillManagerBackend {
             ai: settings.ai,
             environment
           });
+          const classification = classifySkill({
+            name: analysis.detectedName,
+            description: analysis.detectedDescription,
+            sourceValue: staged.sourceValue,
+            readmeExcerpt: analysis.readmeExcerpt
+          });
 
           parsedSourceName = analysis.detectedName || staged.sourceValue;
           this.updateStagedSource(id, {
@@ -587,11 +630,23 @@ export class SkillManagerBackend {
             installStrategy: analysis.installStrategy,
             readmeUrl: analysis.readmeUrl,
             readmeExcerpt: analysis.readmeExcerpt,
+            suggestedCategory: classification.suggestedCategory,
+            classificationReason: classification.classificationReason,
+            classificationConfidence: classification.classificationConfidence,
             errorMessage: null,
             updatedAt: nowIso()
           });
         } else if (staged.sourceType === "localFolder") {
           const parsed = await detectSkillDirectory(staged.sourceValue);
+          const readmeExcerpt = await this.readLocalReadmeExcerpt(parsed.rootPath, parsed.skillMdPath);
+          const classification = classifySkill({
+            name: parsed.name,
+            description: parsed.description,
+            sourceValue: staged.sourceValue,
+            skillRootPath: parsed.rootPath,
+            markdown: parsed.markdown,
+            readmeExcerpt
+          });
           parsedSourceName = parsed.name;
           this.updateStagedSource(id, {
             status: "ready",
@@ -615,7 +670,10 @@ export class SkillManagerBackend {
               canAutoInstall: true
             },
             readmeUrl: null,
-            readmeExcerpt: null,
+            readmeExcerpt,
+            suggestedCategory: classification.suggestedCategory,
+            classificationReason: classification.classificationReason,
+            classificationConfidence: classification.classificationConfidence,
             errorMessage: null,
             updatedAt: nowIso()
           });
@@ -628,6 +686,15 @@ export class SkillManagerBackend {
           await this.extractArchive(archivePath, extractionRoot);
 
           const parsed = await detectSkillDirectory(extractionRoot);
+          const readmeExcerpt = await this.readLocalReadmeExcerpt(parsed.rootPath, parsed.skillMdPath);
+          const classification = classifySkill({
+            name: parsed.name,
+            description: parsed.description,
+            sourceValue: staged.sourceValue,
+            skillRootPath: parsed.rootPath,
+            markdown: parsed.markdown,
+            readmeExcerpt
+          });
           parsedSourceName = parsed.name;
         this.updateStagedSource(id, {
           status: "ready",
@@ -651,7 +718,10 @@ export class SkillManagerBackend {
             canAutoInstall: true
             },
             readmeUrl: null,
-            readmeExcerpt: null,
+            readmeExcerpt,
+            suggestedCategory: classification.suggestedCategory,
+            classificationReason: classification.classificationReason,
+            classificationConfidence: classification.classificationConfidence,
             errorMessage: null,
             updatedAt: nowIso()
           });
@@ -680,10 +750,7 @@ export class SkillManagerBackend {
   async installStagedSources(input: InstallStagedSourcesInput): Promise<OperationResult<InstalledSkillRecord[]>> {
     const settings = this.getSettings();
     const installRoot = settings.installDir.trim();
-    const environment = await this.getEnvironmentInfo();
     const ids = input.ids;
-    const selectedCategory = this.resolveInstallCategory(input.category || settings.defaultSkillCategory);
-    const installBaseDir = selectedCategory ? path.join(installRoot, selectedCategory) : installRoot;
 
     if (!installRoot) {
       await this.writeLog(
@@ -700,7 +767,7 @@ export class SkillManagerBackend {
       };
     }
 
-    const validation = await this.validateDirectory(installBaseDir);
+    const validation = await this.validateDirectory(installRoot);
     if (!validation.writable) {
       return {
         ok: false,
@@ -777,13 +844,34 @@ export class SkillManagerBackend {
       }
 
       try {
+        const resolvedCategory = this.resolveInstallCategory(
+          input.category || staged.selectedCategory || staged.suggestedCategory || settings.defaultSkillCategory
+        );
+        const installBaseDir = resolvedCategory ? path.join(installRoot, resolvedCategory) : installRoot;
+        const categoryValidation = await this.validateDirectory(installBaseDir);
+        if (!categoryValidation.writable) {
+          this.updateStagedSource(id, {
+            status: "error",
+            errorMessage: categoryValidation.error || "The target category directory is not writable.",
+            updatedAt: nowIso()
+          });
+          await this.writeLog(
+            "install",
+            "error",
+            "Failed to prepare the target category directory.",
+            `${resolvedCategory || "(root)"} | ${categoryValidation.error || "Directory is not writable."}`,
+            id
+          );
+          continue;
+        }
+
         const slug = slugifySkillName(staged.detectedName || path.basename(staged.skillRootPath));
         const installPath = await this.resolveInstallPath(installBaseDir, slug, settings.conflictPolicy);
         await this.writeLog(
           "install",
           "info",
           "Installing via archive copy.",
-          `${staged.skillRootPath} -> ${installPath}`,
+          `${staged.skillRootPath} -> ${installPath} | category: ${resolvedCategory || "(root)"}`,
           id
         );
 
@@ -802,7 +890,7 @@ export class SkillManagerBackend {
           name: staged.detectedName || slug,
           slug,
           description: staged.detectedDescription,
-          category: selectedCategory || null,
+          category: resolvedCategory || null,
           installPath,
           skillMdPath: path.join(installPath, "SKILL.md"),
           sourceType: staged.sourceType,
@@ -816,9 +904,9 @@ export class SkillManagerBackend {
           .prepare(
             `
               insert into installed_skills (
-                id, name, slug, description, install_path, skill_md_path, source_type, source_value, installed_at, updated_at
+                id, name, slug, description, category, install_path, skill_md_path, source_type, source_value, installed_at, updated_at
               ) values (
-                @id, @name, @slug, @description, @installPath, @skillMdPath, @sourceType, @sourceValue, @installedAt, @updatedAt
+                @id, @name, @slug, @description, @category, @installPath, @skillMdPath, @sourceType, @sourceValue, @installedAt, @updatedAt
               )
             `
           )
@@ -1225,6 +1313,37 @@ export class SkillManagerBackend {
     return { ok: true, data: refreshed };
   }
 
+  async updateStagedSourceCategory(input: {
+    id: string;
+    category: string | null;
+  }): Promise<OperationResult<StagedSourceRecord>> {
+    const staged = this.getStagedSource(input.id);
+    if (!staged) {
+      return { ok: false, error: "The selected staged source could not be found." };
+    }
+
+    const nextCategory = input.category ? this.resolveInstallCategory(input.category) : null;
+    this.updateStagedSource(input.id, {
+      selectedCategory: nextCategory,
+      updatedAt: nowIso()
+    });
+
+    await this.writeLog(
+      "staged",
+      "info",
+      `Updated staged source category: ${staged.detectedName || staged.sourceValue}`,
+      nextCategory || "(follow recommendation)",
+      staged.id
+    );
+
+    const refreshed = this.getStagedSource(input.id);
+    if (!refreshed) {
+      return { ok: false, error: "The updated staged source could not be reloaded." };
+    }
+
+    return { ok: true, data: refreshed };
+  }
+
   async saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>> {
     const installDir = input.installDir.trim();
     const tempDir = input.tempDir.trim();
@@ -1494,6 +1613,10 @@ export class SkillManagerBackend {
       installStrategy: null,
       readmeUrl: null,
       readmeExcerpt: null,
+      suggestedCategory: null,
+      selectedCategory: null,
+      classificationReason: null,
+      classificationConfidence: null,
       errorMessage: null,
       createdAt: nowIso(),
       updatedAt: nowIso()
@@ -1505,11 +1628,13 @@ export class SkillManagerBackend {
           insert into staged_sources (
             id, source_type, source_value, status, detected_name, detected_description,
             archive_path, skill_root_path, skill_md_path, install_path, analysis_method, analysis_summary,
-            install_strategy, readme_url, readme_excerpt, error_message, created_at, updated_at
+            install_strategy, readme_url, readme_excerpt, suggested_category, selected_category,
+            classification_reason, classification_confidence, error_message, created_at, updated_at
           ) values (
             @id, @sourceType, @sourceValue, @status, @detectedName, @detectedDescription,
             @archivePath, @skillRootPath, @skillMdPath, @installPath, @analysisMethod, @analysisSummary,
-            @installStrategy, @readmeUrl, @readmeExcerpt, @errorMessage, @createdAt, @updatedAt
+            @installStrategy, @readmeUrl, @readmeExcerpt, @suggestedCategory, @selectedCategory,
+            @classificationReason, @classificationConfidence, @errorMessage, @createdAt, @updatedAt
           )
         `
       )
@@ -1538,6 +1663,10 @@ export class SkillManagerBackend {
         | "installStrategy"
         | "readmeUrl"
         | "readmeExcerpt"
+        | "suggestedCategory"
+        | "selectedCategory"
+        | "classificationReason"
+        | "classificationConfidence"
         | "errorMessage"
         | "updatedAt"
       >
@@ -1572,6 +1701,10 @@ export class SkillManagerBackend {
             install_strategy = @installStrategy,
             readme_url = @readmeUrl,
             readme_excerpt = @readmeExcerpt,
+            suggested_category = @suggestedCategory,
+            selected_category = @selectedCategory,
+            classification_reason = @classificationReason,
+            classification_confidence = @classificationConfidence,
             error_message = @errorMessage,
             updated_at = @updatedAt
           where id = @id
@@ -1657,6 +1790,26 @@ export class SkillManagerBackend {
 
   private resolveInstallCategory(value: string) {
     return normalizeCategoryName(value);
+  }
+
+  private async readLocalReadmeExcerpt(skillRootPath: string, skillMdPath: string) {
+    const candidates = ["README.md", "readme.md", "README", "README.txt"].map((fileName) =>
+      path.join(skillRootPath, fileName)
+    );
+
+    for (const candidate of candidates) {
+      if (candidate === skillMdPath) {
+        continue;
+      }
+
+      const content = await safeReadText(candidate);
+      const excerpt = toLocalReadmeExcerpt(content);
+      if (excerpt) {
+        return excerpt;
+      }
+    }
+
+    return null;
   }
 
   private async persistSettings(input: SaveSettingsInput) {

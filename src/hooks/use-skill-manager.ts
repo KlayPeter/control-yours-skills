@@ -34,6 +34,7 @@ const copy: Record<
     busyRefreshingWorkspace: string;
     busyInstallingWorkspaceSkill: string;
     busyCopyingWorkspaceSkill: string;
+    busyUpdatingStagedCategory: string;
     busyUpdatingSkillCategory: string;
     settingsSaved: string;
     failedToSaveSettings: string;
@@ -60,6 +61,8 @@ const copy: Record<
     failedToInstallWorkspaceSkill: string;
     workspaceSkillCopied: string;
     failedToCopyWorkspaceSkill: string;
+    stagedCategoryUpdated: string;
+    failedToUpdateStagedCategory: string;
     skillCategoryUpdated: string;
     failedToUpdateSkillCategory: string;
   }
@@ -81,6 +84,7 @@ const copy: Record<
     busyRefreshingWorkspace: "正在刷新工作区",
     busyInstallingWorkspaceSkill: "正在安装工作区技能",
     busyCopyingWorkspaceSkill: "正在复制工作区技能",
+    busyUpdatingStagedCategory: "正在更新暂存来源分类",
     busyUpdatingSkillCategory: "正在更新技能分类",
     settingsSaved: "设置已保存。",
     failedToSaveSettings: "保存设置失败。",
@@ -107,6 +111,8 @@ const copy: Record<
     failedToInstallWorkspaceSkill: "安装工作区技能失败。",
     workspaceSkillCopied: "工作区技能已复制。",
     failedToCopyWorkspaceSkill: "复制工作区技能失败。",
+    stagedCategoryUpdated: "暂存来源分类已更新。",
+    failedToUpdateStagedCategory: "更新暂存来源分类失败。",
     skillCategoryUpdated: "技能分类已更新。",
     failedToUpdateSkillCategory: "更新技能分类失败。"
   },
@@ -127,6 +133,7 @@ const copy: Record<
     busyRefreshingWorkspace: "Refreshing workspace",
     busyInstallingWorkspaceSkill: "Installing workspace skill",
     busyCopyingWorkspaceSkill: "Copying workspace skill",
+    busyUpdatingStagedCategory: "Updating staged source category",
     busyUpdatingSkillCategory: "Updating skill category",
     settingsSaved: "Settings saved.",
     failedToSaveSettings: "Failed to save settings.",
@@ -153,6 +160,8 @@ const copy: Record<
     failedToInstallWorkspaceSkill: "Failed to install the workspace skill.",
     workspaceSkillCopied: "Workspace skill copied.",
     failedToCopyWorkspaceSkill: "Failed to copy the workspace skill.",
+    stagedCategoryUpdated: "Staged source category updated.",
+    failedToUpdateStagedCategory: "Failed to update the staged source category.",
     skillCategoryUpdated: "Skill category updated.",
     failedToUpdateSkillCategory: "Failed to update the skill category."
   }
@@ -335,6 +344,20 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.settingsSaved);
+        return result.data;
+      }),
+    updateStagedSourceCategory: (input: { id: string; category: string | null }) =>
+      runAction(t.busyUpdatingStagedCategory, async () => {
+        const result = await api.updateStagedSourceCategory(input);
+        if (!result.ok || !result.data) {
+          throw new Error(result.error || t.failedToUpdateStagedCategory);
+        }
+
+        if (selectedStagedId === input.id) {
+          await loadStagedDetail(input.id);
+        }
+
+        setNotice(t.stagedCategoryUpdated);
         return result.data;
       }),
     updateInstalledSkillCategory: (input: { id: string; category: string | null }) =>

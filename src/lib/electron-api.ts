@@ -116,6 +116,7 @@ const browserFallbackApi: SkillManagerApi = {
     return unavailableResult<void>();
   },
   createSkillCategory: async () => unavailableResult(),
+  updateStagedSourceCategory: async () => unavailableResult<StagedSourceRecord>(),
   updateInstalledSkillCategory: async () => unavailableResult<InstalledSkillRecord>(),
   saveSettings: async () => unavailableResult<SettingsRecord>(),
   validateDirectory: async (targetPath: string): Promise<DirectoryValidationResult> => ({

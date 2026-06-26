@@ -77,6 +77,7 @@ export function WorkspacePrimarySection({
   onValidateTempDir,
   onSaveSettings,
   onCreateCategory,
+  onUpdateStagedSourceCategory,
   onUpdateInstalledSkillCategory,
   newCategoryName,
   onNewCategoryNameChange
@@ -137,6 +138,7 @@ export function WorkspacePrimarySection({
   onValidateTempDir: () => AsyncActionResult;
   onSaveSettings: () => AsyncActionResult;
   onCreateCategory: () => AsyncActionResult;
+  onUpdateStagedSourceCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   newCategoryName: string;
   onNewCategoryNameChange: (value: string) => void;
@@ -229,6 +231,7 @@ export function WorkspacePrimarySection({
           onParseStaged={onParseStaged}
           onRemoveStaged={onRemoveStaged}
           onToggleStageSelection={onToggleStageSelection}
+          onUpdateStagedCategory={onUpdateStagedSourceCategory}
           selectedStageIds={selectedStageIds}
           selectedStagedId={selectedStagedId}
           snapshot={snapshot}

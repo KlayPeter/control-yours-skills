@@ -36,6 +36,7 @@ const api: SkillManagerApi = {
   copyWorkspaceSkillToDirectory: (input) => ipcRenderer.invoke("skill-manager:copy-workspace-skill", input),
   createWorkspaceFolder: (input) => ipcRenderer.invoke("skill-manager:create-workspace-folder", input),
   createSkillCategory: (name) => ipcRenderer.invoke("skill-manager:create-skill-category", name),
+  updateStagedSourceCategory: (input) => ipcRenderer.invoke("skill-manager:update-staged-source-category", input),
   updateInstalledSkillCategory: (input) => ipcRenderer.invoke("skill-manager:update-installed-skill-category", input),
   saveSettings: (input) => ipcRenderer.invoke("skill-manager:save-settings", input),
   validateDirectory: (targetPath) => ipcRenderer.invoke("skill-manager:validate-directory", targetPath),

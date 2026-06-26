@@ -81,6 +81,10 @@ export interface StagedSourceRecord {
   installStrategy: InstallStrategy | null;
   readmeUrl: string | null;
   readmeExcerpt: string | null;
+  suggestedCategory: string | null;
+  selectedCategory: string | null;
+  classificationReason: string | null;
+  classificationConfidence: number | null;
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
@@ -266,6 +270,11 @@ export interface UpdateInstalledSkillCategoryInput {
   category: string | null;
 }
 
+export interface UpdateStagedSourceCategoryInput {
+  id: string;
+  category: string | null;
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -283,6 +292,7 @@ export interface SkillManagerApi {
   copyWorkspaceSkillToDirectory(input: CopyWorkspaceSkillInput): Promise<OperationResult<void>>;
   createWorkspaceFolder(input: { parentPath: string; folderName: string }): Promise<OperationResult<void>>;
   createSkillCategory(name: string): Promise<OperationResult<SkillCategoryRecord>>;
+  updateStagedSourceCategory(input: UpdateStagedSourceCategoryInput): Promise<OperationResult<StagedSourceRecord>>;
   updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;
   validateDirectory(targetPath: string): Promise<DirectoryValidationResult>;

@@ -49,6 +49,7 @@ export function StagedSection({
   onLoadStagedDetail,
   onParseStaged,
   onInstallStaged,
+  onUpdateStagedCategory,
   onRemoveStaged,
   onClearStaged
 }: {
@@ -61,6 +62,7 @@ export function StagedSection({
   onLoadStagedDetail: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
   onInstallStaged: (ids: string[]) => AsyncActionResult;
+  onUpdateStagedCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
   onClearStaged: () => AsyncActionResult;
 }) {
@@ -71,6 +73,14 @@ export function StagedSection({
     (item) => item.status === "ready" && isRemoteStagedSource(item)
   ).length;
   const errorCount = snapshot.stagedSources.filter((item) => item.status === "error").length;
+  const suggestedCategories = snapshot.stagedSources
+    .map((item) => item.suggestedCategory)
+    .filter((category): category is string => Boolean(category));
+  const availableCategories = [...new Set([
+    ...snapshot.settings.skillCategories,
+    ...snapshot.installCategories.map((category) => category.name),
+    ...suggestedCategories
+  ])].sort((left, right) => left.localeCompare(right));
 
   return (
     <div className="space-y-6">
@@ -174,6 +184,17 @@ export function StagedSection({
                       <p className="mt-2 text-sm app-text-soft">
                         {item.detectedDescription || item.errorMessage || t.waitingForMetadataParsing}
                       </p>
+                      {item.suggestedCategory ? (
+                        <div className="mt-3 rounded-2xl border border-moss/20 bg-moss/10 px-3 py-2 text-xs app-text-soft">
+                          <p className="font-medium app-text">
+                            {(t.recommendedCategory || "推荐分类")}: {item.suggestedCategory}
+                            {item.classificationConfidence != null
+                              ? ` (${Math.round(item.classificationConfidence * 100)}%)`
+                              : ""}
+                          </p>
+                          {item.classificationReason ? <p className="mt-1">{item.classificationReason}</p> : null}
+                        </div>
+                      ) : null}
                       <p className="mt-3 text-xs uppercase tracking-[0.16em] text-signal">
                         {stagedNextStepLabel(item, t)}
                       </p>
@@ -183,9 +204,35 @@ export function StagedSection({
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                  <p className="text-xs app-text-soft">
-                    <RelativeTimeText value={item.updatedAt} />
-                  </p>
+                  <div className="flex min-w-[220px] flex-1 flex-col gap-2">
+                    <label className="text-xs uppercase tracking-[0.16em] app-text-soft">
+                      {t.installCategoryLabel || "安装分类"}
+                    </label>
+                    <select
+                      className="app-input h-10 rounded-2xl px-3 text-sm"
+                      onChange={(event) =>
+                        void onUpdateStagedCategory({
+                          id: item.id,
+                          category: event.target.value || null
+                        })
+                      }
+                      value={item.selectedCategory ?? ""}
+                    >
+                      <option value="">
+                        {item.suggestedCategory
+                          ? `${t.followSuggestedCategory || "跟随推荐"} (${item.suggestedCategory})`
+                          : t.unclassifiedOption || "暂不分类"}
+                      </option>
+                      {availableCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs app-text-soft">
+                      <RelativeTimeText value={item.updatedAt} />
+                    </p>
+                  </div>
                   <div className="flex flex-wrap justify-end gap-2">
                     {canInstallStagedSource(item) ? (
                       <IconActionButton
