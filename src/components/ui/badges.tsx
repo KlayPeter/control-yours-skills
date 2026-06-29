@@ -1,6 +1,6 @@
 import { LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { InstalledSkillRecord, InstallStrategy, SourceStatus, StagedSourceRecord } from "@shared/contracts";
+import type { InstalledSkillRecord, InstallStrategy, SourceStatus, StagedSourceRecord, SyncStatus } from "@shared/contracts";
 
 type TranslationDictionary = Record<string, string>;
 
@@ -99,6 +99,59 @@ export function StrategyBadge({ strategy }: { strategy: InstallStrategy | null }
   return (
     <span className="app-surface-subtle rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.16em] app-text-soft">
       {label}
+    </span>
+  );
+}
+
+function syncStatusTone(status: SyncStatus) {
+  switch (status) {
+    case "synced":
+      return "text-moss bg-moss/15 border-moss/25";
+    case "outdated":
+      return "text-signal bg-signal/15 border-signal/25";
+    case "local_changes":
+      return "text-amber-700 dark:text-amber-200 bg-amber-300/12 dark:bg-amber-300/10 border-amber-400/30 dark:border-amber-300/20";
+    case "conflict":
+      return "text-ember bg-ember/15 border-ember/25";
+    case "sync_failed":
+      return "text-ember bg-ember/15 border-ember/25";
+    default:
+      return "text-slate-700 dark:text-slate-200 bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10";
+  }
+}
+
+function syncStatusLabel(status: SyncStatus, t: TranslationDictionary) {
+  switch (status) {
+    case "synced":
+      return t.syncStatusSynced || "已同步";
+    case "outdated":
+      return t.syncStatusOutdated || "待同步";
+    case "local_changes":
+      return t.syncStatusLocalChanges || "目标有改动";
+    case "conflict":
+      return t.syncStatusConflict || "发生冲突";
+    case "sync_failed":
+      return t.syncStatusFailed || "同步失败";
+    default:
+      return t.syncStatusManaged || "已纳管";
+  }
+}
+
+export function SyncStatusBadge({
+  status,
+  t
+}: {
+  status: SyncStatus;
+  t: TranslationDictionary;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs uppercase tracking-[0.16em]",
+        syncStatusTone(status)
+      )}
+    >
+      {syncStatusLabel(status, t)}
     </span>
   );
 }

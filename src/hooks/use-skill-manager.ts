@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type {
+  AdoptSyncTargetInput,
   InstallWorkspaceSkillInput,
   CopyWorkspaceSkillInput,
   InstalledSkillDetail,
@@ -38,6 +39,7 @@ const copy: Record<
     busyRemovingSyncTarget: string;
     busySyncingSkill: string;
     busySyncingAllSkills: string;
+    busyAdoptingSyncTarget: string;
     busyUpdatingStagedCategory: string;
     busyUpdatingSkillCategory: string;
     settingsSaved: string;
@@ -73,6 +75,8 @@ const copy: Record<
     failedToSyncSkill: string;
     allSkillsSynced: string;
     failedToSyncAllSkills: string;
+    syncTargetAdopted: string;
+    failedToAdoptSyncTarget: string;
     stagedCategoryUpdated: string;
     failedToUpdateStagedCategory: string;
     skillCategoryUpdated: string;
@@ -100,6 +104,7 @@ const copy: Record<
     busyRemovingSyncTarget: "正在移除同步目标",
     busySyncingSkill: "正在同步技能",
     busySyncingAllSkills: "正在同步全部技能",
+    busyAdoptingSyncTarget: "正在采纳目标版本",
     busyUpdatingStagedCategory: "正在更新暂存来源分类",
     busyUpdatingSkillCategory: "正在更新技能分类",
     settingsSaved: "设置已保存。",
@@ -135,6 +140,8 @@ const copy: Record<
     failedToSyncSkill: "同步技能失败。",
     allSkillsSynced: "已完成全部同步。",
     failedToSyncAllSkills: "批量同步失败。",
+    syncTargetAdopted: "已采纳目标目录中的版本。",
+    failedToAdoptSyncTarget: "采纳目标版本失败。",
     stagedCategoryUpdated: "暂存来源分类已更新。",
     failedToUpdateStagedCategory: "更新暂存来源分类失败。",
     skillCategoryUpdated: "技能分类已更新。",
@@ -161,6 +168,7 @@ const copy: Record<
     busyRemovingSyncTarget: "Removing sync target",
     busySyncingSkill: "Syncing skill",
     busySyncingAllSkills: "Syncing all skills",
+    busyAdoptingSyncTarget: "Adopting target version",
     busyUpdatingStagedCategory: "Updating staged source category",
     busyUpdatingSkillCategory: "Updating skill category",
     settingsSaved: "Settings saved.",
@@ -196,6 +204,8 @@ const copy: Record<
     failedToSyncSkill: "Failed to sync the skill.",
     allSkillsSynced: "All skills synced.",
     failedToSyncAllSkills: "Failed to sync all skills.",
+    syncTargetAdopted: "Target version adopted into the center repository.",
+    failedToAdoptSyncTarget: "Failed to adopt the target version.",
     stagedCategoryUpdated: "Staged source category updated.",
     failedToUpdateStagedCategory: "Failed to update the staged source category.",
     skillCategoryUpdated: "Skill category updated.",
@@ -436,6 +446,20 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.allSkillsSynced);
+        return result.data;
+      }),
+    adoptSyncTarget: (input: AdoptSyncTargetInput & { skillId?: string }) =>
+      runAction(t.busyAdoptingSyncTarget, async () => {
+        const result = await api.adoptSyncTarget({ syncTargetId: input.syncTargetId });
+        if (!result.ok) {
+          throw new Error(result.error || t.failedToAdoptSyncTarget);
+        }
+
+        if (input.skillId && selectedSkillId === input.skillId) {
+          await loadSkillDetail(input.skillId);
+        }
+
+        setNotice(t.syncTargetAdopted);
         return result.data;
       }),
     updateStagedSourceCategory: (input: { id: string; category: string | null }) =>

@@ -19,6 +19,8 @@ const SettingsSection = dynamic(() => import('../sections/settings-section').the
 const AiWorkspaceSection = dynamic(() => import('../sections/ai-workspace-section').then(mod => mod.AiWorkspaceSection));
 const LocalInstallSection = dynamic(() => import('../sections/local-install-section').then(mod => mod.LocalInstallSection));
 const ProjectsSection = dynamic(() => import('../sections/projects-section').then(mod => mod.ProjectsSection));
+const SyncStatusSection = dynamic(() => import('../sections/sync-status-section').then(mod => mod.SyncStatusSection));
+const ConflictsSection = dynamic(() => import('../sections/conflicts-section').then(mod => mod.ConflictsSection));
 
 import type { WorkspaceSection } from "../workspace-app";
 type TranslationDictionary = Record<string, string>;
@@ -81,6 +83,7 @@ export function WorkspacePrimarySection({
   onRemoveSyncTarget,
   onSyncInstalledSkill,
   onSyncAllSkills,
+  onAdoptSyncTarget,
   onUpdateStagedSourceCategory,
   onUpdateInstalledSkillCategory,
   newCategoryName,
@@ -146,6 +149,7 @@ export function WorkspacePrimarySection({
   onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
   onSyncInstalledSkill: (input: { skillId: string; syncTargetId?: string }) => AsyncActionResult;
   onSyncAllSkills: () => AsyncActionResult;
+  onAdoptSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
   onUpdateStagedSourceCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   newCategoryName: string;
@@ -217,6 +221,30 @@ export function WorkspacePrimarySection({
           onUpdateInstalledSkillCategory={onUpdateInstalledSkillCategory}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
+        />
+      );
+    case "sync-status":
+      return (
+        <SyncStatusSection
+          snapshot={snapshot}
+          t={t}
+          searchValue={searchValue}
+          onSearchValueChange={onSearchValueChange}
+          onOpenPath={onOpenPath}
+          onSyncInstalledSkill={onSyncInstalledSkill}
+          onAdoptSyncTarget={onAdoptSyncTarget}
+        />
+      );
+    case "conflicts":
+      return (
+        <ConflictsSection
+          snapshot={snapshot}
+          t={t}
+          searchValue={searchValue}
+          onSearchValueChange={onSearchValueChange}
+          onOpenPath={onOpenPath}
+          onSyncInstalledSkill={onSyncInstalledSkill}
+          onAdoptSyncTarget={onAdoptSyncTarget}
         />
       );
     case "projects":

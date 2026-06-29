@@ -438,6 +438,7 @@ export class SkillManagerBackend {
     
     // Sync physical folders to DB before fetching installed skills
     await this.syncPhysicalSkills(settings.installDir.trim());
+    await this.refreshSyncTargetStates();
 
     const installedSkills = this.listInstalledSkills();
     const installCategories = await this.listInstallCategories(settings, installedSkills);
@@ -1289,6 +1290,69 @@ export class SkillManagerBackend {
     return { ok: true, data: syncedCount };
   }
 
+  async adoptSyncTarget(input: { syncTargetId: string }): Promise<OperationResult<string>> {
+    const syncTarget = this.getSyncTarget(input.syncTargetId);
+    if (!syncTarget?.targetSkillPath) {
+      return { ok: false, error: "The selected sync target has no synced target directory yet." };
+    }
+
+    const installed = this.getInstalledSkill(syncTarget.skillId);
+    if (!installed) {
+      return { ok: false, error: "The installed skill for this sync target could not be found." };
+    }
+
+    if (!fs.existsSync(syncTarget.targetSkillPath)) {
+      return { ok: false, error: "The synced target directory no longer exists." };
+    }
+
+    try {
+      await replaceDirectory(syncTarget.targetSkillPath, installed.installPath);
+      const parsed = await detectSkillDirectory(installed.installPath);
+      this.database
+        .prepare(
+          `
+            update installed_skills
+            set name = ?, slug = ?, description = ?, skill_md_path = ?, updated_at = ?
+            where id = ?
+          `
+        )
+        .run(parsed.name, parsed.slug, parsed.description, parsed.skillMdPath, nowIso(), installed.id);
+
+      const sourceHash = await computeDirectoryHash(installed.installPath);
+      const targetHash = await computeDirectoryHash(syncTarget.targetSkillPath);
+      this.updateSyncTarget(syncTarget.id, {
+        status: "synced",
+        lastSyncedAt: nowIso(),
+        lastError: null,
+        conflictDetail: null,
+        sourceHash,
+        targetHash,
+        lastSyncedSourceHash: sourceHash,
+        lastSyncedTargetHash: targetHash,
+        updatedAt: nowIso()
+      });
+
+      await this.writeLog(
+        "install",
+        "info",
+        `Adopted target version into center repository: ${parsed.name}`,
+        `${syncTarget.label} -> ${installed.installPath}`,
+        installed.id
+      );
+
+      return { ok: true, data: installed.installPath };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to adopt the target version.";
+      this.updateSyncTarget(syncTarget.id, {
+        status: "sync_failed",
+        lastError: message,
+        updatedAt: nowIso()
+      });
+      await this.writeLog("install", "error", "Failed to adopt the target version.", message, installed.id);
+      return { ok: false, error: message };
+    }
+  }
+
   async installWorkspaceSkill(input: InstallWorkspaceSkillInput): Promise<OperationResult<string>> {
     const settings = this.getSettings();
     const targetRoot = resolveSystemProviderSkillPath(input.providerKey, this.paths.homeDir);
@@ -1857,6 +1921,9 @@ export class SkillManagerBackend {
       return;
     }
 
+    const has = <T extends object, K extends keyof T>(object: T, key: K) =>
+      Object.prototype.hasOwnProperty.call(object, key);
+
     this.database
       .prepare(
         `
@@ -1877,15 +1944,15 @@ export class SkillManagerBackend {
       )
       .run({
         id,
-        targetSkillPath: nextValues.targetSkillPath ?? row.target_skill_path,
-        status: nextValues.status ?? row.status,
-        lastSyncedAt: nextValues.lastSyncedAt ?? row.last_synced_at,
-        lastError: nextValues.lastError ?? row.last_error,
-        conflictDetail: nextValues.conflictDetail ?? row.conflict_detail,
-        sourceHash: nextValues.sourceHash ?? row.source_hash,
-        targetHash: nextValues.targetHash ?? row.target_hash,
-        lastSyncedSourceHash: nextValues.lastSyncedSourceHash ?? row.last_synced_source_hash,
-        lastSyncedTargetHash: nextValues.lastSyncedTargetHash ?? row.last_synced_target_hash,
+        targetSkillPath: has(nextValues, "targetSkillPath") ? nextValues.targetSkillPath : row.target_skill_path,
+        status: has(nextValues, "status") ? nextValues.status : row.status,
+        lastSyncedAt: has(nextValues, "lastSyncedAt") ? nextValues.lastSyncedAt : row.last_synced_at,
+        lastError: has(nextValues, "lastError") ? nextValues.lastError : row.last_error,
+        conflictDetail: has(nextValues, "conflictDetail") ? nextValues.conflictDetail : row.conflict_detail,
+        sourceHash: has(nextValues, "sourceHash") ? nextValues.sourceHash : row.source_hash,
+        targetHash: has(nextValues, "targetHash") ? nextValues.targetHash : row.target_hash,
+        lastSyncedSourceHash: has(nextValues, "lastSyncedSourceHash") ? nextValues.lastSyncedSourceHash : row.last_synced_source_hash,
+        lastSyncedTargetHash: has(nextValues, "lastSyncedTargetHash") ? nextValues.lastSyncedTargetHash : row.last_synced_target_hash,
         updatedAt: nextValues.updatedAt || nowIso()
       });
   }
@@ -2097,6 +2164,65 @@ export class SkillManagerBackend {
 
   private resolveInstallCategory(value: string) {
     return normalizeCategoryName(value);
+  }
+
+  private async refreshSyncTargetStates() {
+    const installedRows = this.database
+      .prepare("select * from installed_skills")
+      .all() as InstalledRow[];
+    const installedById = new Map(installedRows.map((row) => [row.id, toInstalledRecord(row)]));
+    const syncTargetRows = this.database
+      .prepare("select * from sync_targets")
+      .all() as SyncTargetRow[];
+
+    for (const row of syncTargetRows) {
+      const installed = installedById.get(row.skill_id);
+      if (!installed) {
+        continue;
+      }
+
+      const sourceHash = await computeDirectoryHash(installed.installPath);
+      const targetHash = row.target_skill_path ? await computeDirectoryHash(row.target_skill_path) : null;
+      let status: SyncStatus = row.status;
+      let conflictDetail = row.conflict_detail;
+      let lastError = row.last_error;
+
+      if (row.status === "sync_failed" && row.last_error) {
+        status = "sync_failed";
+      } else if (!row.last_synced_at || !row.target_skill_path || !row.last_synced_source_hash || !row.last_synced_target_hash) {
+        status = "managed";
+        conflictDetail = null;
+      } else if (!targetHash) {
+        status = "outdated";
+        conflictDetail = null;
+        lastError = "The synced target directory is missing.";
+      } else if (sourceHash === row.last_synced_source_hash && targetHash === row.last_synced_target_hash) {
+        status = "synced";
+        conflictDetail = null;
+        lastError = null;
+      } else if (sourceHash !== row.last_synced_source_hash && targetHash === row.last_synced_target_hash) {
+        status = "outdated";
+        conflictDetail = null;
+        lastError = null;
+      } else if (sourceHash === row.last_synced_source_hash && targetHash !== row.last_synced_target_hash) {
+        status = "local_changes";
+        conflictDetail = null;
+        lastError = null;
+      } else {
+        status = "conflict";
+        conflictDetail = "Both the center repository and target directory changed since the last sync.";
+        lastError = null;
+      }
+
+      this.updateSyncTarget(row.id, {
+        status,
+        sourceHash,
+        targetHash,
+        conflictDetail,
+        lastError,
+        updatedAt: nowIso()
+      });
+    }
   }
 
   private withSyncMetadata(skill: InstalledSkillRecord): InstalledSkillRecord {

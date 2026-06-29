@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  AdoptSyncTargetInput,
   AddSyncTargetInput,
   DirectoryValidationResult,
   ExportInstalledSkillInput,
@@ -132,6 +133,10 @@ const browserFallbackApi: SkillManagerApi = {
     return unavailableResult<number>();
   },
   syncAllSkills: async () => unavailableResult<number>(),
+  adoptSyncTarget: async (_input: AdoptSyncTargetInput) => {
+    void _input;
+    return unavailableResult<string>();
+  },
   updateStagedSourceCategory: async () => unavailableResult<StagedSourceRecord>(),
   updateInstalledSkillCategory: async () => unavailableResult<InstalledSkillRecord>(),
   saveSettings: async () => unavailableResult<SettingsRecord>(),

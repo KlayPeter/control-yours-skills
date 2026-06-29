@@ -314,6 +314,10 @@ export interface SyncInstalledSkillInput {
   syncTargetId?: string;
 }
 
+export interface AdoptSyncTargetInput {
+  syncTargetId: string;
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -335,6 +339,7 @@ export interface SkillManagerApi {
   removeSyncTarget(input: RemoveSyncTargetInput): Promise<OperationResult<number>>;
   syncInstalledSkill(input: SyncInstalledSkillInput): Promise<OperationResult<number>>;
   syncAllSkills(): Promise<OperationResult<number>>;
+  adoptSyncTarget(input: AdoptSyncTargetInput): Promise<OperationResult<string>>;
   updateStagedSourceCategory(input: UpdateStagedSourceCategoryInput): Promise<OperationResult<StagedSourceRecord>>;
   updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;

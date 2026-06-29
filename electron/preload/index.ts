@@ -40,6 +40,7 @@ const api: SkillManagerApi = {
   removeSyncTarget: (input) => ipcRenderer.invoke("skill-manager:remove-sync-target", input),
   syncInstalledSkill: (input) => ipcRenderer.invoke("skill-manager:sync-installed-skill", input),
   syncAllSkills: () => ipcRenderer.invoke("skill-manager:sync-all-skills"),
+  adoptSyncTarget: (input) => ipcRenderer.invoke("skill-manager:adopt-sync-target", input),
   updateStagedSourceCategory: (input) => ipcRenderer.invoke("skill-manager:update-staged-source-category", input),
   updateInstalledSkillCategory: (input) => ipcRenderer.invoke("skill-manager:update-installed-skill-category", input),
   saveSettings: (input) => ipcRenderer.invoke("skill-manager:save-settings", input),

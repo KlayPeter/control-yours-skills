@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { OverviewMetric } from "../ui/typography";
+import { SyncStatusBadge } from "../ui/badges";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 
 type TranslationDictionary = Record<string, string>;
@@ -297,9 +298,7 @@ export function LocalInstallSection({
                       <span className="rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 text-[11px] app-text-soft">
                         {skill.category || t.unclassifiedOption || "未分类"}
                       </span>
-                      <span className="rounded-full border border-moss/20 bg-moss/10 px-2 py-0.5 text-[11px] text-moss">
-                        {skill.syncStatus}
-                      </span>
+                      <SyncStatusBadge status={skill.syncStatus} t={t} />
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs app-text-soft">{skill.description || t.noDescriptionAvailable}</p>
                   </div>

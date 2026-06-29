@@ -18,7 +18,16 @@ import { WorkspaceNavSidebar, navLabel } from "./workspace/workspace-nav-sidebar
 import { useWorkspaceAppLogic } from "@/hooks/use-workspace-app-logic";
 export type { TranslationDictionary } from "@/locales/translations";
 
-export type WorkspaceSection = "overview" | "ai-workspace" | "local-install" | "projects" | "staged" | "logs" | "settings";
+export type WorkspaceSection =
+  | "overview"
+  | "ai-workspace"
+  | "local-install"
+  | "sync-status"
+  | "conflicts"
+  | "projects"
+  | "staged"
+  | "logs"
+  | "settings";
 
 interface WorkspaceAppProps {
   section: WorkspaceSection;
@@ -51,7 +60,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     setSelectedLogId, loadStagedDetail, installStagedSources, parseStagedSources,
     removeStagedSources, clearStagedSources, toggleStageSelection, saveSettings,
     rescanInstalledSkill, pickDirectory, addSyncTarget, removeSyncTarget,
-    syncInstalledSkill, syncAllSkills,
+    syncInstalledSkill, syncAllSkills, adoptSyncTarget,
     updateStagedSourceCategory, updateInstalledSkillCategory
   } = logic;
 
@@ -274,6 +283,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveSyncTarget={removeSyncTarget}
                   onSyncInstalledSkill={syncInstalledSkill}
                   onSyncAllSkills={syncAllSkills}
+                  onAdoptSyncTarget={adoptSyncTarget}
                   onUpdateStagedSourceCategory={updateStagedSourceCategory}
                   onUpdateInstalledSkillCategory={updateInstalledSkillCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
@@ -344,6 +354,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveSyncTarget={removeSyncTarget}
                   onSyncInstalledSkill={syncInstalledSkill}
                   onSyncAllSkills={syncAllSkills}
+                  onAdoptSyncTarget={adoptSyncTarget}
                   onUpdateStagedSourceCategory={updateStagedSourceCategory}
                   onUpdateInstalledSkillCategory={updateInstalledSkillCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
