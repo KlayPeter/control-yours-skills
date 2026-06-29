@@ -7,6 +7,7 @@ import { IconActionButton } from "../ui/buttons";
 import { SkillInstallMenu } from "./skill-install-menu";
 
 type AsyncActionResult<T = unknown> = void | Promise<T>;
+type WorkspaceTreeActionMode = "none" | "install";
 
 export function WorkspaceTree({
   nodes,
@@ -18,6 +19,8 @@ export function WorkspaceTree({
   localInstallDir,
   installDirTree,
   onCreateWorkspaceFolder,
+  actionMode = "install",
+  showCopyActions = true,
   emptyMessage
 }: {
   nodes: WorkspaceTreeNode[];
@@ -34,6 +37,8 @@ export function WorkspaceTree({
   localInstallDir?: string;
   installDirTree?: WorkspaceTreeNode[];
   emptyMessage: string;
+  actionMode?: WorkspaceTreeActionMode;
+  showCopyActions?: boolean;
 }) {
   const [copyTargetNode, setCopyTargetNode] = useState<{ node: WorkspaceTreeNode; rootPath: string } | null>(null);
   const [isLocalModalOpen, setIsLocalModalOpen] = useState(false);
@@ -49,17 +54,23 @@ export function WorkspaceTree({
         <WorkspaceTreeNodeRow
           key={node.id}
           node={node}
+          actionMode={actionMode}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
           onCopyLocal={(skillRootPath) => {
-            setCopyTargetNode({ node, rootPath: skillRootPath });
-            setIsLocalModalOpen(true);
+            if (showCopyActions) {
+              setCopyTargetNode({ node, rootPath: skillRootPath });
+              setIsLocalModalOpen(true);
+            }
           }}
           onCopyProject={(skillRootPath) => {
-            setCopyTargetNode({ node, rootPath: skillRootPath });
-            setIsProjectModalOpen(true);
+            if (showCopyActions) {
+              setCopyTargetNode({ node, rootPath: skillRootPath });
+              setIsProjectModalOpen(true);
+            }
           }}
           onOpenPath={onOpenPath}
           projectRoot={projectRoot}
+          showCopyActions={showCopyActions}
         />
       ))}
 
@@ -110,7 +121,9 @@ export function WorkspaceTreeNodeRow({
   onOpenPath,
   onInstallWorkspaceSkill,
   onCopyLocal,
-  onCopyProject
+  onCopyProject,
+  actionMode = "install",
+  showCopyActions = true
 }: {
   node: WorkspaceTreeNode;
   projectRoot: string;
@@ -122,6 +135,8 @@ export function WorkspaceTreeNodeRow({
   ) => AsyncActionResult;
   onCopyLocal?: (skillRootPath: string) => void;
   onCopyProject?: (skillRootPath: string) => void;
+  actionMode?: WorkspaceTreeActionMode;
+  showCopyActions?: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -168,7 +183,7 @@ export function WorkspaceTreeNodeRow({
           isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         )}>
           <IconActionButton icon={FolderOpen} label="打开目录" onClick={() => void onOpenPath(node.absolutePath)} />
-          {node.kind === "skill" && node.skill ? (
+          {actionMode === "install" && node.kind === "skill" && node.skill ? (
             <SkillInstallMenu
               onInstall={(providerKey) => {
                 void onInstallWorkspaceSkill(projectRoot, node.skill!.rootPath, providerKey);
@@ -180,6 +195,7 @@ export function WorkspaceTreeNodeRow({
                 if (onCopyProject) onCopyProject(node.skill!.rootPath);
               }}
               onOpenChange={setIsMenuOpen}
+              showCopyActions={showCopyActions}
             />
           ) : null}
         </div>
@@ -191,11 +207,13 @@ export function WorkspaceTreeNodeRow({
               <WorkspaceTreeNodeRow
                 key={child.id}
                 node={child}
+                actionMode={actionMode}
                 onInstallWorkspaceSkill={onInstallWorkspaceSkill}
                 onCopyLocal={onCopyLocal}
                 onCopyProject={onCopyProject}
                 onOpenPath={onOpenPath}
                 projectRoot={projectRoot}
+                showCopyActions={showCopyActions}
               />
             ))}
           </div>

@@ -1,9 +1,9 @@
 import { Search } from "lucide-react";
 import { useState, useEffect } from "react";
-import type { SkillManagerSnapshot, WorkspaceSkillSource, WorkspaceTreeNode, WorkspaceSkillProviderKey, CopyWorkspaceSkillInput } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceTreeNode } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
+import { OverviewMetric } from "../ui/typography";
 import { WorkspaceTree } from "../workspace/workspace-tree";
-import { countSkillsInTree } from "@/lib/tree-utils";
 import { ProviderIcon } from "../ui/icons";
 import { cn } from "@/lib/cn";
 
@@ -13,29 +13,13 @@ type AsyncActionResult<T = unknown> = void | Promise<T>;
 export function AiWorkspaceSection({
   snapshot,
   t,
-  onOpenSystemSourceModal,
   onOpenPath,
-  onInstallWorkspaceSkill,
-  onCopyWorkspaceSkill,
-  onCreateWorkspaceFolder,
-  onCopyLocal,
-  onCopyProject,
   searchValue,
   onSearchValueChange
 }: {
   snapshot: SkillManagerSnapshot;
   t: TranslationDictionary;
-  onOpenSystemSourceModal: (source: WorkspaceSkillSource) => void;
   onOpenPath: (path: string) => AsyncActionResult;
-  onInstallWorkspaceSkill: (
-    sourceRoot: string,
-    skillRootPath: string,
-    providerKey: WorkspaceSkillProviderKey
-  ) => AsyncActionResult;
-  onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
-  onCreateWorkspaceFolder: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
-  onCopyLocal?: (skillRootPath: string) => void;
-  onCopyProject?: (skillRootPath: string) => void;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -73,9 +57,22 @@ export function AiWorkspaceSection({
   };
 
   const activeSource = sources.find(s => s.id === activeSourceId) || sources[0];
+  const availableSourceCount = sources.filter((source) => source.exists).length;
+  const totalSkillCount = sources.reduce((count, source) => count + source.skillCount, 0);
 
   return (
     <div className="space-y-6">
+      <SectionCard
+        title={t.systemTargetsTitle || t.sectionAiWorkspace || "系统目标"}
+        subtitle={t.systemTargetsSubtitle || "这里只展示这台电脑上的系统级发布目标目录，具体发布动作集中在同步状态页。"}
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <OverviewMetric label={t.systemTargetsProvidersMetric || "目标类型"} value={sources.length} />
+          <OverviewMetric label={t.systemTargetsAvailableMetric || "可用目录"} value={availableSourceCount} />
+          <OverviewMetric label={t.systemTargetsSkillsMetric || "目录内 Skill"} value={totalSkillCount} />
+        </div>
+      </SectionCard>
+
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
         {sources.map((source) => {
           const isActive = activeSourceId === source.id;
@@ -138,18 +135,14 @@ export function AiWorkspaceSection({
 
       <div className="space-y-6">
         {activeSource && (
-          <SectionCard title={activeSource.label}>
+          <SectionCard title={activeSource.label} subtitle={activeSource.path}>
             <div className="mt-4">
               <WorkspaceTree
                 nodes={filterTree(activeSource.tree, searchValue)}
                 projectRoot={activeSource.path}
                 onOpenPath={onOpenPath}
-                onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-                onCopyWorkspaceSkill={onCopyWorkspaceSkill}
-                onCreateWorkspaceFolder={onCreateWorkspaceFolder}
-                importedProjects={snapshot.importedProjects}
-                localInstallDir={snapshot.settings.installDir}
-                installDirTree={snapshot.installDirTree}
+                onInstallWorkspaceSkill={() => undefined}
+                actionMode="none"
                 emptyMessage={t.projectTreeEmpty || "暂无技能"}
               />
             </div>

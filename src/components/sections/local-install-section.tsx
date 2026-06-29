@@ -33,7 +33,7 @@ function describeSkillNextStep(skill: InstalledSkillCard, t: TranslationDictiona
   }
 
   if (skill.syncStatus === "outdated") {
-    return t.centerRepositoryNextStepSync || "可以直接执行同步，把中心仓库版本推到已绑定目标。";
+    return t.centerRepositoryNextStepSync || "去同步状态页发布，把中心仓库版本推到已绑定目标。";
   }
 
   if (skill.syncStatus === "local_changes" || skill.syncStatus === "conflict" || skill.syncStatus === "sync_failed") {
@@ -52,6 +52,13 @@ function formatPathPreview(path: string) {
   return `.../${segments.slice(-4).join("/")}`;
 }
 
+function syncTargetOptionLabel(candidate: SkillManagerSnapshot["systemSkillSources"][number], t: TranslationDictionary) {
+  const scopeLabel = candidate.scope === "system"
+    ? t.syncTargetScopeSystem || "系统"
+    : t.syncTargetScopeProject || "项目";
+  return `${scopeLabel} / ${candidate.label} / ${candidate.path}`;
+}
+
 export function LocalInstallSection({
   t,
   snapshot,
@@ -61,10 +68,9 @@ export function LocalInstallSection({
   onCopyWorkspaceSkill,
   onAddSyncTarget,
   onRemoveSyncTarget,
-  onSyncInstalledSkill,
-  onSyncAllSkills,
   onUpdateInstalledSkillCategory,
   onGoStaged,
+  onGoSyncStatus,
   searchValue,
   onSearchValueChange
 }: {
@@ -80,10 +86,9 @@ export function LocalInstallSection({
   onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
   onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
-  onSyncInstalledSkill: (input: { skillId: string; syncTargetId?: string }) => AsyncActionResult;
-  onSyncAllSkills: () => AsyncActionResult;
   onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   onGoStaged: () => AsyncActionResult;
+  onGoSyncStatus: () => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -168,8 +173,9 @@ export function LocalInstallSection({
               <ArrowRight className="h-4 w-4" />
               {t.centerRepositoryAddSourceAction || "前往添加来源"}
             </button>
-            <button className="app-button" onClick={() => void onSyncAllSkills()} type="button">
-              {t.syncAllSkillsAction || "同步全部"}
+            <button className="app-button" onClick={() => void onGoSyncStatus()} type="button">
+              <ArrowRight className="h-4 w-4" />
+              {t.centerRepositoryGoSyncAction || "查看发布与同步"}
             </button>
           </div>
         }
@@ -326,7 +332,7 @@ export function LocalInstallSection({
                             <div className="flex flex-wrap items-center gap-2">
                               <SyncStatusBadge status={skill.syncStatus} t={t} />
                               <span className="rounded-full border border-black/10 px-2.5 py-1 text-[11px] app-text-soft dark:border-white/10">
-                                {`${skill.syncTargetCount} ${t.syncTargetsCountSuffix || "个目标"}`}
+                                {`${skill.syncTargetCount} ${t.centerRepositoryTargetCountLabel || "个发布目标"}`}
                               </span>
                             </div>
                             <p className="mt-3 truncate text-base font-semibold app-text" title={skill.name}>
@@ -445,7 +451,7 @@ export function LocalInstallSection({
                                   <option value="">{t.addSyncTargetPlaceholder || "选择一个同步目标目录"}</option>
                                   {availableTargets.map((candidate) => (
                                     <option key={candidate.id} value={candidate.path}>
-                                      {candidate.label}
+                                      {syncTargetOptionLabel(candidate, t)}
                                     </option>
                                   ))}
                                 </select>
@@ -483,10 +489,10 @@ export function LocalInstallSection({
                               <button
                                 className="app-button"
                                 disabled={skill.syncTargetCount === 0}
-                                onClick={() => void onSyncInstalledSkill({ skillId: skill.id })}
+                                onClick={() => void onGoSyncStatus()}
                                 type="button"
                               >
-                                {t.syncNowAction || "立即同步"}
+                                {t.centerRepositoryGoSyncAction || "查看发布与同步"}
                               </button>
                             </div>
                           </div>
@@ -512,6 +518,7 @@ export function LocalInstallSection({
             onOpenPath={onOpenPath}
             onInstallWorkspaceSkill={onInstallWorkspaceSkill}
             onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+            actionMode="none"
             importedProjects={snapshot.importedProjects}
             emptyMessage={t.projectTreeEmpty || "没有找到可安装的技能"}
           />

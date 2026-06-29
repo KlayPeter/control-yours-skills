@@ -30,7 +30,6 @@ export function WorkspacePrimarySection({
   section,
   snapshot,
   t,
-  installedSkills,
   installPathConfigured,
   onChooseInstallDir,
   onGoImport,
@@ -62,18 +61,11 @@ export function WorkspacePrimarySection({
   onRemoveStaged,
   onClearStaged,
   onLoadStagedDetail,
-  onOpenStagedDetail,
-  onInstallStagedWithProgress,
   onSelectLog,
   onOpenLogsFromOverview,
   onInstallWorkspaceSkill,
   onCopyWorkspaceSkill,
   onCreateWorkspaceFolder,
-  onCopySkill,
-  onMoveSkill,
-  onCategoryChange,
-  selectedCategory,
-  selectedSkillId,
   onSearchValueChange,
   onPickInstallDir,
   onValidateInstallDir,
@@ -84,7 +76,6 @@ export function WorkspacePrimarySection({
   onAddSyncTarget,
   onRemoveSyncTarget,
   onSyncInstalledSkill,
-  onSyncAllSkills,
   onAdoptSyncTarget,
   onUpdateStagedSourceCategory,
   onUpdateInstalledSkillCategory,
@@ -194,11 +185,7 @@ export function WorkspacePrimarySection({
         <AiWorkspaceSection
           snapshot={snapshot}
           t={t}
-          onOpenSystemSourceModal={onOpenSystemSourceModal}
           onOpenPath={onOpenPath}
-          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-          onCopyWorkspaceSkill={onCopyWorkspaceSkill}
-          onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />
@@ -214,10 +201,9 @@ export function WorkspacePrimarySection({
           onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           onAddSyncTarget={onAddSyncTarget}
           onRemoveSyncTarget={onRemoveSyncTarget}
-          onSyncInstalledSkill={onSyncInstalledSkill}
-          onSyncAllSkills={onSyncAllSkills}
           onUpdateInstalledSkillCategory={onUpdateInstalledSkillCategory}
           onGoStaged={onGoStaged}
+          onGoSyncStatus={onGoSyncStatus}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />
@@ -231,7 +217,7 @@ export function WorkspacePrimarySection({
           onSearchValueChange={onSearchValueChange}
           onOpenPath={onOpenPath}
           onSyncInstalledSkill={onSyncInstalledSkill}
-          onAdoptSyncTarget={onAdoptSyncTarget}
+          onGoConflicts={onGoConflicts}
         />
       );
     case "conflicts":
@@ -255,8 +241,6 @@ export function WorkspacePrimarySection({
           onRemoveProject={onRemoveProject}
           onImportProject={onImportProject}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-          onCopyWorkspaceSkill={onCopyWorkspaceSkill}
-          onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />

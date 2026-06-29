@@ -1,4 +1,4 @@
-import { FolderOpen, RefreshCcw, Upload } from "lucide-react";
+import { AlertTriangle, FolderOpen, RefreshCcw } from "lucide-react";
 
 import type { SkillManagerSnapshot, SyncStatus } from "@shared/contracts";
 
@@ -28,7 +28,7 @@ export function SyncStatusSection({
   onSearchValueChange,
   onOpenPath,
   onSyncInstalledSkill,
-  onAdoptSyncTarget
+  onGoConflicts
 }: {
   snapshot: SkillManagerSnapshot;
   t: TranslationDictionary;
@@ -36,7 +36,7 @@ export function SyncStatusSection({
   onSearchValueChange: (value: string) => void;
   onOpenPath: (path: string) => AsyncActionResult;
   onSyncInstalledSkill: (input: { skillId: string; syncTargetId?: string }) => AsyncActionResult;
-  onAdoptSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
+  onGoConflicts: () => AsyncActionResult;
 }) {
   const installedWithTargets = snapshot.installedSkills.filter((skill) => skill.syncTargetCount > 0);
   const allTargets = installedWithTargets.flatMap((skill) =>
@@ -116,10 +116,19 @@ export function SyncStatusSection({
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       className="app-button"
-                      onClick={() => void onSyncInstalledSkill({ skillId: skill.id })}
+                      onClick={() => {
+                        if (skill.syncStatus === "local_changes" || skill.syncStatus === "conflict") {
+                          void onGoConflicts();
+                          return;
+                        }
+
+                        void onSyncInstalledSkill({ skillId: skill.id });
+                      }}
                       type="button"
                     >
-                      {t.syncAllTargetsForSkillAction || "同步此技能"}
+                      {skill.syncStatus === "local_changes" || skill.syncStatus === "conflict"
+                        ? t.syncGoConflictsAction || "去冲突处理"
+                        : t.syncAllTargetsForSkillAction || "同步此技能"}
                     </button>
                     <button
                       className="app-icon-button"
@@ -163,24 +172,25 @@ export function SyncStatusSection({
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            className="app-button"
-                            onClick={() => void onSyncInstalledSkill({ skillId: skill.id, syncTargetId: target.id })}
-                            type="button"
-                          >
-                            <RefreshCcw className="h-4 w-4" />
-                            {t.syncOverwriteTargetAction || "覆盖目标"}
-                          </button>
-                          {(target.status === "local_changes" || target.status === "conflict") ? (
+                          {target.status === "local_changes" || target.status === "conflict" ? (
                             <button
                               className="app-button"
-                              onClick={() => void onAdoptSyncTarget({ syncTargetId: target.id, skillId: skill.id })}
+                              onClick={() => void onGoConflicts()}
                               type="button"
                             >
-                              <Upload className="h-4 w-4" />
-                              {t.syncAdoptTargetAction || "采纳目标版本"}
+                              <AlertTriangle className="h-4 w-4" />
+                              {t.syncGoConflictsAction || "去冲突处理"}
                             </button>
-                          ) : null}
+                          ) : (
+                            <button
+                              className="app-button"
+                              onClick={() => void onSyncInstalledSkill({ skillId: skill.id, syncTargetId: target.id })}
+                              type="button"
+                            >
+                              <RefreshCcw className="h-4 w-4" />
+                              {t.syncOverwriteTargetAction || "覆盖目标"}
+                            </button>
+                          )}
                           <button
                             className="app-icon-button"
                             onClick={() => void onOpenPath(target.targetSkillPath || target.path)}

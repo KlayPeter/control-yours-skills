@@ -1,5 +1,5 @@
 import { FolderPlus, FolderSearch, Search } from "lucide-react";
-import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 import { countSkillsInTree } from "@/lib/tree-utils";
@@ -17,8 +17,6 @@ export function ProjectsSection({
   onRemoveProject,
   onImportProject,
   onInstallWorkspaceSkill,
-  onCopyWorkspaceSkill,
-  onCreateWorkspaceFolder,
   searchValue,
   onSearchValueChange
 }: {
@@ -32,8 +30,6 @@ export function ProjectsSection({
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
   ) => AsyncActionResult;
-  onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
-  onCreateWorkspaceFolder: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -101,7 +97,7 @@ export function ProjectsSection({
                 {t.projectsStepManageTitle || "3. 统一纳管或分发"}
               </div>
               <p className="mt-3 text-sm app-text-soft">
-                {t.projectsStepManageBody || "你可以把项目里的 Skill 安装到中心仓库，或直接复制到其他 Agent 目录。"}
+                {t.projectsStepManageBody || "你可以把项目里的 Skill 安装到中心仓库，后续发布交给同步页处理。"}
               </p>
             </div>
           </div>
@@ -169,11 +165,7 @@ export function ProjectsSection({
                   projectRoot={project.path}
                   onOpenPath={onOpenPath}
                   onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-                  onCopyWorkspaceSkill={onCopyWorkspaceSkill}
-                  onCreateWorkspaceFolder={onCreateWorkspaceFolder}
-                  importedProjects={snapshot.importedProjects}
-                  localInstallDir={snapshot.settings.installDir}
-                  installDirTree={snapshot.installDirTree}
+                  showCopyActions={false}
                   emptyMessage={t.projectTreeEmpty || "这个项目里还没有识别到可安装的 Skill 文件夹。"}
                 />
               </div>

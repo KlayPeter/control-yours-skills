@@ -86,13 +86,10 @@ export function WorkspaceNavSidebar({
   handleQuickChooseInstallDir,
   snapshot,
   openPath,
-  handleInstallWorkspaceSkill,
   setSidebarTab,
   pendingCount,
   failureCount,
   handleImportProject,
-  onCopyWorkspaceSkill,
-  onCreateWorkspaceFolder
 }: WorkspaceNavSidebarProps) {
   return (
     <aside className="app-sidebar">
@@ -218,12 +215,6 @@ export function WorkspaceNavSidebar({
                       onOpenPath={(targetPath) => {
                         void openPath(targetPath);
                       }}
-                      onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
-                      onCopyWorkspaceSkill={onCopyWorkspaceSkill}
-                      onCreateWorkspaceFolder={onCreateWorkspaceFolder}
-                      importedProjects={snapshot?.importedProjects}
-                      localInstallDir={snapshot?.settings?.installDir}
-                      installDirTree={snapshot?.installDirTree}
                       rootLabel={project.name}
                       rootPath={project.path}
                     />
@@ -240,12 +231,6 @@ export function WorkspaceNavSidebar({
                     onOpenPath={(targetPath) => {
                       void openPath(targetPath);
                     }}
-                    onInstallWorkspaceSkill={handleInstallWorkspaceSkill}
-                    onCopyWorkspaceSkill={onCopyWorkspaceSkill}
-                    onCreateWorkspaceFolder={onCreateWorkspaceFolder}
-                    importedProjects={snapshot.importedProjects}
-                    localInstallDir={snapshot.settings.installDir}
-                    installDirTree={snapshot.installDirTree}
                     rootLabel={t.sectionLocalInstall}
                     rootPath={snapshot.settings.installDir}
                   />

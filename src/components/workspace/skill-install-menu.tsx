@@ -8,11 +8,13 @@ export function SkillInstallMenu({
   onCopyLocal,
   onCopyProject,
   onOpenChange,
+  showCopyActions = true,
 }: {
   onInstall: (providerKey: WorkspaceSkillProviderKey) => void;
-  onCopyLocal: () => void;
-  onCopyProject: () => void;
+  onCopyLocal?: () => void;
+  onCopyProject?: () => void;
   onOpenChange?: (isOpen: boolean) => void;
+  showCopyActions?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -73,29 +75,33 @@ export function SkillInstallMenu({
               <ProviderIcon providerKey={provider.key} className="h-4 w-4 shrink-0" />
             </button>
           ))}
-          <div className="h-px w-5 bg-black/10 dark:bg-white/10 my-1" />
-          <button
-            className="flex h-8 w-8 items-center justify-center rounded app-text hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-            title="复制分发: 复制到本地配置目录"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsOpen(false);
-              onCopyLocal();
-            }}
-          >
-            <HardDrive className="h-4 w-4 shrink-0" />
-          </button>
-          <button
-            className="flex h-8 w-8 items-center justify-center rounded app-text hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-            title="复制分发: 复制到导入的项目"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsOpen(false);
-              onCopyProject();
-            }}
-          >
-            <FolderDown className="h-4 w-4 shrink-0" />
-          </button>
+          {showCopyActions && onCopyLocal && onCopyProject ? (
+            <>
+              <div className="h-px w-5 bg-black/10 dark:bg-white/10 my-1" />
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded app-text hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                title="复制分发: 复制到本地配置目录"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                  onCopyLocal();
+                }}
+              >
+                <HardDrive className="h-4 w-4 shrink-0" />
+              </button>
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded app-text hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                title="复制分发: 复制到导入的项目"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                  onCopyProject();
+                }}
+              >
+                <FolderDown className="h-4 w-4 shrink-0" />
+              </button>
+            </>
+          ) : null}
         </div>
       )}
     </div>
