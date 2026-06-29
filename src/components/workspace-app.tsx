@@ -254,6 +254,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onGoAiWorkspace={() => router.push("/ai-workspace" as import("next").Route)}
                   onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
                   onGoProjects={() => router.push("/projects" as import("next").Route)}
+                  onGoSyncStatus={() => router.push("/sync-status" as import("next").Route)}
+                  onGoConflicts={() => router.push("/conflicts" as import("next").Route)}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onImportFolder={importFolderWithPicker}
@@ -325,6 +327,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onGoAiWorkspace={() => router.push("/ai-workspace" as import("next").Route)}
                   onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
                   onGoProjects={() => router.push("/projects" as import("next").Route)}
+                  onGoSyncStatus={() => router.push("/sync-status" as import("next").Route)}
+                  onGoConflicts={() => router.push("/conflicts" as import("next").Route)}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onImportFolder={importFolderWithPicker}

@@ -431,7 +431,11 @@ export function useSkillManager(initialSkillId?: string) {
           await loadSkillDetail(input.skillId);
         }
 
-        setNotice(t.skillSynced);
+        setNotice(
+          typeof result.data === "number" && result.data > 1
+            ? `${t.skillSynced} (${result.data})`
+            : t.skillSynced
+        );
         return result.data;
       }),
     syncAllSkills: () =>
@@ -445,7 +449,11 @@ export function useSkillManager(initialSkillId?: string) {
           await loadSkillDetail(selectedSkillId);
         }
 
-        setNotice(t.allSkillsSynced);
+        setNotice(
+          typeof result.data === "number"
+            ? `${t.allSkillsSynced} (${result.data})`
+            : t.allSkillsSynced
+        );
         return result.data;
       }),
     adoptSyncTarget: (input: AdoptSyncTargetInput & { skillId?: string }) =>

@@ -38,6 +38,8 @@ export function WorkspacePrimarySection({
   onGoAiWorkspace,
   onGoLocalInstall,
   onGoProjects,
+  onGoSyncStatus,
+  onGoConflicts,
   remoteUrl,
   onRemoteUrlChange,
   selectedStageIds,
@@ -100,6 +102,8 @@ export function WorkspacePrimarySection({
   onGoAiWorkspace: () => void;
   onGoLocalInstall: () => void;
   onGoProjects: () => void;
+  onGoSyncStatus: () => void;
+  onGoConflicts: () => void;
   onCopySkill: (id: string) => void;
   onMoveSkill: (id: string) => void;
   onCategoryChange: (value: string) => void;
@@ -180,6 +184,8 @@ export function WorkspacePrimarySection({
           onGoAiWorkspace={onGoAiWorkspace}
           onGoLocalInstall={onGoLocalInstall}
           onGoProjects={onGoProjects}
+          onGoSyncStatus={onGoSyncStatus}
+          onGoConflicts={onGoConflicts}
           snapshot={snapshot}
           t={t}
         />
