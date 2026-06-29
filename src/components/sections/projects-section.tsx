@@ -1,10 +1,11 @@
-import { Search } from "lucide-react";
+import { FolderPlus, FolderSearch, Search } from "lucide-react";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 import { countSkillsInTree } from "@/lib/tree-utils";
 import { IconActionButton } from "../ui/buttons";
 import { Trash2 } from "lucide-react";
+import { OverviewMetric } from "../ui/typography";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -14,6 +15,7 @@ export function ProjectsSection({
   t,
   onOpenPath,
   onRemoveProject,
+  onImportProject,
   onInstallWorkspaceSkill,
   onCopyWorkspaceSkill,
   onCreateWorkspaceFolder,
@@ -24,6 +26,7 @@ export function ProjectsSection({
   t: TranslationDictionary;
   onOpenPath: (path: string) => AsyncActionResult;
   onRemoveProject: (projectPath: string) => AsyncActionResult;
+  onImportProject: () => AsyncActionResult;
   onInstallWorkspaceSkill: (
     sourceRoot: string,
     skillRootPath: string,
@@ -35,6 +38,8 @@ export function ProjectsSection({
   onSearchValueChange: (value: string) => void;
 }) {
   const projects = snapshot.importedProjects;
+  const totalSkillCount = projects.reduce((sum, project) => sum + countSkillsInTree(project.tree), 0);
+  const searchableProjectCount = projects.filter((project) => countSkillsInTree(project.tree) > 0).length;
 
   // Simple search filter function that filters the tree nodes by name
   const filterTree = (nodes: WorkspaceTreeNode[], search: string): WorkspaceTreeNode[] => {
@@ -57,6 +62,58 @@ export function ProjectsSection({
 
   return (
     <div className="space-y-6">
+      <SectionCard
+        title={t.projectsGuideTitle || "项目导入是做什么的"}
+        subtitle={
+          t.projectsGuideSubtitle ||
+          "把你本地的业务项目接进来后，系统会扫描其中的 Skill 文件夹，让你把项目里的能力纳入统一管理。"
+        }
+        actions={
+          <button className="app-button" onClick={() => void onImportProject()} type="button">
+            <FolderPlus className="h-4 w-4" />
+            {t.importProjectAction || t.importProject}
+          </button>
+        }
+      >
+        <div className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="app-card p-4">
+              <div className="flex items-center gap-2 text-sm font-medium app-text">
+                <FolderPlus className="h-4 w-4 text-signal" />
+                {t.projectsStepImportTitle || "1. 导入项目目录"}
+              </div>
+              <p className="mt-3 text-sm app-text-soft">
+                {t.projectsStepImportBody || "选择一个本地项目根目录，系统会把它加入长期跟踪列表。"}
+              </p>
+            </div>
+            <div className="app-card p-4">
+              <div className="flex items-center gap-2 text-sm font-medium app-text">
+                <FolderSearch className="h-4 w-4 text-amber-500" />
+                {t.projectsStepScanTitle || "2. 扫描项目里的 Skill"}
+              </div>
+              <p className="mt-3 text-sm app-text-soft">
+                {t.projectsStepScanBody || "系统会递归识别包含 SKILL.md 的目录，并把它们展示成可浏览、可安装的树。"}
+              </p>
+            </div>
+            <div className="app-card p-4">
+              <div className="flex items-center gap-2 text-sm font-medium app-text">
+                <Search className="h-4 w-4 text-emerald-500" />
+                {t.projectsStepManageTitle || "3. 统一纳管或分发"}
+              </div>
+              <p className="mt-3 text-sm app-text-soft">
+                {t.projectsStepManageBody || "你可以把项目里的 Skill 安装到中心仓库，或直接复制到其他 Agent 目录。"}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+            <OverviewMetric label={t.projectsMetricImported || "已导入项目"} value={projects.length} />
+            <OverviewMetric label={t.projectsMetricDetectedSkills || "识别到的 Skill"} value={totalSkillCount} />
+            <OverviewMetric label={t.projectsMetricActiveProjects || "有 Skill 的项目"} value={searchableProjectCount} />
+          </div>
+        </div>
+      </SectionCard>
+
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 app-text-soft" />
@@ -74,7 +131,11 @@ export function ProjectsSection({
       <div className="space-y-6">
         {projects.length === 0 && (
           <div className="rounded-2xl border border-dashed border-black/15 dark:border-white/15 bg-black/5 dark:bg-black/10 px-4 py-12 text-center text-sm app-text-soft">
-            {t.noProjectsImported || "暂无导入的项目。请从概览页面导入。"}
+            <p>{t.noProjectsImported || "还没有导入任何项目。"}</p>
+            <button className="mt-4 app-button" onClick={() => void onImportProject()} type="button">
+              <FolderPlus className="h-4 w-4" />
+              {t.importProjectAction || t.importProject}
+            </button>
           </div>
         )}
         

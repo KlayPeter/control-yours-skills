@@ -260,6 +260,7 @@ export function WorkspacePrimarySection({
           t={t}
           onOpenPath={onOpenPath}
           onRemoveProject={onRemoveProject}
+          onImportProject={onImportProject}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
           onCopyWorkspaceSkill={onCopyWorkspaceSkill}
           onCreateWorkspaceFolder={onCreateWorkspaceFolder}
