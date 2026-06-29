@@ -171,14 +171,14 @@ export function WorkspaceNavSidebar({
                   className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "projects" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
                   onClick={() => setSidebarTab("projects")}
                 >
-                  已导入项目
+                  {t.projectDirectories}
                 </button>
                 <span className="text-xs text-black/10 dark:text-white/10">|</span>
                 <button 
                   className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "installDir" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
                   onClick={() => setSidebarTab("installDir")}
                 >
-                  本地安装
+                  {t.sectionLocalInstall}
                 </button>
               </div>
               {sidebarTab === "projects" ? (
@@ -226,7 +226,9 @@ export function WorkspaceNavSidebar({
                     />
                   ))
                 ) : (
-                  <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">尚未导入项目</div>
+                  <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">
+                    {t.noProjectsImported || "还没有接入任何项目。"}
+                  </div>
                 )
               ) : (
                 snapshot?.installDirTree && snapshot.installDirTree.length > 0 ? (
@@ -241,12 +243,14 @@ export function WorkspaceNavSidebar({
                     importedProjects={snapshot.importedProjects}
                     localInstallDir={snapshot.settings.installDir}
                     installDirTree={snapshot.installDirTree}
-                    rootLabel="安装目录"
+                    rootLabel={t.sectionLocalInstall}
                     rootPath={snapshot.settings.installDir}
                   />
                 ) : (
                   <div className="px-3 py-2 text-[12px] opacity-60 app-text-soft">
-                    {!snapshot?.settings.installDir ? "未配置安装目录" : "安装目录为空"}
+                    {!snapshot?.settings.installDir
+                      ? (t.centerRepositoryUnset || "尚未配置中心仓库")
+                      : (t.centerRepositoryEmpty || "中心仓库当前为空")}
                   </div>
                 )
               )}

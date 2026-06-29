@@ -179,7 +179,6 @@ export function WorkspacePrimarySection({
           onGoStaged={onGoStaged}
           onImportProject={onImportProject}
           onOpenLogsFromOverview={onOpenLogsFromOverview}
-          onOpenPath={onOpenPath}
           onOpenSystemSourceModal={onOpenSystemSourceModal}
           onGoAiWorkspace={onGoAiWorkspace}
           onGoLocalInstall={onGoLocalInstall}
