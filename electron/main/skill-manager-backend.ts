@@ -45,6 +45,7 @@ import { analyzeRemoteSource, parseInstallStrategy, requiresArchiveExtraction, s
 import { classifySkill } from "./utils/skill-classification";
 import { detectSkillDirectory, discoverSkillDirectories, slugifySkillName } from "./utils/skill-parser";
 import { detectSourceType, resolveGitHubArchiveUrl, validateRemoteSource } from "./utils/source-url";
+import { computeDirectoryHash, replaceDirectory } from "./utils/sync-engine";
 import {
   resolveSystemProviderSkillPath,
   scanProjectTree,
@@ -119,6 +120,7 @@ interface SyncTargetRow {
   provider_key: WorkspaceSkillSource["key"];
   label: string;
   path: string;
+  target_skill_path: string | null;
   status: SyncStatus;
   last_synced_at: string | null;
   last_error: string | null;
@@ -259,8 +261,9 @@ function toSyncTargetRecord(row: SyncTargetRow): SyncTargetRecord {
     providerKey: row.provider_key,
     label: row.label,
     path: row.path,
+    targetSkillPath: row.target_skill_path,
     status: row.status,
-    exists: fs.existsSync(row.path),
+    exists: fs.existsSync(row.target_skill_path || row.path),
     lastSyncedAt: row.last_synced_at,
     lastError: row.last_error,
     conflictDetail: row.conflict_detail,
@@ -1138,6 +1141,7 @@ export class SkillManagerBackend {
       providerKey: input.providerKey,
       label: input.label.trim() || path.basename(normalizedPath),
       path: normalizedPath,
+      targetSkillPath: null,
       status: "managed",
       exists: fs.existsSync(normalizedPath),
       lastSyncedAt: null,
@@ -1151,11 +1155,11 @@ export class SkillManagerBackend {
       .prepare(
         `
           insert into sync_targets (
-            id, skill_id, target_scope, provider_key, label, path, status, last_synced_at,
+            id, skill_id, target_scope, provider_key, label, path, target_skill_path, status, last_synced_at,
             last_error, conflict_detail, source_hash, target_hash, last_synced_source_hash,
             last_synced_target_hash, created_at, updated_at
           ) values (
-            @id, @skillId, @scope, @providerKey, @label, @path, @status, @lastSyncedAt,
+            @id, @skillId, @scope, @providerKey, @label, @path, @targetSkillPath, @status, @lastSyncedAt,
             @lastError, @conflictDetail, null, null, null, null, @createdAt, @updatedAt
           )
         `
@@ -1194,6 +1198,95 @@ export class SkillManagerBackend {
     );
 
     return { ok: true, data: removed };
+  }
+
+  async syncInstalledSkill(input: { skillId: string; syncTargetId?: string }): Promise<OperationResult<number>> {
+    const installed = this.getInstalledSkill(input.skillId);
+    if (!installed) {
+      return { ok: false, error: "The selected installed skill could not be found." };
+    }
+
+    const settings = this.getSettings();
+    const syncTargets = input.syncTargetId
+      ? this.listSyncTargetsBySkill(installed.id).filter((target) => target.id === input.syncTargetId)
+      : this.listSyncTargetsBySkill(installed.id);
+
+    if (syncTargets.length === 0) {
+      return { ok: false, error: "No sync target is connected to the selected skill." };
+    }
+
+    let syncedCount = 0;
+
+    for (const syncTarget of syncTargets) {
+      try {
+        const baseValidation = await this.validateDirectory(syncTarget.path);
+        if (!baseValidation.writable) {
+          throw new Error(baseValidation.error || "The sync target directory is not writable.");
+        }
+
+        const targetSkillPath =
+          syncTarget.targetSkillPath || (await this.resolveInstallPath(syncTarget.path, installed.slug, settings.conflictPolicy));
+        const sourceHash = await computeDirectoryHash(installed.installPath);
+
+        await this.writeLog(
+          "install",
+          "info",
+          `Syncing installed skill to ${syncTarget.label}`,
+          `${installed.installPath} -> ${targetSkillPath}`,
+          installed.id
+        );
+
+        await replaceDirectory(installed.installPath, targetSkillPath);
+        const targetHash = await computeDirectoryHash(targetSkillPath);
+
+        this.updateSyncTarget(syncTarget.id, {
+          targetSkillPath,
+          status: "synced",
+          lastSyncedAt: nowIso(),
+          lastError: null,
+          conflictDetail: null,
+          sourceHash,
+          targetHash,
+          lastSyncedSourceHash: sourceHash,
+          lastSyncedTargetHash: targetHash,
+          updatedAt: nowIso()
+        });
+
+        await this.writeLog(
+          "install",
+          "info",
+          `Synced installed skill: ${installed.name}`,
+          `${syncTarget.label} | ${targetSkillPath}`,
+          installed.id
+        );
+
+        syncedCount += 1;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to sync the installed skill.";
+        this.updateSyncTarget(syncTarget.id, {
+          status: "sync_failed",
+          lastError: message,
+          updatedAt: nowIso()
+        });
+        await this.writeLog("install", "error", "Failed to sync the installed skill.", message, installed.id);
+      }
+    }
+
+    return { ok: true, data: syncedCount };
+  }
+
+  async syncAllSkills(): Promise<OperationResult<number>> {
+    const installedSkills = this.listInstalledSkills().filter((skill) => skill.syncTargetCount > 0);
+    let syncedCount = 0;
+
+    for (const skill of installedSkills) {
+      const result = await this.syncInstalledSkill({ skillId: skill.id });
+      if (result.ok && typeof result.data === "number") {
+        syncedCount += result.data;
+      }
+    }
+
+    return { ok: true, data: syncedCount };
   }
 
   async installWorkspaceSkill(input: InstallWorkspaceSkillInput): Promise<OperationResult<string>> {
@@ -1740,6 +1833,61 @@ export class SkillManagerBackend {
       .get(id) as SyncTargetRow | undefined;
 
     return row ? toSyncTargetRecord(row) : null;
+  }
+
+  private updateSyncTarget(
+    id: string,
+    nextValues: Partial<{
+      targetSkillPath: string | null;
+      status: SyncStatus;
+      lastSyncedAt: string | null;
+      lastError: string | null;
+      conflictDetail: string | null;
+      sourceHash: string | null;
+      targetHash: string | null;
+      lastSyncedSourceHash: string | null;
+      lastSyncedTargetHash: string | null;
+      updatedAt: string;
+    }>
+  ) {
+    const row = this.database
+      .prepare("select * from sync_targets where id = ?")
+      .get(id) as SyncTargetRow | undefined;
+    if (!row) {
+      return;
+    }
+
+    this.database
+      .prepare(
+        `
+          update sync_targets
+          set
+            target_skill_path = @targetSkillPath,
+            status = @status,
+            last_synced_at = @lastSyncedAt,
+            last_error = @lastError,
+            conflict_detail = @conflictDetail,
+            source_hash = @sourceHash,
+            target_hash = @targetHash,
+            last_synced_source_hash = @lastSyncedSourceHash,
+            last_synced_target_hash = @lastSyncedTargetHash,
+            updated_at = @updatedAt
+          where id = @id
+        `
+      )
+      .run({
+        id,
+        targetSkillPath: nextValues.targetSkillPath ?? row.target_skill_path,
+        status: nextValues.status ?? row.status,
+        lastSyncedAt: nextValues.lastSyncedAt ?? row.last_synced_at,
+        lastError: nextValues.lastError ?? row.last_error,
+        conflictDetail: nextValues.conflictDetail ?? row.conflict_detail,
+        sourceHash: nextValues.sourceHash ?? row.source_hash,
+        targetHash: nextValues.targetHash ?? row.target_hash,
+        lastSyncedSourceHash: nextValues.lastSyncedSourceHash ?? row.last_synced_source_hash,
+        lastSyncedTargetHash: nextValues.lastSyncedTargetHash ?? row.last_synced_target_hash,
+        updatedAt: nextValues.updatedAt || nowIso()
+      });
   }
 
   private getStagedSource(id: string) {

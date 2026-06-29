@@ -36,6 +36,8 @@ const copy: Record<
     busyCopyingWorkspaceSkill: string;
     busyAddingSyncTarget: string;
     busyRemovingSyncTarget: string;
+    busySyncingSkill: string;
+    busySyncingAllSkills: string;
     busyUpdatingStagedCategory: string;
     busyUpdatingSkillCategory: string;
     settingsSaved: string;
@@ -67,6 +69,10 @@ const copy: Record<
     failedToAddSyncTarget: string;
     syncTargetRemoved: string;
     failedToRemoveSyncTarget: string;
+    skillSynced: string;
+    failedToSyncSkill: string;
+    allSkillsSynced: string;
+    failedToSyncAllSkills: string;
     stagedCategoryUpdated: string;
     failedToUpdateStagedCategory: string;
     skillCategoryUpdated: string;
@@ -92,6 +98,8 @@ const copy: Record<
     busyCopyingWorkspaceSkill: "正在复制工作区技能",
     busyAddingSyncTarget: "正在添加同步目标",
     busyRemovingSyncTarget: "正在移除同步目标",
+    busySyncingSkill: "正在同步技能",
+    busySyncingAllSkills: "正在同步全部技能",
     busyUpdatingStagedCategory: "正在更新暂存来源分类",
     busyUpdatingSkillCategory: "正在更新技能分类",
     settingsSaved: "设置已保存。",
@@ -123,6 +131,10 @@ const copy: Record<
     failedToAddSyncTarget: "添加同步目标失败。",
     syncTargetRemoved: "同步目标已移除。",
     failedToRemoveSyncTarget: "移除同步目标失败。",
+    skillSynced: "技能已同步到目标目录。",
+    failedToSyncSkill: "同步技能失败。",
+    allSkillsSynced: "已完成全部同步。",
+    failedToSyncAllSkills: "批量同步失败。",
     stagedCategoryUpdated: "暂存来源分类已更新。",
     failedToUpdateStagedCategory: "更新暂存来源分类失败。",
     skillCategoryUpdated: "技能分类已更新。",
@@ -147,6 +159,8 @@ const copy: Record<
     busyCopyingWorkspaceSkill: "Copying workspace skill",
     busyAddingSyncTarget: "Adding sync target",
     busyRemovingSyncTarget: "Removing sync target",
+    busySyncingSkill: "Syncing skill",
+    busySyncingAllSkills: "Syncing all skills",
     busyUpdatingStagedCategory: "Updating staged source category",
     busyUpdatingSkillCategory: "Updating skill category",
     settingsSaved: "Settings saved.",
@@ -178,6 +192,10 @@ const copy: Record<
     failedToAddSyncTarget: "Failed to add the sync target.",
     syncTargetRemoved: "Sync target removed.",
     failedToRemoveSyncTarget: "Failed to remove the sync target.",
+    skillSynced: "Skill synced to its targets.",
+    failedToSyncSkill: "Failed to sync the skill.",
+    allSkillsSynced: "All skills synced.",
+    failedToSyncAllSkills: "Failed to sync all skills.",
     stagedCategoryUpdated: "Staged source category updated.",
     failedToUpdateStagedCategory: "Failed to update the staged source category.",
     skillCategoryUpdated: "Skill category updated.",
@@ -390,6 +408,34 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.syncTargetRemoved);
+        return result.data;
+      }),
+    syncInstalledSkill: (input: { skillId: string; syncTargetId?: string }) =>
+      runAction(t.busySyncingSkill, async () => {
+        const result = await api.syncInstalledSkill(input);
+        if (!result.ok) {
+          throw new Error(result.error || t.failedToSyncSkill);
+        }
+
+        if (selectedSkillId === input.skillId) {
+          await loadSkillDetail(input.skillId);
+        }
+
+        setNotice(t.skillSynced);
+        return result.data;
+      }),
+    syncAllSkills: () =>
+      runAction(t.busySyncingAllSkills, async () => {
+        const result = await api.syncAllSkills();
+        if (!result.ok) {
+          throw new Error(result.error || t.failedToSyncAllSkills);
+        }
+
+        if (selectedSkillId) {
+          await loadSkillDetail(selectedSkillId);
+        }
+
+        setNotice(t.allSkillsSynced);
         return result.data;
       }),
     updateStagedSourceCategory: (input: { id: string; category: string | null }) =>

@@ -55,6 +55,12 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:remove-sync-target", (_event, input) =>
     backend.removeSyncTarget(input)
   );
+  ipcMain.handle("skill-manager:sync-installed-skill", (_event, input) =>
+    backend.syncInstalledSkill(input)
+  );
+  ipcMain.handle("skill-manager:sync-all-skills", () =>
+    backend.syncAllSkills()
+  );
   ipcMain.handle("skill-manager:update-staged-source-category", (_event, input) =>
     backend.updateStagedSourceCategory(input)
   );

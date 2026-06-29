@@ -26,6 +26,8 @@ export function LocalInstallSection({
   onCopyWorkspaceSkill,
   onAddSyncTarget,
   onRemoveSyncTarget,
+  onSyncInstalledSkill,
+  onSyncAllSkills,
   onUpdateInstalledSkillCategory,
   searchValue,
   onSearchValueChange
@@ -49,6 +51,8 @@ export function LocalInstallSection({
   onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
   onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
+  onSyncInstalledSkill: (input: { skillId: string; syncTargetId?: string }) => AsyncActionResult;
+  onSyncAllSkills: () => AsyncActionResult;
   onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
@@ -110,6 +114,15 @@ export function LocalInstallSection({
       <SectionCard
         title={t.centerRepositoryTitle || "中心仓库总览"}
         subtitle={t.centerRepositorySubtitle || "这里是系统正式纳管的技能主版本库，分类、推荐和后续同步都会以这里为准。"}
+        actions={
+          <button
+            className="app-button"
+            onClick={() => void onSyncAllSkills()}
+            type="button"
+          >
+            {t.syncAllSkillsAction || "同步全部"}
+          </button>
+        }
       >
         <div className="grid gap-4 md:grid-cols-4">
           <OverviewMetric label={t.sectionSkills || "已纳管技能"} value={snapshot.installedSkills.length} />
@@ -284,6 +297,9 @@ export function LocalInstallSection({
                       <span className="rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 text-[11px] app-text-soft">
                         {skill.category || t.unclassifiedOption || "未分类"}
                       </span>
+                      <span className="rounded-full border border-moss/20 bg-moss/10 px-2 py-0.5 text-[11px] text-moss">
+                        {skill.syncStatus}
+                      </span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs app-text-soft">{skill.description || t.noDescriptionAvailable}</p>
                   </div>
@@ -398,6 +414,14 @@ export function LocalInstallSection({
                       type="button"
                     >
                       {t.addSyncTargetAction || "添加"}
+                    </button>
+                    <button
+                      className="app-button"
+                      disabled={skill.syncTargetCount === 0}
+                      onClick={() => void onSyncInstalledSkill({ skillId: skill.id })}
+                      type="button"
+                    >
+                      {t.syncNowAction || "立即同步"}
                     </button>
                   </div>
                 </div>

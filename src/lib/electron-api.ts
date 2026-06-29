@@ -15,6 +15,7 @@ import type {
   SettingsRecord,
   SkillManagerApi,
   SkillManagerSnapshot,
+  SyncInstalledSkillInput,
   StagedSourceDetail,
   StagedSourceRecord
 } from "@shared/contracts";
@@ -126,6 +127,11 @@ const browserFallbackApi: SkillManagerApi = {
     void _input;
     return unavailableResult<number>();
   },
+  syncInstalledSkill: async (_input: SyncInstalledSkillInput) => {
+    void _input;
+    return unavailableResult<number>();
+  },
+  syncAllSkills: async () => unavailableResult<number>(),
   updateStagedSourceCategory: async () => unavailableResult<StagedSourceRecord>(),
   updateInstalledSkillCategory: async () => unavailableResult<InstalledSkillRecord>(),
   saveSettings: async () => unavailableResult<SettingsRecord>(),

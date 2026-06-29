@@ -112,6 +112,7 @@ export function createDatabase(paths: RuntimePaths) {
       provider_key text not null,
       label text not null,
       path text not null,
+      target_skill_path text,
       status text not null default 'managed',
       last_synced_at text,
       last_error text,
@@ -242,6 +243,9 @@ export function createDatabase(paths: RuntimePaths) {
     .all() as Array<{ name: string }>;
   if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "status")) {
     database.exec("alter table sync_targets add column status text not null default 'managed';");
+  }
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "target_skill_path")) {
+    database.exec("alter table sync_targets add column target_skill_path text;");
   }
   if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "last_synced_at")) {
     database.exec("alter table sync_targets add column last_synced_at text;");

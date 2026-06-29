@@ -127,6 +127,7 @@ export interface SyncTargetRecord {
   providerKey: WorkspaceSkillProviderKey;
   label: string;
   path: string;
+  targetSkillPath: string | null;
   status: SyncStatus;
   exists: boolean;
   lastSyncedAt: string | null;
@@ -308,6 +309,11 @@ export interface RemoveSyncTargetInput {
   syncTargetId: string;
 }
 
+export interface SyncInstalledSkillInput {
+  skillId: string;
+  syncTargetId?: string;
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -327,6 +333,8 @@ export interface SkillManagerApi {
   createSkillCategory(name: string): Promise<OperationResult<SkillCategoryRecord>>;
   addSyncTarget(input: AddSyncTargetInput): Promise<OperationResult<SyncTargetRecord>>;
   removeSyncTarget(input: RemoveSyncTargetInput): Promise<OperationResult<number>>;
+  syncInstalledSkill(input: SyncInstalledSkillInput): Promise<OperationResult<number>>;
+  syncAllSkills(): Promise<OperationResult<number>>;
   updateStagedSourceCategory(input: UpdateStagedSourceCategoryInput): Promise<OperationResult<StagedSourceRecord>>;
   updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;
