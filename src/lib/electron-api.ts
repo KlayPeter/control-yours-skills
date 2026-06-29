@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  AddSyncTargetInput,
   DirectoryValidationResult,
   ExportInstalledSkillInput,
   FolderImportResult,
@@ -10,6 +11,7 @@ import type {
   CopyWorkspaceSkillInput,
   LogRecord,
   OperationResult,
+  RemoveSyncTargetInput,
   SettingsRecord,
   SkillManagerApi,
   SkillManagerSnapshot,
@@ -116,6 +118,14 @@ const browserFallbackApi: SkillManagerApi = {
     return unavailableResult<void>();
   },
   createSkillCategory: async () => unavailableResult(),
+  addSyncTarget: async (_input: AddSyncTargetInput) => {
+    void _input;
+    return unavailableResult();
+  },
+  removeSyncTarget: async (_input: RemoveSyncTargetInput) => {
+    void _input;
+    return unavailableResult<number>();
+  },
   updateStagedSourceCategory: async () => unavailableResult<StagedSourceRecord>(),
   updateInstalledSkillCategory: async () => unavailableResult<InstalledSkillRecord>(),
   saveSettings: async () => unavailableResult<SettingsRecord>(),

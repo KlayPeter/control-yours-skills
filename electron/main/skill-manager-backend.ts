@@ -28,6 +28,8 @@ import type {
   SkillCategoryRecord,
   SettingsRecord,
   SkillManagerSnapshot,
+  SyncStatus,
+  SyncTargetRecord,
   SourceType,
   StagedSourceDetail,
   StagedSourceRecord,
@@ -107,6 +109,25 @@ interface InstalledRow {
   source_type: SourceType;
   source_value: string;
   installed_at: string;
+  updated_at: string;
+}
+
+interface SyncTargetRow {
+  id: string;
+  skill_id: string;
+  target_scope: WorkspaceSkillSource["scope"];
+  provider_key: WorkspaceSkillSource["key"];
+  label: string;
+  path: string;
+  status: SyncStatus;
+  last_synced_at: string | null;
+  last_error: string | null;
+  conflict_detail: string | null;
+  source_hash: string | null;
+  target_hash: string | null;
+  last_synced_source_hash: string | null;
+  last_synced_target_hash: string | null;
+  created_at: string;
   updated_at: string;
 }
 
@@ -218,11 +239,32 @@ function toInstalledRecord(row: InstalledRow): InstalledSkillRecord {
     slug: row.slug,
     description: row.description,
     category: row.category,
+    syncStatus: "managed",
+    syncTargetCount: 0,
+    syncTargets: [],
     installPath: row.install_path,
     skillMdPath: row.skill_md_path,
     sourceType: row.source_type,
     sourceValue: row.source_value,
     installedAt: row.installed_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function toSyncTargetRecord(row: SyncTargetRow): SyncTargetRecord {
+  return {
+    id: row.id,
+    skillId: row.skill_id,
+    scope: row.target_scope,
+    providerKey: row.provider_key,
+    label: row.label,
+    path: row.path,
+    status: row.status,
+    exists: fs.existsSync(row.path),
+    lastSyncedAt: row.last_synced_at,
+    lastError: row.last_error,
+    conflictDetail: row.conflict_detail,
+    createdAt: row.created_at,
     updatedAt: row.updated_at
   };
 }
@@ -891,6 +933,9 @@ export class SkillManagerBackend {
           slug,
           description: staged.detectedDescription,
           category: resolvedCategory || null,
+          syncStatus: "managed",
+          syncTargetCount: 0,
+          syncTargets: [],
           installPath,
           skillMdPath: path.join(installPath, "SKILL.md"),
           sourceType: staged.sourceType,
@@ -981,13 +1026,15 @@ export class SkillManagerBackend {
     }
 
     const exists = fs.existsSync(installed.installPath) && fs.existsSync(installed.skillMdPath);
+    const syncTargets = this.listSyncTargetsBySkill(installed.id);
 
     return {
       ok: true,
       data: {
         ...installed,
         markdown: await safeReadText(installed.skillMdPath),
-        exists
+        exists,
+        syncTargets
       }
     };
   }
@@ -1059,6 +1106,96 @@ export class SkillManagerBackend {
     }
   }
 
+  async addSyncTarget(input: {
+    skillId: string;
+    scope: WorkspaceSkillSource["scope"];
+    providerKey: WorkspaceSkillSource["key"];
+    label: string;
+    path: string;
+  }): Promise<OperationResult<SyncTargetRecord>> {
+    const installed = this.getInstalledSkill(input.skillId);
+    if (!installed) {
+      return { ok: false, error: "The selected installed skill could not be found." };
+    }
+
+    const normalizedPath = path.resolve(input.path.trim());
+    if (!normalizedPath) {
+      return { ok: false, error: "The sync target path cannot be empty." };
+    }
+
+    const existing = this.database
+      .prepare("select * from sync_targets where skill_id = ? and path = ?")
+      .get(input.skillId, normalizedPath) as SyncTargetRow | undefined;
+    if (existing) {
+      return { ok: false, error: "This sync target is already connected to the selected skill." };
+    }
+
+    const createdAt = nowIso();
+    const created: SyncTargetRecord = {
+      id: randomUUID(),
+      skillId: input.skillId,
+      scope: input.scope,
+      providerKey: input.providerKey,
+      label: input.label.trim() || path.basename(normalizedPath),
+      path: normalizedPath,
+      status: "managed",
+      exists: fs.existsSync(normalizedPath),
+      lastSyncedAt: null,
+      lastError: null,
+      conflictDetail: null,
+      createdAt,
+      updatedAt: createdAt
+    };
+
+    this.database
+      .prepare(
+        `
+          insert into sync_targets (
+            id, skill_id, target_scope, provider_key, label, path, status, last_synced_at,
+            last_error, conflict_detail, source_hash, target_hash, last_synced_source_hash,
+            last_synced_target_hash, created_at, updated_at
+          ) values (
+            @id, @skillId, @scope, @providerKey, @label, @path, @status, @lastSyncedAt,
+            @lastError, @conflictDetail, null, null, null, null, @createdAt, @updatedAt
+          )
+        `
+      )
+      .run(created);
+
+    await this.writeLog(
+      "settings",
+      "info",
+      `Added sync target for ${installed.name}`,
+      `${created.label} | ${created.path}`,
+      installed.id
+    );
+
+    const refreshed = this.getSyncTarget(created.id);
+    if (!refreshed) {
+      return { ok: false, error: "The created sync target could not be reloaded." };
+    }
+
+    return { ok: true, data: refreshed };
+  }
+
+  async removeSyncTarget(input: { syncTargetId: string }): Promise<OperationResult<number>> {
+    const syncTarget = this.getSyncTarget(input.syncTargetId);
+    if (!syncTarget) {
+      return { ok: true, data: 0 };
+    }
+
+    const removed = this.database.prepare("delete from sync_targets where id = ?").run(input.syncTargetId).changes;
+    await this.writeLog(
+      "settings",
+      "info",
+      "Removed sync target from installed skill.",
+      `${syncTarget.label} | ${syncTarget.path}`,
+      syncTarget.skillId
+    );
+
+    return { ok: true, data: removed };
+  }
+
   async installWorkspaceSkill(input: InstallWorkspaceSkillInput): Promise<OperationResult<string>> {
     const settings = this.getSettings();
     const targetRoot = resolveSystemProviderSkillPath(input.providerKey, this.paths.homeDir);
@@ -1104,6 +1241,9 @@ export class SkillManagerBackend {
         slug: metadata.slug,
         description: metadata.description,
         category: null,
+        syncStatus: "managed",
+        syncTargetCount: 0,
+        syncTargets: [],
         installPath: exportPath,
         skillMdPath: path.join(exportPath, "SKILL.md"),
         sourceType: "localZip",
@@ -1184,6 +1324,9 @@ export class SkillManagerBackend {
           slug: metadata.slug,
           description: metadata.description,
           category: null,
+          syncStatus: "managed",
+          syncTargetCount: 0,
+          syncTargets: [],
           installPath: exportPath,
           skillMdPath: path.join(exportPath, "SKILL.md"),
           sourceType: "localZip",
@@ -1494,7 +1637,7 @@ export class SkillManagerBackend {
       .prepare("select * from installed_skills order by installed_at desc")
       .all() as InstalledRow[];
 
-    return rows.map(toInstalledRecord);
+    return rows.map((row) => this.withSyncMetadata(toInstalledRecord(row)));
   }
 
   private async listInstallCategories(
@@ -1583,6 +1726,22 @@ export class SkillManagerBackend {
     return scanSystemSkillSources();
   }
 
+  private listSyncTargetsBySkill(skillId: string) {
+    const rows = this.database
+      .prepare("select * from sync_targets where skill_id = ? order by created_at asc")
+      .all(skillId) as SyncTargetRow[];
+
+    return rows.map(toSyncTargetRecord);
+  }
+
+  private getSyncTarget(id: string) {
+    const row = this.database
+      .prepare("select * from sync_targets where id = ?")
+      .get(id) as SyncTargetRow | undefined;
+
+    return row ? toSyncTargetRecord(row) : null;
+  }
+
   private getStagedSource(id: string) {
     const row = this.database.prepare("select * from staged_sources where id = ?").get(id) as StagedRow | undefined;
     return row ? toStagedRecord(row) : null;
@@ -1593,7 +1752,7 @@ export class SkillManagerBackend {
       .prepare("select * from installed_skills where id = ?")
       .get(id) as InstalledRow | undefined;
 
-    return row ? toInstalledRecord(row) : null;
+    return row ? this.withSyncMetadata(toInstalledRecord(row)) : null;
   }
 
   private insertStagedSource(sourceType: SourceType, sourceValue: string) {
@@ -1792,6 +1951,45 @@ export class SkillManagerBackend {
     return normalizeCategoryName(value);
   }
 
+  private withSyncMetadata(skill: InstalledSkillRecord): InstalledSkillRecord {
+    const syncTargets = this.listSyncTargetsBySkill(skill.id);
+
+    return {
+      ...skill,
+      syncTargets,
+      syncStatus: this.resolveSyncStatus(syncTargets),
+      syncTargetCount: syncTargets.length
+    };
+  }
+
+  private resolveSyncStatus(syncTargets: SyncTargetRecord[]): SyncStatus {
+    if (syncTargets.length === 0) {
+      return "managed";
+    }
+
+    if (syncTargets.some((target) => target.status === "conflict")) {
+      return "conflict";
+    }
+
+    if (syncTargets.some((target) => target.status === "sync_failed")) {
+      return "sync_failed";
+    }
+
+    if (syncTargets.some((target) => target.status === "outdated")) {
+      return "outdated";
+    }
+
+    if (syncTargets.some((target) => target.status === "local_changes")) {
+      return "local_changes";
+    }
+
+    if (syncTargets.every((target) => target.status === "synced")) {
+      return "synced";
+    }
+
+    return "managed";
+  }
+
   private async readLocalReadmeExcerpt(skillRootPath: string, skillMdPath: string) {
     const candidates = ["README.md", "readme.md", "README", "README.txt"].map((fileName) =>
       path.join(skillRootPath, fileName)
@@ -1944,6 +2142,9 @@ export class SkillManagerBackend {
         slug,
         description: staged.detectedDescription || parsed.description,
         category: null,
+        syncStatus: "managed",
+        syncTargetCount: 0,
+        syncTargets: [],
         installPath,
         skillMdPath: path.join(installPath, "SKILL.md"),
         sourceType: staged.sourceType,

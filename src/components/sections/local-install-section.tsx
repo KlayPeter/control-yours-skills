@@ -24,6 +24,8 @@ export function LocalInstallSection({
   onInstallWorkspaceSkill,
   onCreateWorkspaceFolder,
   onCopyWorkspaceSkill,
+  onAddSyncTarget,
+  onRemoveSyncTarget,
   onUpdateInstalledSkillCategory,
   searchValue,
   onSearchValueChange
@@ -45,12 +47,15 @@ export function LocalInstallSection({
   ) => AsyncActionResult;
   onCopyWorkspaceSkill?: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
   onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
+  onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
+  onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
   onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [selectedSyncTargetPathBySkill, setSelectedSyncTargetPathBySkill] = useState<Record<string, string>>({});
   const installTree = snapshot.installDirTree;
 
   // Simple search filter function that filters the tree nodes by name
@@ -92,6 +97,8 @@ export function LocalInstallSection({
   ])].sort((left, right) => left.localeCompare(right));
   const uncategorizedCount = snapshot.installedSkills.filter((skill) => !skill.category).length;
   const categorizedCount = snapshot.installedSkills.length - uncategorizedCount;
+  const syncTargetCandidates = [...snapshot.systemSkillSources, ...snapshot.workspaceSkillSources];
+  const syncTargetCandidateMap = new Map(syncTargetCandidates.map((candidate) => [candidate.path, candidate]));
   const sortedInstalledSkills = [...filteredInstalledSkills].sort((left, right) => {
     const leftCategory = left.category || "zzz";
     const rightCategory = right.category || "zzz";
@@ -313,6 +320,86 @@ export function LocalInstallSection({
                   <p className="truncate text-xs app-text-soft" title={skill.installPath}>
                     {skill.installPath}
                   </p>
+                </div>
+                <div className="mt-4 rounded-2xl border border-black/10 dark:border-white/10 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-xs uppercase tracking-[0.16em] app-text-soft">
+                      {t.syncTargetsTitle || "同步目标"}
+                    </label>
+                    <span className="text-xs app-text-soft">
+                      {skill.syncTargetCount} {t.syncTargetsCountSuffix || "个"}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {skill.syncTargets.length === 0 ? (
+                      <span className="text-xs app-text-soft">
+                        {t.noSyncTargetsYet || "还没有绑定同步目标。"}
+                      </span>
+                    ) : (
+                      skill.syncTargets.map((syncTarget) => (
+                        <span
+                          key={syncTarget.id}
+                          className="inline-flex items-center gap-2 rounded-full border border-black/10 dark:border-white/10 px-3 py-1 text-xs app-text-soft"
+                          title={syncTarget.path}
+                        >
+                          <span>{syncTarget.label}</span>
+                          <button
+                            className="text-[11px] app-text-soft hover:app-text"
+                            onClick={() => void onRemoveSyncTarget({ syncTargetId: syncTarget.id, skillId: skill.id })}
+                            type="button"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <select
+                      className="app-input h-10 flex-1 rounded-2xl px-3 text-sm"
+                      onChange={(event) =>
+                        setSelectedSyncTargetPathBySkill((current) => ({
+                          ...current,
+                          [skill.id]: event.target.value
+                        }))
+                      }
+                      value={selectedSyncTargetPathBySkill[skill.id] || ""}
+                    >
+                      <option value="">{t.addSyncTargetPlaceholder || "选择一个同步目标目录"}</option>
+                      {syncTargetCandidates
+                        .filter((candidate) => !skill.syncTargets.some((target) => target.path === candidate.path))
+                        .map((candidate) => (
+                          <option key={candidate.id} value={candidate.path}>
+                            {candidate.label}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      className="app-button"
+                      onClick={() => {
+                        const targetPath = selectedSyncTargetPathBySkill[skill.id];
+                        const candidate = targetPath ? syncTargetCandidateMap.get(targetPath) : undefined;
+                        if (!candidate) {
+                          return;
+                        }
+
+                        void onAddSyncTarget({
+                          skillId: skill.id,
+                          scope: candidate.scope,
+                          providerKey: candidate.key,
+                          label: candidate.label,
+                          path: candidate.path
+                        });
+                        setSelectedSyncTargetPathBySkill((current) => ({
+                          ...current,
+                          [skill.id]: ""
+                        }));
+                      }}
+                      type="button"
+                    >
+                      {t.addSyncTargetAction || "添加"}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))

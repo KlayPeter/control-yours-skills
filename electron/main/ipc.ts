@@ -49,6 +49,12 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:create-skill-category", (_event, name: string) =>
     backend.createSkillCategory(name)
   );
+  ipcMain.handle("skill-manager:add-sync-target", (_event, input) =>
+    backend.addSyncTarget(input)
+  );
+  ipcMain.handle("skill-manager:remove-sync-target", (_event, input) =>
+    backend.removeSyncTarget(input)
+  );
   ipcMain.handle("skill-manager:update-staged-source-category", (_event, input) =>
     backend.updateStagedSourceCategory(input)
   );

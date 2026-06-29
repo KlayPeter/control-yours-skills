@@ -8,6 +8,7 @@ export type Locale = "zh-CN" | "en";
 export type AiProvider = "deepseek";
 export type AnalysisMethod = "rules" | "ai" | "rules+ai";
 export type InstallStrategyType = "archiveCopy" | "command" | "manual";
+export type SyncStatus = "managed" | "synced" | "outdated" | "local_changes" | "conflict" | "sync_failed";
 
 export interface AiSettings {
   enabled: boolean;
@@ -108,6 +109,9 @@ export interface InstalledSkillRecord {
   slug: string;
   description: string | null;
   category: string | null;
+  syncStatus: SyncStatus;
+  syncTargetCount: number;
+  syncTargets: SyncTargetRecord[];
   installPath: string;
   skillMdPath: string;
   sourceType: SourceType;
@@ -116,9 +120,26 @@ export interface InstalledSkillRecord {
   updatedAt: string;
 }
 
+export interface SyncTargetRecord {
+  id: string;
+  skillId: string;
+  scope: WorkspaceSkillSourceScope;
+  providerKey: WorkspaceSkillProviderKey;
+  label: string;
+  path: string;
+  status: SyncStatus;
+  exists: boolean;
+  lastSyncedAt: string | null;
+  lastError: string | null;
+  conflictDetail: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InstalledSkillDetail extends InstalledSkillRecord {
   markdown: string | null;
   exists: boolean;
+  syncTargets: SyncTargetRecord[];
 }
 
 export type WorkspaceSkillProviderKey = "codex" | "claude" | "agents";
@@ -275,6 +296,18 @@ export interface UpdateStagedSourceCategoryInput {
   category: string | null;
 }
 
+export interface AddSyncTargetInput {
+  skillId: string;
+  scope: WorkspaceSkillSourceScope;
+  providerKey: WorkspaceSkillProviderKey;
+  label: string;
+  path: string;
+}
+
+export interface RemoveSyncTargetInput {
+  syncTargetId: string;
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -292,6 +325,8 @@ export interface SkillManagerApi {
   copyWorkspaceSkillToDirectory(input: CopyWorkspaceSkillInput): Promise<OperationResult<void>>;
   createWorkspaceFolder(input: { parentPath: string; folderName: string }): Promise<OperationResult<void>>;
   createSkillCategory(name: string): Promise<OperationResult<SkillCategoryRecord>>;
+  addSyncTarget(input: AddSyncTargetInput): Promise<OperationResult<SyncTargetRecord>>;
+  removeSyncTarget(input: RemoveSyncTargetInput): Promise<OperationResult<number>>;
   updateStagedSourceCategory(input: UpdateStagedSourceCategoryInput): Promise<OperationResult<StagedSourceRecord>>;
   updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;

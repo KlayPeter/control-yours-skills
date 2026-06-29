@@ -34,6 +34,8 @@ const copy: Record<
     busyRefreshingWorkspace: string;
     busyInstallingWorkspaceSkill: string;
     busyCopyingWorkspaceSkill: string;
+    busyAddingSyncTarget: string;
+    busyRemovingSyncTarget: string;
     busyUpdatingStagedCategory: string;
     busyUpdatingSkillCategory: string;
     settingsSaved: string;
@@ -61,6 +63,10 @@ const copy: Record<
     failedToInstallWorkspaceSkill: string;
     workspaceSkillCopied: string;
     failedToCopyWorkspaceSkill: string;
+    syncTargetAdded: string;
+    failedToAddSyncTarget: string;
+    syncTargetRemoved: string;
+    failedToRemoveSyncTarget: string;
     stagedCategoryUpdated: string;
     failedToUpdateStagedCategory: string;
     skillCategoryUpdated: string;
@@ -84,6 +90,8 @@ const copy: Record<
     busyRefreshingWorkspace: "正在刷新工作区",
     busyInstallingWorkspaceSkill: "正在安装工作区技能",
     busyCopyingWorkspaceSkill: "正在复制工作区技能",
+    busyAddingSyncTarget: "正在添加同步目标",
+    busyRemovingSyncTarget: "正在移除同步目标",
     busyUpdatingStagedCategory: "正在更新暂存来源分类",
     busyUpdatingSkillCategory: "正在更新技能分类",
     settingsSaved: "设置已保存。",
@@ -111,6 +119,10 @@ const copy: Record<
     failedToInstallWorkspaceSkill: "安装工作区技能失败。",
     workspaceSkillCopied: "工作区技能已复制。",
     failedToCopyWorkspaceSkill: "复制工作区技能失败。",
+    syncTargetAdded: "同步目标已添加。",
+    failedToAddSyncTarget: "添加同步目标失败。",
+    syncTargetRemoved: "同步目标已移除。",
+    failedToRemoveSyncTarget: "移除同步目标失败。",
     stagedCategoryUpdated: "暂存来源分类已更新。",
     failedToUpdateStagedCategory: "更新暂存来源分类失败。",
     skillCategoryUpdated: "技能分类已更新。",
@@ -133,6 +145,8 @@ const copy: Record<
     busyRefreshingWorkspace: "Refreshing workspace",
     busyInstallingWorkspaceSkill: "Installing workspace skill",
     busyCopyingWorkspaceSkill: "Copying workspace skill",
+    busyAddingSyncTarget: "Adding sync target",
+    busyRemovingSyncTarget: "Removing sync target",
     busyUpdatingStagedCategory: "Updating staged source category",
     busyUpdatingSkillCategory: "Updating skill category",
     settingsSaved: "Settings saved.",
@@ -160,6 +174,10 @@ const copy: Record<
     failedToInstallWorkspaceSkill: "Failed to install the workspace skill.",
     workspaceSkillCopied: "Workspace skill copied.",
     failedToCopyWorkspaceSkill: "Failed to copy the workspace skill.",
+    syncTargetAdded: "Sync target added.",
+    failedToAddSyncTarget: "Failed to add the sync target.",
+    syncTargetRemoved: "Sync target removed.",
+    failedToRemoveSyncTarget: "Failed to remove the sync target.",
     stagedCategoryUpdated: "Staged source category updated.",
     failedToUpdateStagedCategory: "Failed to update the staged source category.",
     skillCategoryUpdated: "Skill category updated.",
@@ -344,6 +362,34 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.settingsSaved);
+        return result.data;
+      }),
+    addSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) =>
+      runAction(t.busyAddingSyncTarget, async () => {
+        const result = await api.addSyncTarget(input);
+        if (!result.ok || !result.data) {
+          throw new Error(result.error || t.failedToAddSyncTarget);
+        }
+
+        if (selectedSkillId === input.skillId) {
+          await loadSkillDetail(input.skillId);
+        }
+
+        setNotice(t.syncTargetAdded);
+        return result.data;
+      }),
+    removeSyncTarget: (input: { syncTargetId: string; skillId?: string }) =>
+      runAction(t.busyRemovingSyncTarget, async () => {
+        const result = await api.removeSyncTarget({ syncTargetId: input.syncTargetId });
+        if (!result.ok) {
+          throw new Error(result.error || t.failedToRemoveSyncTarget);
+        }
+
+        if (input.skillId && selectedSkillId === input.skillId) {
+          await loadSkillDetail(input.skillId);
+        }
+
+        setNotice(t.syncTargetRemoved);
         return result.data;
       }),
     updateStagedSourceCategory: (input: { id: string; category: string | null }) =>

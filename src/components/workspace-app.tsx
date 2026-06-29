@@ -50,7 +50,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     selectedSkillId, selectedStagedId, selectedLogId, installedSkills, selectedStageIds,
     setSelectedLogId, loadStagedDetail, installStagedSources, parseStagedSources,
     removeStagedSources, clearStagedSources, toggleStageSelection, saveSettings,
-    rescanInstalledSkill, pickDirectory, updateStagedSourceCategory, updateInstalledSkillCategory
+    rescanInstalledSkill, pickDirectory, addSyncTarget, removeSyncTarget,
+    updateStagedSourceCategory, updateInstalledSkillCategory
   } = logic;
 
   const detailPanel = (
@@ -268,6 +269,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveProject={handleRemoveProject}
                   onRemoveStaged={removeStagedSources}
                   onCreateCategory={handleCreateCategory}
+                  onAddSyncTarget={addSyncTarget}
+                  onRemoveSyncTarget={removeSyncTarget}
                   onUpdateStagedSourceCategory={updateStagedSourceCategory}
                   onUpdateInstalledSkillCategory={updateInstalledSkillCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
@@ -334,6 +337,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onRemoveProject={handleRemoveProject}
                   onRemoveStaged={removeStagedSources}
                   onCreateCategory={handleCreateCategory}
+                  onAddSyncTarget={addSyncTarget}
+                  onRemoveSyncTarget={removeSyncTarget}
                   onUpdateStagedSourceCategory={updateStagedSourceCategory}
                   onUpdateInstalledSkillCategory={updateInstalledSkillCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}

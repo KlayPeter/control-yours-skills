@@ -105,6 +105,27 @@ export function createDatabase(paths: RuntimePaths) {
       updated_at text not null
     );
 
+    create table if not exists sync_targets (
+      id text primary key,
+      skill_id text not null,
+      target_scope text not null,
+      provider_key text not null,
+      label text not null,
+      path text not null,
+      status text not null default 'managed',
+      last_synced_at text,
+      last_error text,
+      conflict_detail text,
+      source_hash text,
+      target_hash text,
+      last_synced_source_hash text,
+      last_synced_target_hash text,
+      created_at text not null,
+      updated_at text not null,
+      unique(skill_id, path),
+      foreign key(skill_id) references installed_skills(id) on delete cascade
+    );
+
     create table if not exists logs (
       id text primary key,
       type text not null,
@@ -215,6 +236,33 @@ export function createDatabase(paths: RuntimePaths) {
     .all() as Array<{ name: string }>;
   if (!installedColumns.some((column) => column.name === "category")) {
     database.exec("alter table installed_skills add column category text;");
+  }
+  const syncTargetColumns = database
+    .prepare("pragma table_info(sync_targets)")
+    .all() as Array<{ name: string }>;
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "status")) {
+    database.exec("alter table sync_targets add column status text not null default 'managed';");
+  }
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "last_synced_at")) {
+    database.exec("alter table sync_targets add column last_synced_at text;");
+  }
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "last_error")) {
+    database.exec("alter table sync_targets add column last_error text;");
+  }
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "conflict_detail")) {
+    database.exec("alter table sync_targets add column conflict_detail text;");
+  }
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "source_hash")) {
+    database.exec("alter table sync_targets add column source_hash text;");
+  }
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "target_hash")) {
+    database.exec("alter table sync_targets add column target_hash text;");
+  }
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "last_synced_source_hash")) {
+    database.exec("alter table sync_targets add column last_synced_source_hash text;");
+  }
+  if (syncTargetColumns.length > 0 && !syncTargetColumns.some((column) => column.name === "last_synced_target_hash")) {
+    database.exec("alter table sync_targets add column last_synced_target_hash text;");
   }
 
   if (existingSettings.total === 0) {

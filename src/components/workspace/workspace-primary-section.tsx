@@ -77,6 +77,8 @@ export function WorkspacePrimarySection({
   onValidateTempDir,
   onSaveSettings,
   onCreateCategory,
+  onAddSyncTarget,
+  onRemoveSyncTarget,
   onUpdateStagedSourceCategory,
   onUpdateInstalledSkillCategory,
   newCategoryName,
@@ -138,6 +140,8 @@ export function WorkspacePrimarySection({
   onValidateTempDir: () => AsyncActionResult;
   onSaveSettings: () => AsyncActionResult;
   onCreateCategory: () => AsyncActionResult;
+  onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
+  onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
   onUpdateStagedSourceCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   newCategoryName: string;
@@ -202,6 +206,8 @@ export function WorkspacePrimarySection({
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
           onCopyWorkspaceSkill={onCopyWorkspaceSkill}
           onCreateWorkspaceFolder={onCreateWorkspaceFolder}
+          onAddSyncTarget={onAddSyncTarget}
+          onRemoveSyncTarget={onRemoveSyncTarget}
           onUpdateInstalledSkillCategory={onUpdateInstalledSkillCategory}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
