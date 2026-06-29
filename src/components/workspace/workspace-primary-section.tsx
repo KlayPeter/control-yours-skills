@@ -206,13 +206,6 @@ export function WorkspacePrimarySection({
     case "local-install":
       return (
         <LocalInstallSection
-          dropzone={dropzone}
-          installPathConfigured={installPathConfigured}
-          onImportZip={onImportZip}
-          onImportFolder={onImportFolder}
-          onRemoteAction={onRemoteAction}
-          onRemoteUrlChange={onRemoteUrlChange}
-          remoteUrl={remoteUrl}
           snapshot={snapshot}
           t={t}
           onOpenPath={onOpenPath}
@@ -224,6 +217,7 @@ export function WorkspacePrimarySection({
           onSyncInstalledSkill={onSyncInstalledSkill}
           onSyncAllSkills={onSyncAllSkills}
           onUpdateInstalledSkillCategory={onUpdateInstalledSkillCategory}
+          onGoStaged={onGoStaged}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />
@@ -273,7 +267,13 @@ export function WorkspacePrimarySection({
           onClearStaged={onClearStaged}
           onInstallStaged={onInstallStaged}
           installPathConfigured={installPathConfigured}
+          dropzone={dropzone}
+          remoteUrl={remoteUrl}
           onLoadStagedDetail={onLoadStagedDetail}
+          onImportZip={onImportZip}
+          onImportFolder={onImportFolder}
+          onRemoteAction={onRemoteAction}
+          onRemoteUrlChange={onRemoteUrlChange}
           onParseStaged={onParseStaged}
           onRemoveStaged={onRemoveStaged}
           onToggleStageSelection={onToggleStageSelection}

@@ -1,7 +1,5 @@
 import { useState } from "react";
-import type { DropzoneState } from "react-dropzone";
-import { Search, UploadCloud, FolderPlus, FolderInput, FolderOpen } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { Search, FolderPlus, FolderOpen, ArrowRight } from "lucide-react";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { OverviewMetric } from "../ui/typography";
@@ -13,13 +11,6 @@ type AsyncActionResult<T = unknown> = void | Promise<T>;
 
 export function LocalInstallSection({
   t,
-  installPathConfigured,
-  dropzone,
-  remoteUrl,
-  onRemoteUrlChange,
-  onImportZip,
-  onImportFolder,
-  onRemoteAction,
   snapshot,
   onOpenPath,
   onInstallWorkspaceSkill,
@@ -30,17 +21,11 @@ export function LocalInstallSection({
   onSyncInstalledSkill,
   onSyncAllSkills,
   onUpdateInstalledSkillCategory,
+  onGoStaged,
   searchValue,
   onSearchValueChange
 }: {
   t: TranslationDictionary;
-  installPathConfigured: boolean;
-  dropzone: DropzoneState;
-  remoteUrl: string;
-  onRemoteUrlChange: (value: string) => void;
-  onImportZip: (mode: "staged" | "install") => AsyncActionResult;
-  onImportFolder: (mode: "staged" | "install") => AsyncActionResult;
-  onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   snapshot: SkillManagerSnapshot;
   onOpenPath: (path: string) => AsyncActionResult;
   onInstallWorkspaceSkill: (
@@ -55,6 +40,7 @@ export function LocalInstallSection({
   onSyncInstalledSkill: (input: { skillId: string; syncTargetId?: string }) => AsyncActionResult;
   onSyncAllSkills: () => AsyncActionResult;
   onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
+  onGoStaged: () => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -116,13 +102,15 @@ export function LocalInstallSection({
         title={t.centerRepositoryTitle || "中心仓库总览"}
         subtitle={t.centerRepositorySubtitle || "这里是系统正式纳管的技能主版本库，分类、推荐和后续同步都会以这里为准。"}
         actions={
-          <button
-            className="app-button"
-            onClick={() => void onSyncAllSkills()}
-            type="button"
-          >
-            {t.syncAllSkillsAction || "同步全部"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button className="app-button" onClick={() => void onGoStaged()} type="button">
+              <ArrowRight className="h-4 w-4" />
+              {t.centerRepositoryAddSourceAction || "前往添加来源"}
+            </button>
+            <button className="app-button" onClick={() => void onSyncAllSkills()} type="button">
+              {t.syncAllSkillsAction || "同步全部"}
+            </button>
+          </div>
         }
       >
         <div className="grid gap-4 md:grid-cols-4">
@@ -131,88 +119,11 @@ export function LocalInstallSection({
           <OverviewMetric label={t.categorizedSkillsLabel || "已分类"} value={categorizedCount} />
           <OverviewMetric label={t.uncategorizedSkillsLabel || "未分类"} value={uncategorizedCount} />
         </div>
+        <div className="mt-4 rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-sm app-text-soft dark:border-white/10 dark:bg-black/10">
+          {t.centerRepositoryFocusHint ||
+            "中心仓库页只保留已纳管 Skill 的查看、分类、同步和目录管理。新来源的导入统一放到暂存区。"}
+        </div>
       </SectionCard>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SectionCard title={t.localZipImport} subtitle={t.localZipImportSubtitle}>
-          <div
-            {...dropzone.getRootProps()}
-            className={cn(
-              "rounded-[28px] border border-dashed p-8 text-center transition",
-              dropzone.isDragActive
-                ? "border-signal bg-signal/10"
-                : "border-black/15 dark:border-white/15 bg-transparent hover:border-black/30 dark:hover:border-white/30 hover:bg-black/5 dark:hover:bg-white/5"
-            )}
-          >
-            <input {...dropzone.getInputProps()} />
-            <UploadCloud className="mx-auto h-10 w-10 text-signal" />
-            <p className="mt-4 text-lg font-medium app-text">{t.localZipDropTitle}</p>
-            <p className="mt-2 text-sm app-text-soft">{t.localZipDropHelp}</p>
-            {!installPathConfigured ? (
-              <p className="mt-3 text-sm text-amber-700 dark:text-amber-200">{t.installPathRequiredBody}</p>
-            ) : null}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-              <button
-                className="app-button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void onImportZip("staged");
-                }}
-                type="button"
-              >
-                {t.chooseZip}
-              </button>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard title={t.localFolderImport || "导入本地文件夹"} subtitle={t.localFolderImportSubtitle || "从本地目录批量导入技能"}>
-          <div className="app-surface-subtle rounded-3xl p-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-signal/10 text-signal">
-                <FolderInput className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm app-text">{t.localFolderImportHelp || "选择一个目录并递归识别其中的技能文件夹。"}</p>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <button
-                    className="app-button"
-                    onClick={() => void onImportFolder("staged")}
-                    type="button"
-                  >
-                    {t.chooseFolder || "选择文件夹"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard title={t.addRemoteSource} subtitle={t.addRemoteSourceSubtitle}>
-          <div className="app-surface-subtle rounded-3xl p-4">
-            <label className="block text-sm font-medium app-text" htmlFor="remote-url">
-              {t.remoteSourceLabel}
-            </label>
-            <div className="mt-3 flex flex-col gap-3">
-              <input
-                className="app-input h-12 flex-1 rounded-2xl px-4 text-sm outline-none transition focus:border-signal/45"
-                id="remote-url"
-                onChange={(event) => onRemoteUrlChange(event.target.value)}
-                placeholder={t.remoteSourcePlaceholder}
-                value={remoteUrl}
-                spellCheck={false}
-              />
-              <button
-                className="app-button"
-                onClick={() => void onRemoteAction("staged")}
-                type="button"
-              >
-                {t.analyzeNow || t.parseSelected}
-              </button>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1">

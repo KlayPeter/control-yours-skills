@@ -63,7 +63,7 @@ export function ProjectsSection({
   return (
     <div className="space-y-6">
       <SectionCard
-        title={t.projectsGuideTitle || "项目导入是做什么的"}
+        title={t.projectsGuideTitle || "项目来源是做什么的"}
         subtitle={
           t.projectsGuideSubtitle ||
           "把你本地的业务项目接进来后，系统会扫描其中的 Skill 文件夹，让你把项目里的能力纳入统一管理。"
@@ -119,7 +119,7 @@ export function ProjectsSection({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 app-text-soft" />
           <input
             type="text"
-            placeholder={t.search || "搜索..."}
+            placeholder={t.searchPlaceholder || "搜索..."}
             value={searchValue}
             onChange={(e) => onSearchValueChange(e.target.value)}
             className="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-black/40 pl-10 pr-4 py-2 text-sm app-text focus-visible:ring-2 focus-visible:ring-signal/45 focus-visible:outline-none transition-all"

@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Sparkles,
   HardDriveDownload,
+  Inbox,
   FolderOpen,
   Logs,
   Settings,
@@ -33,11 +34,13 @@ const navItems: Array<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { section: "local-install", href: "/local-install" as any, icon: HardDriveDownload },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  { section: "staged", href: "/staged" as any, icon: Inbox },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  { section: "projects", href: "/projects" as any, icon: FolderOpen },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { section: "sync-status", href: "/sync-status" as any, icon: GitBranch },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { section: "conflicts", href: "/conflicts" as any, icon: AlertTriangle },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { section: "projects", href: "/projects" as any, icon: FolderOpen },
   { section: "logs", href: "/logs", icon: Logs },
   { section: "settings", href: "/settings", icon: Settings }
 ];
@@ -94,8 +97,8 @@ export function WorkspaceNavSidebar({
   return (
     <aside className="app-sidebar">
       <div className="app-sidebar-inner">
-        <div className={cn("flex flex-col", sidebarCollapsed ? "items-center gap-4 px-0 pt-8" : "gap-5 px-2 pt-0.5")}>
-          <div className={cn("flex items-center w-full", sidebarCollapsed ? "justify-center" : "justify-end")}>
+        <div className={cn("flex flex-col drag-region", sidebarCollapsed ? "items-center gap-4 px-0 pt-8" : "gap-5 px-2 pt-0.5")}>
+          <div className={cn("flex items-center w-full", sidebarCollapsed ? "justify-center" : "justify-end", !sidebarCollapsed && "pt-6")}>
             <button
               type="button"
               className={cn(

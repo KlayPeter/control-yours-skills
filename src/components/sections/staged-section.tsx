@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { Eye, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import type { DropzoneState } from "react-dropzone";
+import { Eye, Plus, RefreshCcw, Trash2, UploadCloud, FolderInput, Link2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, StagedSourceRecord } from "@shared/contracts";
 
@@ -43,8 +43,14 @@ export function StagedSection({
   snapshot,
   t,
   installPathConfigured,
+  dropzone,
+  remoteUrl,
+  onRemoteUrlChange,
   selectedStageIds,
   selectedStagedId,
+  onImportZip,
+  onImportFolder,
+  onRemoteAction,
   onToggleStageSelection,
   onLoadStagedDetail,
   onParseStaged,
@@ -56,8 +62,14 @@ export function StagedSection({
   snapshot: SkillManagerSnapshot;
   t: TranslationDictionary;
   installPathConfigured: boolean;
+  dropzone: DropzoneState;
+  remoteUrl: string;
+  onRemoteUrlChange: (value: string) => void;
   selectedStageIds: string[];
   selectedStagedId: string | null;
+  onImportZip: (mode: "staged" | "install") => AsyncActionResult;
+  onImportFolder: (mode: "staged" | "install") => AsyncActionResult;
+  onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   onToggleStageSelection: (id: string) => void;
   onLoadStagedDetail: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
@@ -85,17 +97,78 @@ export function StagedSection({
   return (
     <div className="space-y-6">
       <SectionCard
+        title={t.stagedImportTitle || "添加来源到暂存区"}
+        subtitle={
+          t.stagedImportSubtitle ||
+          "所有新来源先进入暂存区，在这里检查解析结果、推荐分类和安装条件，确认后再纳入中心仓库。"
+        }
+      >
+        <div className="grid gap-4 xl:grid-cols-3">
+          <div
+            {...dropzone.getRootProps()}
+            className={cn(
+              "rounded-3xl border border-dashed p-6 text-center transition",
+              dropzone.isDragActive
+                ? "border-signal bg-signal/10"
+                : "border-black/15 bg-transparent hover:border-black/30 hover:bg-black/5 dark:border-white/15 dark:hover:border-white/30 dark:hover:bg-white/5"
+            )}
+          >
+            <input {...dropzone.getInputProps()} />
+            <UploadCloud className="mx-auto h-9 w-9 text-signal" />
+            <p className="mt-4 text-base font-medium app-text">{t.localZipImport}</p>
+            <p className="mt-2 text-sm app-text-soft">{t.stagedZipImportHint || "拖入 ZIP，或用按钮选择本地压缩包。"}</p>
+            <button
+              className="mt-5 app-button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void onImportZip("staged");
+              }}
+              type="button"
+            >
+              {t.chooseZip}
+            </button>
+          </div>
+
+          <div className="rounded-3xl border border-black/10 bg-black/5 p-6 dark:border-white/10 dark:bg-black/10">
+            <div className="flex items-center gap-2 text-sm font-medium app-text">
+              <FolderInput className="h-4 w-4 text-signal" />
+              {t.localFolderImport || "导入本地文件夹"}
+            </div>
+            <p className="mt-3 text-sm app-text-soft">
+              {t.stagedFolderImportHint || "选择一个目录，系统会递归查找所有包含 SKILL.md 的技能文件夹。"}
+            </p>
+            <button className="mt-5 app-button" onClick={() => void onImportFolder("staged")} type="button">
+              {t.chooseFolder || "选择文件夹"}
+            </button>
+          </div>
+
+          <div className="rounded-3xl border border-black/10 bg-black/5 p-6 dark:border-white/10 dark:bg-black/10">
+            <div className="flex items-center gap-2 text-sm font-medium app-text">
+              <Link2 className="h-4 w-4 text-signal" />
+              {t.addRemoteSource}
+            </div>
+            <p className="mt-3 text-sm app-text-soft">
+              {t.stagedRemoteImportHint || "支持 GitHub 仓库和直链 ZIP。远程来源会先做识别说明，再进入暂存区。"}
+            </p>
+            <input
+              className="mt-4 app-input h-11 w-full rounded-2xl px-4 text-sm"
+              onChange={(event) => onRemoteUrlChange(event.target.value)}
+              placeholder={t.remoteSourcePlaceholder}
+              spellCheck={false}
+              value={remoteUrl}
+            />
+            <button className="mt-4 app-button w-full justify-center" onClick={() => void onRemoteAction("staged")} type="button">
+              {t.analyzeNow || t.parseSelected}
+            </button>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
         title={t.stagedSources}
         subtitle={t.stagedSourcesSubtitle}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link
-              className="app-button"
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              href={"/local-install" as any}
-            >
-              {t.toImport}
-            </Link>
             <button
               className="app-button"
               onClick={() =>

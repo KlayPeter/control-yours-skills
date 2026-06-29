@@ -194,7 +194,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         />
 
         <div className="flex min-h-screen flex-col xl:h-screen xl:overflow-y-auto">
-          <header className="app-topbar">
+          <header className="app-topbar drag-region">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.28em] app-text-soft">{t.workspaceHeader}</p>
@@ -249,7 +249,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   installedSkills={installedSkills}
                   onClearStaged={clearStagedSources}
                   onChooseInstallDir={handleQuickChooseInstallDir}
-                  onGoImport={() => router.push("/local-install" as import("next").Route)}
+                  onGoImport={() => router.push("/staged" as import("next").Route)}
                   onGoStaged={() => router.push("/staged" as import("next").Route)}
                   onGoAiWorkspace={() => router.push("/ai-workspace" as import("next").Route)}
                   onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
@@ -322,7 +322,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   installedSkills={installedSkills}
                   onClearStaged={clearStagedSources}
                   onChooseInstallDir={handleQuickChooseInstallDir}
-                  onGoImport={() => router.push("/local-install" as import("next").Route)}
+                  onGoImport={() => router.push("/staged" as import("next").Route)}
                   onGoStaged={() => router.push("/staged" as import("next").Route)}
                   onGoAiWorkspace={() => router.push("/ai-workspace" as import("next").Route)}
                   onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
