@@ -82,10 +82,15 @@ export function SourceBadge({
           : t.sourceBadgeRemoteZip;
 
   return (
-    <span className="app-surface-subtle inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.16em] app-text-soft">
-      {isGithub && <Github className="h-3 w-3" />}
-      {isFolder && <Folder className="h-3 w-3" />}
-      {isZip && <FileArchive className="h-3 w-3" />}
+    <span className={cn(
+      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.16em]",
+      isGithub 
+        ? "bg-[#24292f] text-white dark:bg-white dark:text-[#24292f]" 
+        : "app-surface-subtle app-text-soft"
+    )}>
+      {isGithub && <Github className="h-3.5 w-3.5" />}
+      {isFolder && <Folder className="h-3.5 w-3.5" />}
+      {isZip && <FileArchive className="h-3.5 w-3.5" />}
       {label}
     </span>
   );

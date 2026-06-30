@@ -230,10 +230,10 @@ export function StagedSection({
               <div
                 key={item.id}
                 className={cn(
-                  "rounded-3xl border p-4 transition",
+                  "rounded-3xl p-4 transition-all duration-200 border",
                   selectedStagedId === item.id
-                    ? "border-signal/45 bg-signal/10"
-                    : "app-surface hover:border-white/20 hover:bg-white/5"
+                    ? "border-signal shadow-md shadow-signal/10 bg-white dark:bg-black/40 ring-1 ring-signal/20"
+                    : "border-black/5 dark:border-white/10 app-surface hover:border-black/15 hover:bg-black/5 dark:hover:border-white/20 dark:hover:bg-white/5"
                 )}
               >
                 <div className="flex items-start justify-between gap-4">
