@@ -62,9 +62,9 @@ Breaking away from the obscure operations of traditional CLIs, we've built a hig
 
 ## 🗺️ Roadmap & Future Plans
 
-We are constantly evolving and will further integrate with the cloud ecosystem in the future:
+We are constantly evolving to make AI skill management more intelligent and seamless. Upcoming killer features:
 
-- [ ] **🌐 Registry Mode**: Access cloud centers like Nacos AI Registry, supporting cross-device synchronization and team-level Skill asset collaboration.
+- [ ] **🔗 URL One-Click Install**: Found an amazing skill on GitHub or elsewhere? Just paste the link! The system will automatically parse the repository and seamlessly install the skill into your designated local category—no more tedious manual downloading and extracting!
 - [ ] **🧠 AI-Powered Skill Discovery**: Provide a native smart search box to scour the internet for high-quality open-source skills using natural language.
 - [ ] **🏆 Skill Leaderboard & Trends**: Offer multi-dimensional trending lists (rising stars, soaring lists, various themed categories, etc.).
 
