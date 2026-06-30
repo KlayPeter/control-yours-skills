@@ -60,7 +60,6 @@ export function WorkspacePrimarySection({
   onClearStaged,
   onLoadStagedDetail,
   onSelectLog,
-  onOpenLogsFromOverview,
   onInstallWorkspaceSkill,
   onCopyWorkspaceSkill,
   onCreateWorkspaceFolder,
@@ -122,7 +121,6 @@ export function WorkspacePrimarySection({
   onOpenStagedDetail: (id: string) => void;
   onInstallStagedWithProgress: (id: string) => Promise<void>;
   onSelectLog: (logId: string) => void;
-  onOpenLogsFromOverview: (logId: string) => void;
   onInstallWorkspaceSkill: (
     sourceRoot: string,
     skillRootPath: string,
@@ -166,7 +164,6 @@ export function WorkspacePrimarySection({
           onGoImport={onGoImport}
           onGoStaged={onGoStaged}
           onImportProject={onImportProject}
-          onOpenLogsFromOverview={onOpenLogsFromOverview}
           onOpenSystemSourceModal={onOpenSystemSourceModal}
           onGoAiWorkspace={onGoAiWorkspace}
           onGoLocalInstall={onGoLocalInstall}

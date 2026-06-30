@@ -456,9 +456,6 @@ export class SkillManagerBackend {
     const workspaceSkillSources = importedProjects.flatMap((project) => project.sources);
     const systemSkillSources = await this.getSystemSkillSources();
     const logs = this.listLogs();
-    const recentFailures = this.database
-      .prepare("select * from logs where level = 'error' order by created_at desc limit 5")
-      .all() as LogRow[];
     const recentInstalls = this.database
       .prepare("select * from installed_skills order by installed_at desc limit 5")
       .all() as InstalledRow[];
@@ -492,7 +489,6 @@ export class SkillManagerBackend {
       logs,
       summary: {
         ...summaryCounts,
-        recentFailures: recentFailures.map(toLogRecord),
         recentInstalls: recentInstalls.map(toInstalledRecord)
       },
       runtime: {

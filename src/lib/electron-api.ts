@@ -61,7 +61,6 @@ const fallbackSnapshot: SkillManagerSnapshot = {
     stagedCount: 0,
     readyCount: 0,
     failedCount: 0,
-    recentFailures: [],
     recentInstalls: []
   },
   runtime: {

@@ -307,10 +307,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onLoadStagedDetail={loadStagedDetail}
                   onOpenStagedDetail={openStagedDetailModal}
                   onInstallStagedWithProgress={handleInstallWithProgress}
-                  onOpenLogsFromOverview={(logId) => {
-                    setSelectedLogId(logId);
-                    router.push("/logs");
-                  }}
                   onOpenPath={openPath}
                   onOpenSystemSourceModal={openSystemSourceModal}
                   onInstallStaged={installStagedSources}
@@ -379,10 +375,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onLoadStagedDetail={loadStagedDetail}
                   onOpenStagedDetail={openStagedDetailModal}
                   onInstallStagedWithProgress={handleInstallWithProgress}
-                  onOpenLogsFromOverview={(logId) => {
-                    setSelectedLogId(logId);
-                    router.push("/logs");
-                  }}
                   onOpenPath={openPath}
                   onOpenSystemSourceModal={openSystemSourceModal}
                   onInstallStaged={installStagedSources}

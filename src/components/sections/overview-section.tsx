@@ -4,7 +4,6 @@ import { ArrowRight, Boxes, FolderPlus, GitBranch, Inbox, Sparkles } from "lucid
 import { SectionCard } from "../ui/cards";
 import { OverviewMetric } from "../ui/typography";
 import { OverviewStatsGrid } from "./overview/OverviewStatsGrid";
-import { RecentFailures } from "./overview/RecentFailures";
 import { countSkillsInTree } from "@/lib/tree-utils";
 
 type TranslationDictionary = Record<string, string>;
@@ -19,7 +18,6 @@ export function OverviewSection({
   onGoStaged,
   onOpenSystemSourceModal,
   onImportProject,
-  onOpenLogsFromOverview,
   onGoAiWorkspace,
   onGoLocalInstall,
   onGoProjects,
@@ -33,7 +31,6 @@ export function OverviewSection({
   onGoStaged: () => AsyncActionResult;
   onOpenSystemSourceModal: (source: WorkspaceSkillSource) => void;
   onImportProject: () => AsyncActionResult;
-  onOpenLogsFromOverview: (logId: string) => void;
   onGoAiWorkspace: () => void;
   onGoLocalInstall: () => void;
   onGoProjects: () => void;
@@ -228,16 +225,6 @@ export function OverviewSection({
 
 
       </SectionCard>
-
-      <div className="grid gap-6">
-        <SectionCard title={t.recentFailures} subtitle={t.recentFailuresSubtitle}>
-          <RecentFailures
-            snapshot={snapshot}
-            t={t}
-            onOpenLogsFromOverview={onOpenLogsFromOverview}
-          />
-        </SectionCard>
-      </div>
     </div>
   );
 }

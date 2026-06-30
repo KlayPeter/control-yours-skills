@@ -205,7 +205,6 @@ export interface AppSummary {
   readyCount: number;
   failedCount: number;
   recentInstalls: InstalledSkillRecord[];
-  recentFailures: LogRecord[];
 }
 
 export interface SkillCategoryRecord {
