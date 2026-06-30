@@ -1,7 +1,7 @@
 <div align="center">
   <img src="public/logo.svg" alt="Control Your Skills Logo" width="120" />
   <h1>✨ Control Your Skills ✨</h1>
-  <p><strong>你的私人本地化 AI 技能全枢纽</strong></p>
+  <p><strong>多 Agent 时代的本地化 AI 技能全枢纽</strong></p>
 
   <p>
     <a href="https://github.com/KlayPeter/control-yours-skills/releases/latest">
@@ -16,7 +16,8 @@
   </p>
 
   <p>
-    <b>赋能开发者无缝发现、分类、安装和分发全生态的 AI 技能资产。</b>
+    <b>解决多 Agent 工具（Cursor, Claude, Codex, Qoder 等）共存时的 Skill 碎片化与版本混乱痛点。</b><br/>
+    <b>构建单一信源（Single Source of Truth），一处修改，全局生效。</b>
   </p>
   <p>
     <a href="./README_EN.md">English</a> | 简体中文
@@ -25,35 +26,47 @@
 
 ---
 
+## 🎯 为什么需要 Control Your Skills？
+
+当前 AI Coding 发展百花齐放，开发者经常同时使用多个 AI Agent 干活。然而，工具可以无缝切换，Skill 却无法自动跟随：
+- 在 Codex 里更新了 Prompt，Claude Code 里还是旧版。
+- 各个工具目录下并存同名但内容迥异的副本，手动复制陷入混乱。
+
+**Control Your Skills** 采用 **“中心仓库 + 靶向分发”** 的 Local Mode 模式理念：将散落的 Skill 收敛为单一信源，向多 Agent 环境智能挂载与同步，彻底消除多 Agent 环境下的 Skill 冗余与版本不一致问题。
+
+---
+
 ## 🚀 核心特性 (Features)
 
-### 💻 1. 系统技能聚合 (System Skills Aggregation)
-**一键侦测**：自动扫描并展示你电脑里 `.codex`、`.claude`、`.agents` 等目录下的所有现成 Skills。让散落的系统级配置尽收眼底。
+### 🏛️ 1. 统一的中心仓库 (Central Skill Repository)
+- **单一信源**：为你网上搜集或本地编写的零散 Skill 建立一个“家”。系统在本地构建标准化的中心仓库，所有 Skill 集中存储，分类管理。
+- **输入隔离**：外部引入的 Skill 先进入“暂存区 (Staging)”进行审查与分析，确认无误后再入库，防止垃圾文件污染。
 
-### 📂 2. 项目技能解析 (Project-Level Skills Parsing)
-**深度解析**：导入任意本地开发项目，系统即可瞬间揪出潜藏在项目任意角落的 Skills，以清晰的目录树结构呈现给你，方便统一管理。
+### 🔄 2. 多环境分发与状态同步 (Multi-Environment Sync)
+- **精准下发**：将中心仓库的技能一键同步至系统级 `.agents`、项目级 `.codex` 或任意自定义工作区目录。
+- **状态可视化**：底层构建了严密的状态机，在 UI 上实时透出每一个 Skill 的同步状态。
+  - ✅ `Synced`: 完美同步
+  - ⚠️ `Local Changes`: 目标端被临时修改
+  - 🔄 `Outdated`: 待更新
+  - ❌ `Conflict`: 产生版本冲突
 
-### 🗂️ 3. 可视化分类与精准安装 (Visual Categorization & Precision Installation)
-为你在网上搜集的零散 Skill 建立一个“家”。
-- **自定义本地归档**：你可以在本地配置库自由创建最多至两级的分类目录（如 `video`, `img` 等）。
-- **智能节点识别**：系统会智能检测目录下的 `SKILL.md` 文件来精准区分“分类目录”与“技能节点”。
-- **精准下发**：安装新技能时，你可通过全局弹窗，直接将其下发至指定的细分分类中，从此告别混乱，井井有条。
+### 🤖 3. 智能解析与多源导入 (Smart Ingestion)
+- **GitHub 直连导入**：仅需输入 GitHub 仓库地址，系统即可自动拉取。
+- **AI 赋能元数据提取**：配置 AI 模型后，系统会自动阅读仓库的 `README.md`，智能提取技能名称、描述及安装策略；无 AI 时也能平滑降级至规则引擎。
+- **本地 ZIP / 文件夹**：支持拖拽导入本地现有的压缩包或目录。
 
-### 🔄 4. 全生态互通流转 (Cross-Environment Distribution)
-**万物互连**：打破各平台与项目的生态孤岛。无论是系统级技能，还是某个项目专有的技能库，只要名字不冲突，均支持一键相互**复制、穿梭与分发**！
-- 从 `.codex` 直接发送到 `.claude`
-- 导入本地归档的宝藏技能直接复制到你的工作项目中
-实现真正的“一处发现，处处可用”。
+### 💻 4. 极致化现代客户端 (Modern Desktop App)
+打破传统 CLI 的晦涩操作，基于 **Electron + Next.js + TypeScript** 打造的高颜值、响应式桌面客户端。图表化概览、拖拽式交互、一键处理冲突，让极客的配置流转变成流畅的产品体验。
 
 ---
 
 ## 🗺️ 开发计划 (Roadmap & Future Plans)
 
-我们正在持续进化，为了让 AI 技能管理更加智能和无感。即将推出的杀手级功能：
+我们正在持续进化，未来将进一步打通云端生态：
 
-- [ ] **🔗 一键链接安装 (URL One-Click Install)**：仅需贴入 GitHub 或其他网址，系统自动解析仓库，并替你一键安装至指定的本地分类下，再也不需要繁琐的手动下载与解压！
-- [ ] **🧠 强 AI 驱动技能检索 (AI-Powered Skill Discovery)**：提供原生的智能搜索框。只需输入自然语言（例如：“找一些制作 logo 的 skills”），内置 AI 大模型将替你搜罗全网、做严格的代码测评并推荐。看中后直接一键入库！ *(注：为保障隐私与灵活性，此功能所需的 AI 模型/API 密钥将支持由用户自行配置。)*
-- [ ] **🏆 技能排行榜与趋势 (Skill Leaderboard & Trends)**：提供多维度的热门榜单（新星榜、飙升榜、不同主题分类等），随时为你推荐全网最新鲜、最好用的开源技能。
+- [ ] **🌐 Registry Mode (云端注册中心)**：接入 Nacos AI Registry 等云端中心，支持跨设备同步与团队级别的 Skill 资产协作。
+- [ ] **🧠 强 AI 驱动技能检索 (AI-Powered Skill Discovery)**：提供原生的智能搜索框，用自然语言搜罗全网优质开源技能。
+- [ ] **🏆 技能排行榜与趋势 (Skill Leaderboard & Trends)**：提供多维度的热门榜单（新星榜、飙升榜、不同主题分类等）。
 
 ---
 
@@ -62,42 +75,39 @@
 前往我们的 [Releases 页面](https://github.com/KlayPeter/control-yours-skills/releases/latest) 下载适用于你系统的最新安装包。
 
 - **Windows**: `Control Your Skills-Setup-<version>.exe`
-*(macOS 和 Linux 安装包即将到来！)*
+*(macOS 和 Linux 安装包正在构建中)*
 
 ---
 
 ## 🛠️ 本地开发 (Local Development)
 
-`Control Your Skills` 基于极其现代和稳健的技术栈构建：**Electron**, **Next.js**, 和 **TypeScript**。
-
 ### 环境依赖
 - 操作系统: Windows, macOS, 或 Linux
 - Node.js: `v20+`
-- npm: `v11+`
+- npm: `v11+` / pnpm: `v9+`
 
 ### 快速启动
 
 1. **安装依赖**
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. **运行开发环境**
    ```bash
-   npm run dev
+   pnpm run dev
    ```
-   *该命令将启动 Next.js 本地服务（`http://127.0.0.1:3211`），并自动启动 Electron 桌面窗口及热更新监听。*
+   *该命令将启动 Next.js 本地服务，并自动启动 Electron 桌面窗口及热更新监听。*
 
 ### 构建与打包
 
-如果你想在本地生成 Windows 安装包：
 ```bash
-npm run build
-npm run dist:win
+pnpm run build
+pnpm run dist
 ```
 生成的安装包将存放在 `release/` 目录下。
 
-> **提示**: 对于公开发布版本，强烈建议使用仓库内配置好的 GitHub Actions 工作流（`.github/workflows/release.yml`），它能全自动、完美地处理依赖安装、编译及 NSIS 安装包的生成。
+> **提示**: 对于公开发布版本，强烈建议使用仓库内配置好的 GitHub Actions 工作流（`.github/workflows/release.yml`）。
 
 ---
 

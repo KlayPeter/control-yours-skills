@@ -1,7 +1,7 @@
 <div align="center">
   <img src="public/logo.svg" alt="Control Your Skills Logo" width="120" />
   <h1>✨ Control Your Skills ✨</h1>
-  <p><strong>Your Ultimate Local-First AI Skill Manager & Hub</strong></p>
+  <p><strong>Your Ultimate Local-First AI Skill Manager & Hub in the Multi-Agent Era</strong></p>
 
   <p>
     <a href="https://github.com/KlayPeter/control-yours-skills/releases/latest">
@@ -16,7 +16,8 @@
   </p>
 
   <p>
-    <b>Empowering you to seamlessly discover, categorize, install, and distribute AI Skills across your entire digital ecosystem.</b>
+    <b>Solving the pain point of Skill fragmentation and version chaos when co-existing with multiple AI Agent tools (Cursor, Claude, Codex, Qoder, etc.).</b><br/>
+    <b>Building a Single Source of Truth: modify once, apply everywhere.</b>
   </p>
   <p>
     English | <a href="./README.md">简体中文</a>
@@ -25,35 +26,47 @@
 
 ---
 
-## 🚀 Features
+## 🎯 Why Control Your Skills?
 
-### 💻 1. System Skills Aggregation
-Automatically scans your computer and brings all scattered system-level AI skills into one centralized view. Instantly detect and manage your `.codex`, `.claude`, `.agents`, and other global skill profiles.
+The current AI Coding ecosystem is blossoming, and developers frequently use multiple AI Agents simultaneously. However, while tools can be switched seamlessly, Skills do not automatically follow:
+- If you update a Prompt in Codex, Claude Code still has the old version.
+- Replicas with the same name but vastly different contents co-exist across various tool directories, making manual copying chaotic.
 
-### 📂 2. Project-Level Skills Parsing
-Import any local workspace or development project, and our engine will deep-scan to uncover hidden skills. View all project-bound skills in a crystal-clear directory tree.
+**Control Your Skills** adopts the concept of **"Central Repository + Targeted Distribution"** in Local Mode: it converges scattered Skills into a Single Source of Truth, intelligently mounting and synchronizing them across multi-Agent environments, completely eliminating Skill redundancy and version inconsistencies.
 
-### 🗂️ 3. Visual Categorization & Precision Installation (Core)
-The ultimate solution for organizing the endless ocean of open-source skills found online.
-- **Custom Local Archive**: Set up a unified local skill library and create custom categories (e.g., `video`, `img`, up to two levels deep).
-- **Smart Node Detection**: The engine automatically distinguishes between "Categories" (standard folders) and "Skills" (folders containing a `SKILL.md` file), marking them with distinct visual indicators.
-- **Targeted Installation**: When installing or saving a new skill, use our global selection modal to place it exactly into the precise sub-category you want.
+---
 
-### 🔄 4. Cross-Environment Distribution (Omni-Routing)
-Break the silos between different AI platforms and projects. As long as there are no naming conflicts, you can freely **copy, transfer, and distribute** any skill across your entire ecosystem with a single click.
-- Send a system `.codex` skill to `.claude`.
-- Inject a local archived skill directly into an imported project.
-- Backup a project-specific skill into your global category library.
+## 🚀 Core Features
+
+### 🏛️ 1. Central Skill Repository
+- **Single Source of Truth**: Establish a "home" for scattered Skills gathered online or written locally. The system builds a standardized central repository locally, centrally storing and categorizing all Skills.
+- **Input Isolation**: Externally imported Skills first enter the "Staging" area for review and analysis before officially entering the repository, preventing garbage files from contaminating the library.
+
+### 🔄 2. Multi-Environment Sync
+- **Precision Distribution**: Sync skills from the central repository to system-level `.agents`, project-level `.codex`, or any custom workspace directory with one click.
+- **Visualized Status**: A rigorous state machine is built at the bottom layer, visually exposing the synchronization status of every Skill in real-time.
+  - ✅ `Synced`: Perfectly synchronized
+  - ⚠️ `Local Changes`: Temporarily modified at the destination
+  - 🔄 `Outdated`: Pending update
+  - ❌ `Conflict`: Version conflict generated
+
+### 🤖 3. Smart Ingestion
+- **GitHub Direct Import**: Just input the GitHub repository URL, and the system will automatically pull it.
+- **AI-Powered Metadata Extraction**: After configuring an AI model, the system automatically reads the repository's `README.md`, intelligently extracting the skill name, description, and installation strategy; it degrades gracefully to a rules engine when no AI is present.
+- **Local ZIP / Folders**: Supports drag-and-drop importing of existing local archives or directories.
+
+### 💻 4. Modern Desktop App
+Breaking away from the obscure operations of traditional CLIs, we've built a high-aesthetic, responsive desktop client based on **Electron + Next.js + TypeScript**. With graphical overviews, drag-and-drop interactions, and one-click conflict resolution, geeky configuration workflows are transformed into a smooth product experience.
 
 ---
 
 ## 🗺️ Roadmap & Future Plans
 
-We are constantly evolving to make skill management effortless and intelligent. Here is what's coming next:
+We are constantly evolving and will further integrate with the cloud ecosystem in the future:
 
-- [ ] **🔗 URL One-Click Install**: Found an amazing skill on GitHub? Just paste the link! The system will automatically parse the repository and seamlessly install the skill into your designated local category—no manual downloading required.
-- [ ] **🧠 AI-Powered Skill Discovery**: A robust search engine driven by AI. Simply type _"Find some skills for making logos"_, and our AI will fetch, evaluate, and recommend the best matching skills with detailed reviews. *(Note: To ensure privacy and flexibility, the required AI models/API keys for this feature will be configured by the user.)*
-- [ ] **🏆 Skill Leaderboard & Trends**: Discover fresh capabilities through our curated leaderboards. Explore "Trending Repos", "Fastest Rising Stars", and "Top Rated" skills across various thematic categories to keep your AI toolkit cutting-edge.
+- [ ] **🌐 Registry Mode**: Access cloud centers like Nacos AI Registry, supporting cross-device synchronization and team-level Skill asset collaboration.
+- [ ] **🧠 AI-Powered Skill Discovery**: Provide a native smart search box to scour the internet for high-quality open-source skills using natural language.
+- [ ] **🏆 Skill Leaderboard & Trends**: Offer multi-dimensional trending lists (rising stars, soaring lists, various themed categories, etc.).
 
 ---
 
@@ -62,42 +75,39 @@ We are constantly evolving to make skill management effortless and intelligent. 
 Head over to our [Releases Page](https://github.com/KlayPeter/control-yours-skills/releases/latest) and download the latest setup file for your platform.
 
 - **Windows**: `Control Your Skills-Setup-<version>.exe`
-*(macOS and Linux installers are coming soon!)*
+*(macOS and Linux installers are being built)*
 
 ---
 
 ## 🛠️ Local Development
 
-`Control Your Skills` is built with a modern, robust tech stack: **Electron**, **Next.js**, and **TypeScript**.
-
 ### Requirements
 - OS: Windows, macOS, or Linux
 - Node.js: `v20+`
-- npm: `v11+`
+- npm: `v11+` / pnpm: `v9+`
 
 ### Quick Start
 
 1. **Install Dependencies**
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. **Run Development Server**
    ```bash
-   npm run dev
+   pnpm run dev
    ```
-   *This starts the Next.js dev server at `http://127.0.0.1:3211`, begins the Electron watch build, and launches the desktop window.*
+   *This command starts the Next.js local server and automatically launches the Electron desktop window and hot-reload listener.*
 
 ### Build & Release
 
-To create a local Windows installer:
 ```bash
-npm run build
-npm run dist:win
+pnpm run build
+pnpm run dist
 ```
-The output will be available in the `release/` directory.
+The generated installer will be stored in the `release/` directory.
 
-> **Note**: For public releases, we highly recommend using the automated GitHub Actions workflow included in this repository (`.github/workflows/release.yml`), which handles dependency installation, bundling, and NSIS installer generation flawlessly.
+> **Note**: For public releases, it is highly recommended to use the pre-configured GitHub Actions workflow in the repository (`.github/workflows/release.yml`).
 
 ---
 
