@@ -354,9 +354,11 @@ export class SkillManagerBackend {
         }
 
         let thisCategory = parentCategory;
-        if (currentDepth > 0) {
-          thisCategory = parentCategory ? `${parentCategory}/${path.basename(dirPath)}` : path.basename(dirPath);
+        if (currentDepth === 1) {
+          thisCategory = path.basename(dirPath);
           discoveredCategories.add(thisCategory);
+        } else if (currentDepth > 1) {
+          thisCategory = parentCategory;
         }
 
         if (currentDepth < maxDepth) {
@@ -370,7 +372,7 @@ export class SkillManagerBackend {
       } catch {}
     };
 
-    await scanDirectory(installRoot, 0, 2, null);
+    await scanDirectory(installRoot, 0, 4, null);
 
     const existingSkills = this.database.prepare("select * from installed_skills").all() as InstalledRow[];
     const existingMap = new Map(existingSkills.map(s => [s.install_path, s]));
@@ -422,7 +424,11 @@ export class SkillManagerBackend {
       }
     });
 
-    tx();
+    try {
+      tx();
+    } catch (e) {
+      console.error("TRANSACTION ERROR IN syncPhysicalSkills:", e);
+    }
     return Array.from(discoveredCategories);
   }
 
@@ -1170,8 +1176,8 @@ export class SkillManagerBackend {
     await this.writeLog(
       "settings",
       "info",
-      `Added sync target for ${installed.name}`,
-      `${created.label} | ${created.path}`,
+      `为技能 [${installed.name}] 绑定了新的同步目标 [${created.label}]`,
+      `目标环境路径: ${created.path}`,
       installed.id
     );
 
@@ -1193,8 +1199,8 @@ export class SkillManagerBackend {
     await this.writeLog(
       "settings",
       "info",
-      "Removed sync target from installed skill.",
-      `${syncTarget.label} | ${syncTarget.path}`,
+      `解绑了技能同步目标 [${syncTarget.label}]`,
+      `原环境路径: ${syncTarget.path}`,
       syncTarget.skillId
     );
 
@@ -1232,8 +1238,8 @@ export class SkillManagerBackend {
         await this.writeLog(
           "install",
           "info",
-          `Syncing installed skill to ${syncTarget.label}`,
-          `${installed.installPath} -> ${targetSkillPath}`,
+          `准备将技能 [${installed.name}] 发布同步至目标 [${syncTarget.label}]`,
+          `流转路线: ${installed.installPath} -> ${targetSkillPath}`,
           installed.id
         );
 
@@ -1256,8 +1262,8 @@ export class SkillManagerBackend {
         await this.writeLog(
           "install",
           "info",
-          `Synced installed skill: ${installed.name}`,
-          `${syncTarget.label} | ${targetSkillPath}`,
+          `成功将技能 [${installed.name}] 发布同步至目标 [${syncTarget.label}]`,
+          `成功落地于: ${targetSkillPath}`,
           installed.id
         );
 
@@ -1269,7 +1275,7 @@ export class SkillManagerBackend {
           lastError: message,
           updatedAt: nowIso()
         });
-        await this.writeLog("install", "error", "Failed to sync the installed skill.", message, installed.id);
+        await this.writeLog("install", "error", `将技能 [${installed.name}] 发布至目标 [${syncTarget.label}] 失败`, message, installed.id);
       }
     }
 
@@ -1335,8 +1341,8 @@ export class SkillManagerBackend {
       await this.writeLog(
         "install",
         "info",
-        `Adopted target version into center repository: ${parsed.name}`,
-        `${syncTarget.label} -> ${installed.installPath}`,
+        `采纳了来自目标环境 [${syncTarget.label}] 的外部修改，反向覆盖至中心仓库`,
+        `流转路线: ${syncTarget.targetSkillPath} -> ${installed.installPath}`,
         installed.id
       );
 
@@ -2447,7 +2453,7 @@ export class SkillManagerBackend {
         updatedAt: nowIso()
       });
 
-      await this.writeLog("install", "info", `Installed skill: ${record.name}`, installPath, staged.id);
+      await this.writeLog("install", "info", `将暂存区技能 [${record.name}] 正式安装入库至中心仓库`, `入库位置: ${installPath}`, staged.id);
       return record;
     }
 
@@ -2475,7 +2481,7 @@ export class SkillManagerBackend {
       }
       
       await fsp.cp(skillRow.install_path, targetPath, { recursive: true });
-      await this.writeLog("install", "info", `Copied skill: ${skillRow.name}`, `${skillRow.install_path} -> ${targetPath}`, skillRow.id);
+      await this.writeLog("install", "info", `将工作区技能 [${skillRow.name}] 复制分发到了新目录`, `流转路线: ${skillRow.install_path} -> ${targetPath}`, skillRow.id);
       
       // Sync it so it's registered immediately if it's in the installDir
       const settings = this.getSettings();
@@ -2502,7 +2508,7 @@ export class SkillManagerBackend {
       await fsp.rm(skillRow.install_path, { recursive: true, force: true });
       
       this.database.prepare("delete from installed_skills where id = ?").run(skillRow.id);
-      await this.writeLog("install", "info", `Moved skill: ${skillRow.name}`, `${skillRow.install_path} -> ${targetPath}`, skillRow.id);
+      await this.writeLog("install", "info", `将工作区技能 [${skillRow.name}] 物理移动到了新目录`, `流转路线: ${skillRow.install_path} -> ${targetPath}`, skillRow.id);
       
       // Sync it so it's registered immediately if it's in the installDir
       const settings = this.getSettings();

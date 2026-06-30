@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronRight, FolderOpen, Folder, Sparkles, FolderPlus } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderOpen, Folder, Sparkles, FolderPlus, Download } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { WorkspaceSkillProviderKey, WorkspaceTreeNode, ImportedProjectRecord, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { IconActionButton } from "../ui/buttons";
-import { SkillInstallMenu } from "./skill-install-menu";
 
 type AsyncActionResult<T = unknown> = void | Promise<T>;
 type WorkspaceTreeActionMode = "none" | "install";
@@ -21,12 +20,13 @@ export function WorkspaceTree({
   onCreateWorkspaceFolder,
   actionMode = "install",
   showCopyActions = true,
-  emptyMessage
+  emptyMessage,
+  renderNodeRight
 }: {
   nodes: WorkspaceTreeNode[];
   projectRoot: string;
   onOpenPath: (path: string) => AsyncActionResult;
-  onInstallWorkspaceSkill: (
+  onInstallWorkspaceSkill?: (
     sourceRoot: string,
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
@@ -39,6 +39,7 @@ export function WorkspaceTree({
   emptyMessage: string;
   actionMode?: WorkspaceTreeActionMode;
   showCopyActions?: boolean;
+  renderNodeRight?: (node: WorkspaceTreeNode) => React.ReactNode;
 }) {
   const [copyTargetNode, setCopyTargetNode] = useState<{ node: WorkspaceTreeNode; rootPath: string } | null>(null);
   const [isLocalModalOpen, setIsLocalModalOpen] = useState(false);
@@ -71,6 +72,7 @@ export function WorkspaceTree({
           onOpenPath={onOpenPath}
           projectRoot={projectRoot}
           showCopyActions={showCopyActions}
+          renderNodeRight={renderNodeRight}
         />
       ))}
 
@@ -123,12 +125,13 @@ export function WorkspaceTreeNodeRow({
   onCopyLocal,
   onCopyProject,
   actionMode = "install",
-  showCopyActions = true
+  showCopyActions = true,
+  renderNodeRight
 }: {
   node: WorkspaceTreeNode;
   projectRoot: string;
   onOpenPath: (path: string) => AsyncActionResult;
-  onInstallWorkspaceSkill: (
+  onInstallWorkspaceSkill?: (
     sourceRoot: string,
     skillRootPath: string,
     providerKey: WorkspaceSkillProviderKey
@@ -137,6 +140,7 @@ export function WorkspaceTreeNodeRow({
   onCopyProject?: (skillRootPath: string) => void;
   actionMode?: WorkspaceTreeActionMode;
   showCopyActions?: boolean;
+  renderNodeRight?: (node: WorkspaceTreeNode) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -154,7 +158,7 @@ export function WorkspaceTreeNodeRow({
         <button
           className={cn(
             "flex min-w-0 flex-1 items-center gap-3 text-left before:absolute before:inset-0 transition-all duration-150",
-            isFolder ? "pr-[40px]" : "pr-[140px] cursor-default"
+            isFolder ? "pr-[40px]" : renderNodeRight ? "pr-[180px]" : "pr-[140px]"
           )}
           onClick={() => {
             if (isFolder) {
@@ -178,26 +182,18 @@ export function WorkspaceTreeNodeRow({
             {node.description ? <p className="mt-1 line-clamp-2 text-[11px] app-text-soft" title={node.description}>{node.description}</p> : null}
           </div>
         </button>
-        <div className={cn(
-          "absolute right-0 top-0 bottom-0 flex items-center gap-2 pr-2 transition-opacity duration-150 z-10",
-          isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-        )}>
-          <IconActionButton icon={FolderOpen} label="打开目录" onClick={() => void onOpenPath(node.absolutePath)} />
-          {actionMode === "install" && node.kind === "skill" && node.skill ? (
-            <SkillInstallMenu
-              onInstall={(providerKey) => {
-                void onInstallWorkspaceSkill(projectRoot, node.skill!.rootPath, providerKey);
-              }}
-              onCopyLocal={() => {
-                if (onCopyLocal) onCopyLocal(node.skill!.rootPath);
-              }}
-              onCopyProject={() => {
-                if (onCopyProject) onCopyProject(node.skill!.rootPath);
-              }}
-              onOpenChange={setIsMenuOpen}
-              showCopyActions={showCopyActions}
+        <div className="absolute right-0 top-0 bottom-0 flex items-center pr-2 z-10 gap-3">
+          {renderNodeRight?.(node)}
+          <div className="flex items-center gap-2 transition-opacity duration-150 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+            <IconActionButton icon={FolderOpen} label="打开目录" onClick={() => void onOpenPath(node.absolutePath)} />
+          {actionMode === "install" && onCopyLocal && node.kind === "skill" && node.skill ? (
+            <IconActionButton
+              icon={Download}
+              label="导入到中心仓库"
+              onClick={() => onCopyLocal(node.skill!.rootPath)}
             />
           ) : null}
+          </div>
         </div>
       </div>
       {isFolder && open && node.children.length ? (
@@ -214,6 +210,7 @@ export function WorkspaceTreeNodeRow({
                 onOpenPath={onOpenPath}
                 projectRoot={projectRoot}
                 showCopyActions={showCopyActions}
+                renderNodeRight={renderNodeRight}
               />
             ))}
           </div>

@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Search, FolderPlus, FolderOpen, ArrowRight } from "lucide-react";
-import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
+import * as Dialog from "@radix-ui/react-dialog";
+import { Search, FolderPlus, FolderOpen, ArrowRight, Settings, X, ChevronDown, Check } from "lucide-react";
+import * as Select from "@radix-ui/react-select";
+import { ProviderIcon } from "../ui/icons";
+import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, ImportedProjectRecord } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
-import { OverviewMetric } from "../ui/typography";
 import { SyncStatusBadge } from "../ui/badges";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 
@@ -59,13 +61,347 @@ function syncTargetOptionLabel(candidate: SkillManagerSnapshot["systemSkillSourc
   return `${scopeLabel} / ${candidate.label} / ${candidate.path}`;
 }
 
+function SkillConfigDialog({
+  skill,
+  t,
+  availableCategories,
+  syncTargetCandidates,
+  syncTargetCandidateMap,
+  importedProjects,
+  onUpdateInstalledSkillCategory,
+  onRemoveSyncTarget,
+  onAddSyncTarget,
+  onGoSyncStatus
+}: {
+  skill: InstalledSkillCard;
+  t: TranslationDictionary;
+  availableCategories: string[];
+  syncTargetCandidates: Array<{ scope: "system" | "project"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }>;
+  syncTargetCandidateMap: Map<string, { scope: "system" | "project"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }>;
+  importedProjects: ImportedProjectRecord[];
+  onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
+  onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
+  onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
+  onGoSyncStatus: () => AsyncActionResult;
+}) {
+  const [targetScope, setTargetScope] = useState<"system" | "project" | "">("");
+  const [targetLabel, setTargetLabel] = useState<string>("");
+  const [targetProjectId, setTargetProjectId] = useState<string>("");
+  const [targetPath, setTargetPath] = useState<string>("");
+
+  const availableTargets = syncTargetCandidates.filter(
+    (candidate) => !skill.syncTargets.some((target) => target.path === candidate.path)
+  );
+
+  const candidatesForSystem = availableTargets.filter(c => c.scope === "system");
+  const availableSystemLabels = Array.from(new Set(candidatesForSystem.map(c => c.label)));
+  const systemCandidatesForLabel = candidatesForSystem.filter(c => c.label === targetLabel);
+
+  const candidatesForProject = availableTargets.filter(c => c.scope === "project");
+  
+  const availableProjects = importedProjects.filter(p => 
+    p.sources.some(s => candidatesForProject.some(c => c.id === s.id))
+  );
+
+  const selectedProject = importedProjects.find(p => p.id === targetProjectId);
+  const availableProjectSources = selectedProject 
+    ? selectedProject.sources.filter(s => candidatesForProject.some(c => c.id === s.id))
+    : [];
+
+  const handleAdd = () => {
+    let finalPath = targetPath;
+    
+    if (!finalPath) {
+      if (targetScope === "system" && systemCandidatesForLabel.length === 1) {
+        finalPath = systemCandidatesForLabel[0].path;
+      } else if (targetScope === "project" && availableProjectSources.length === 1) {
+        finalPath = availableProjectSources[0].path;
+      }
+    }
+    
+    const candidate = finalPath ? syncTargetCandidateMap.get(finalPath) : undefined;
+    if (!candidate) return;
+
+    void onAddSyncTarget({
+      skillId: skill.id,
+      scope: candidate.scope,
+      providerKey: candidate.key,
+      label: candidate.label,
+      path: candidate.path
+    });
+    setTargetScope("");
+    setTargetLabel("");
+    setTargetProjectId("");
+    setTargetPath("");
+  };
+
+  const isAddDisabled = !targetScope || 
+    (targetScope === "system" && (!targetLabel || (systemCandidatesForLabel.length > 1 && !targetPath))) ||
+    (targetScope === "project" && (!targetProjectId || (availableProjectSources.length > 1 && !targetPath)));
+
+  return (
+    <Dialog.Root>
+      <Dialog.Trigger asChild>
+        <button className="app-button shrink-0 px-2" type="button" onClick={(e) => e.stopPropagation()} title={t.centerRepositoryConfigureAction || "配置"}>
+          <Settings className="h-4 w-4" />
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content 
+          className="fixed left-[50%] top-[50%] z-[100] w-full max-w-xl translate-x-[-50%] translate-y-[-50%] p-0 outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-[24px]" 
+          onClick={(e) => e.stopPropagation()}
+          onInteractOutside={(e) => {
+            const target = e.target as HTMLElement;
+            // Native selects or external interactions can trigger interactOutside in Radix.
+            // We only want to close the modal if the user explicitly clicked the Overlay background.
+            // The overlay has 'fixed' and 'inset-0' classes.
+            if (!target?.classList?.contains('fixed') || !target?.classList?.contains('inset-0')) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white dark:bg-[#1a1a1a] shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/5">
+              <Dialog.Title className="text-lg font-semibold app-text">
+                {t.configureSkillTitle || "配置技能"} - {skill.name}
+              </Dialog.Title>
+              <Dialog.Close asChild>
+                <button className="rounded-full p-1.5 app-text-soft hover:bg-black/5 dark:hover:bg-white/5 hover:app-text transition-colors outline-none">
+                  <X className="h-4 w-4" />
+                </button>
+              </Dialog.Close>
+            </div>
+            <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-black/10 bg-black/5 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
+                    {t.centerRepositoryLocationTitle || "仓库位置"}
+                  </p>
+                  <p className="mt-2 text-sm break-all app-text" title={skill.installPath}>
+                    {formatPathPreview(skill.installPath)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-black/10 bg-black/5 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
+                    {t.centerRepositoryNextStepTitle || "建议下一步"}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 app-text">{describeSkillNextStep(skill, t)}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-xs uppercase tracking-[0.16em] app-text-soft">
+                    {t.centerRepositoryConnectedTargetsLabel || "已连接目标"}
+                  </label>
+                  <span className="text-xs app-text-soft">
+                    {`${skill.syncTargetCount} ${t.syncTargetsCountSuffix || "个"}`}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {skill.syncTargets.length === 0 ? (
+                    <span className="text-xs app-text-soft">
+                      {t.noSyncTargetsYet || "还没有绑定同步目标。"}
+                    </span>
+                  ) : (
+                    skill.syncTargets.map((syncTarget) => (
+                      <span
+                        key={syncTarget.id}
+                        className="inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-1 text-xs app-text-soft dark:border-white/10"
+                        title={syncTarget.path}
+                      >
+                        <span>{syncTarget.label}</span>
+                        <button
+                          className="text-[11px] app-text-soft hover:app-text"
+                          onClick={() =>
+                            void onRemoveSyncTarget({ syncTargetId: syncTarget.id, skillId: skill.id })
+                          }
+                          type="button"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+                <div className="mt-4 flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select
+                      className="app-input h-10 flex-1 rounded-2xl px-3 text-sm"
+                      value={targetScope}
+                      onChange={(e) => {
+                        setTargetScope(e.target.value as "system" | "project" | "");
+                        setTargetLabel("");
+                        setTargetProjectId("");
+                        setTargetPath("");
+                      }}
+                    >
+                      <option value="">{t.selectTargetScope || "选择目标范围"}</option>
+                      <option value="system">{t.syncTargetScopeSystem || "系统目标"}</option>
+                      <option value="project">{t.syncTargetScopeProject || "项目目标"}</option>
+                    </select>
+                    
+                    {targetScope !== "project" ? (
+                      <Select.Root
+                        value={targetLabel}
+                        disabled={!targetScope || availableSystemLabels.length === 0}
+                        onValueChange={(val) => {
+                          setTargetLabel(val);
+                          setTargetPath("");
+                        }}
+                      >
+                        <Select.Trigger className="app-input flex h-10 flex-1 items-center justify-between rounded-2xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-signal/45 disabled:opacity-50">
+                          <Select.Value placeholder={
+                            !targetScope 
+                              ? (t.selectPlatform || "请先选择目标范围") 
+                              : availableSystemLabels.length === 0 
+                                ? "暂无可用系统" 
+                                : "选择系统平台"
+                          } />
+                          <Select.Icon>
+                            <ChevronDown className="h-4 w-4 opacity-50" />
+                          </Select.Icon>
+                        </Select.Trigger>
+                        <Select.Portal>
+                          <Select.Content className="z-[200] max-h-96 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-black/10 bg-white shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 dark:border-white/10 dark:bg-[#1a1a1a]">
+                            <Select.Viewport className="p-1">
+                              {availableSystemLabels.map((lbl) => {
+                                const providerKey = lbl.toLowerCase() as WorkspaceSkillProviderKey;
+                                return (
+                                  <Select.Item
+                                    key={lbl}
+                                    value={lbl}
+                                    className="relative flex w-full cursor-default select-none items-center rounded-lg py-2 pl-8 pr-2 text-sm outline-none focus:bg-black/5 dark:focus:bg-white/5 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                  >
+                                    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                                      <Select.ItemIndicator>
+                                        <Check className="h-4 w-4" />
+                                      </Select.ItemIndicator>
+                                    </span>
+                                    <Select.ItemText>
+                                      <div className="flex items-center gap-2">
+                                        <ProviderIcon providerKey={providerKey} className="h-4 w-4 shrink-0 text-black/60 dark:text-white/60" />
+                                        <span>.{providerKey}</span>
+                                      </div>
+                                    </Select.ItemText>
+                                  </Select.Item>
+                                );
+                              })}
+                            </Select.Viewport>
+                          </Select.Content>
+                        </Select.Portal>
+                      </Select.Root>
+                    ) : (
+                      <select
+                        className="app-input h-10 flex-1 rounded-2xl px-3 text-sm"
+                        value={targetProjectId}
+                        disabled={availableProjects.length === 0}
+                        onChange={(e) => {
+                          setTargetProjectId(e.target.value);
+                          setTargetPath("");
+                        }}
+                      >
+                        <option value="">
+                          {availableProjects.length === 0 ? "暂无可同步项目" : "选择项目"}
+                        </option>
+                        {availableProjects.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {targetScope === "system" && targetLabel && systemCandidatesForLabel.length > 1 && (
+                    <select
+                      className="app-input h-10 w-full rounded-2xl px-3 text-sm"
+                      value={targetPath}
+                      onChange={(e) => setTargetPath(e.target.value)}
+                    >
+                      <option value="">{t.selectSystemDirectory || "选择具体系统目录"}</option>
+                      {systemCandidatesForLabel.map(c => (
+                        <option key={c.id || c.path} value={c.path}>
+                          {c.path}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  {targetScope === "project" && targetProjectId && availableProjectSources.length > 0 && (
+                    <Select.Root
+                      value={targetPath}
+                      onValueChange={setTargetPath}
+                    >
+                      <Select.Trigger className="app-input flex h-10 w-full items-center justify-between rounded-2xl px-3 text-sm focus:outline-none focus:ring-2 focus:ring-signal/45 disabled:opacity-50">
+                        <Select.Value placeholder="选择具体的项目平台目录" />
+                        <Select.Icon>
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Select.Icon>
+                      </Select.Trigger>
+                      <Select.Portal>
+                        <Select.Content className="z-[200] max-h-96 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-black/10 bg-white shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 dark:border-white/10 dark:bg-[#1a1a1a]">
+                          <Select.Viewport className="p-1">
+                            {availableProjectSources.map((source) => {
+                              return (
+                                <Select.Item
+                                  key={source.id || source.path}
+                                  value={source.path}
+                                  className="relative flex w-full cursor-default select-none items-center rounded-lg py-2 pl-8 pr-2 text-sm outline-none focus:bg-black/5 dark:focus:bg-white/5 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                >
+                                  <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                                    <Select.ItemIndicator>
+                                      <Check className="h-4 w-4" />
+                                    </Select.ItemIndicator>
+                                  </span>
+                                  <Select.ItemText>
+                                    <div className="flex items-center gap-2">
+                                      <ProviderIcon providerKey={source.key} className="h-4 w-4 shrink-0 text-black/60 dark:text-white/60" />
+                                      <span className="truncate">.{source.key} ({formatPathPreview(source.path)})</span>
+                                    </div>
+                                  </Select.ItemText>
+                                </Select.Item>
+                              );
+                            })}
+                          </Select.Viewport>
+                        </Select.Content>
+                      </Select.Portal>
+                    </Select.Root>
+                  )}
+                  
+                  <button
+                    className="app-button w-full justify-center"
+                    disabled={isAddDisabled}
+                    onClick={handleAdd}
+                    type="button"
+                  >
+                    {t.addSyncTargetAction || "添加目标"}
+                  </button>
+
+                  <button
+                    className="app-button w-full justify-center"
+                    disabled={skill.syncTargetCount === 0}
+                    onClick={() => void onGoSyncStatus()}
+                    type="button"
+                  >
+                    {t.centerRepositoryGoSyncAction || "查看发布与同步"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 export function LocalInstallSection({
   t,
   snapshot,
   onOpenPath,
-  onInstallWorkspaceSkill,
   onCreateWorkspaceFolder,
-  onCopyWorkspaceSkill,
   onAddSyncTarget,
   onRemoveSyncTarget,
   onUpdateInstalledSkillCategory,
@@ -77,12 +413,6 @@ export function LocalInstallSection({
   t: TranslationDictionary;
   snapshot: SkillManagerSnapshot;
   onOpenPath: (path: string) => AsyncActionResult;
-  onInstallWorkspaceSkill: (
-    sourceRoot: string,
-    skillRootPath: string,
-    providerKey: WorkspaceSkillProviderKey
-  ) => AsyncActionResult;
-  onCopyWorkspaceSkill?: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
   onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
   onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
@@ -94,7 +424,6 @@ export function LocalInstallSection({
 }) {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [selectedSyncTargetPathBySkill, setSelectedSyncTargetPathBySkill] = useState<Record<string, string>>({});
   const installTree = snapshot.installDirTree;
 
   // Simple search filter function that filters the tree nodes by name
@@ -164,59 +493,19 @@ export function LocalInstallSection({
 
   return (
     <div className="space-y-6">
-      <SectionCard
-        title={t.centerRepositoryTitle || "中心仓库总览"}
-        subtitle={t.centerRepositorySubtitle || "这里是系统正式纳管的技能主版本库，分类、推荐和后续同步都会以这里为准。"}
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <button className="app-button" onClick={() => void onGoStaged()} type="button">
-              <ArrowRight className="h-4 w-4" />
-              {t.centerRepositoryAddSourceAction || "前往添加来源"}
-            </button>
-            <button className="app-button" onClick={() => void onGoSyncStatus()} type="button">
-              <ArrowRight className="h-4 w-4" />
-              {t.centerRepositoryGoSyncAction || "查看发布与同步"}
-            </button>
-          </div>
-        }
-      >
-        <div className="grid gap-4 md:grid-cols-4">
-          <OverviewMetric label={t.sectionSkills || "已纳管技能"} value={snapshot.installedSkills.length} />
-          <OverviewMetric label={t.installedMetricCategories || "分类数"} value={availableCategories.length} />
-          <OverviewMetric label={t.categorizedSkillsLabel || "已分类"} value={categorizedCount} />
-          <OverviewMetric label={t.syncTargetsTitle || "同步目标"} value={connectedTargetCount} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <p className="text-sm app-text-soft">这里是所有你选择纳管的 Skill 的本地存储库</p>
+        <div className="flex flex-wrap gap-2">
+          <button className="app-button whitespace-nowrap" onClick={() => void onGoStaged()} type="button">
+            <ArrowRight className="h-4 w-4" />
+            {t.centerRepositoryAddSourceAction || "前往添加来源"}
+          </button>
+          <button className="app-button whitespace-nowrap" onClick={() => void onGoSyncStatus()} type="button">
+            <ArrowRight className="h-4 w-4" />
+            {t.centerRepositoryGoSyncAction || "查看发布与同步"}
+          </button>
         </div>
-        <div className="mt-4 rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-sm app-text-soft dark:border-white/10 dark:bg-black/10">
-          {t.centerRepositoryFocusHint ||
-            "中心仓库页只保留已纳管 Skill 的查看、分类、同步和目录管理。新来源的导入统一放到暂存区。"}
-        </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-white/5">
-            <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
-              {t.centerRepositoryWorkflowPrimary || "1. 先看状态"}
-            </p>
-            <p className="mt-2 text-sm leading-6 app-text">
-              {t.centerRepositoryWorkflowPrimaryBody || "先判断这个 skill 是已同步、待同步，还是目标目录已经发生改动。"}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-white/5">
-            <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
-              {t.centerRepositoryWorkflowSecondary || "2. 再整理分类"}
-            </p>
-            <p className="mt-2 text-sm leading-6 app-text">
-              {t.centerRepositoryWorkflowSecondaryBody || "分类决定你如何在中心仓库里组织主版本，也方便后面批量浏览。"}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-4 dark:border-white/10 dark:bg-white/5">
-            <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
-              {t.centerRepositoryWorkflowTertiary || "3. 最后绑定并分发"}
-            </p>
-            <p className="mt-2 text-sm leading-6 app-text">
-              {t.centerRepositoryWorkflowTertiaryBody || "给 skill 绑定 Codex、Claude、Agents 或项目目录，然后按需同步出去。"}
-            </p>
-          </div>
-        </div>
-      </SectionCard>
+      </div>
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
@@ -283,245 +572,77 @@ export function LocalInstallSection({
         )}
       </div>
 
-      <SectionCard
-        title={t.centerRepositorySkillsTitle || "中心仓库技能"}
-        subtitle={t.centerRepositorySkillsSubtitle || "为中心仓库里的技能分配分类，后续推荐分类和同步都会以这里为准。"}
-      >
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/10 bg-black/5 px-4 py-3 dark:border-white/10 dark:bg-black/10">
-          <div>
-            <p className="text-sm font-medium app-text">
-              {t.centerRepositoryResultsLabel || "当前展示"}
-            </p>
-            <p className="mt-1 text-xs app-text-soft">
-              {`${snapshot.installedSkills.length} ${t.sectionSkills || "个技能"}，当前匹配 ${sortedInstalledSkills.length} 个。`}
-            </p>
-          </div>
-          <p className="text-xs leading-6 app-text-soft">
-            {t.centerRepositorySkillsHelper || "每张卡从上到下依次表示：当前状态、仓库位置、建议下一步，以及分类/同步操作。"}
-          </p>
-        </div>
-        <div className="space-y-6">
-          {sortedInstalledSkills.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-black/15 dark:border-white/15 bg-black/5 dark:bg-black/10 px-4 py-6 text-sm app-text-soft">
-              {t.noInstalledSkillsYetDescription || "成功安装后，这里会显示技能。"}
-            </div>
-          ) : (
-            groupedInstalledSkills.map((group) => (
-              <div key={group.key} className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold app-text">{group.label}</p>
-                    <p className="mt-1 text-xs app-text-soft">
-                      {`${group.skills.length} ${t.centerRepositoryGroupCountSuffix || "个技能"}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {group.skills.map((skill) => {
-                    const availableTargets = syncTargetCandidates.filter(
-                      (candidate) => !skill.syncTargets.some((target) => target.path === candidate.path)
-                    );
-
-                    return (
-                      <div
-                        key={skill.id}
-                        className="app-surface-subtle rounded-[28px] border border-black/10 p-5 dark:border-white/10"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <SyncStatusBadge status={skill.syncStatus} t={t} />
-                              <span className="rounded-full border border-black/10 px-2.5 py-1 text-[11px] app-text-soft dark:border-white/10">
-                                {`${skill.syncTargetCount} ${t.centerRepositoryTargetCountLabel || "个发布目标"}`}
-                              </span>
-                            </div>
-                            <p className="mt-3 truncate text-base font-semibold app-text" title={skill.name}>
-                              {skill.name}
-                            </p>
-                            <p className="mt-1 text-xs app-text-soft">{skill.slug}</p>
-                            <p className="mt-3 line-clamp-2 text-sm leading-6 app-text-soft">
-                              {skill.description || t.noDescriptionAvailable}
-                            </p>
-                          </div>
-                          <button
-                            className="app-button shrink-0"
-                            onClick={() => void onOpenPath(skill.installPath)}
-                            type="button"
-                            title={t.openFolder}
-                          >
-                            <FolderOpen className="h-4 w-4" />
-                            {t.centerRepositoryOpenFolderAction || "打开目录"}
-                          </button>
-                        </div>
-
-                        <div className="mt-5 grid gap-3">
-                          <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-                            <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
-                              {t.centerRepositoryStatusTitle || "现在状态"}
-                            </p>
-                            <p className="mt-2 text-sm leading-6 app-text">{describeSkillStatus(skill, t)}</p>
-                          </div>
-                          <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-                            <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
-                              {t.centerRepositoryLocationTitle || "仓库位置"}
-                            </p>
-                            <p className="mt-2 text-sm break-all app-text" title={skill.installPath}>
-                              {formatPathPreview(skill.installPath)}
-                            </p>
-                          </div>
-                          <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-                            <p className="text-xs uppercase tracking-[0.16em] app-text-soft">
-                              {t.centerRepositoryNextStepTitle || "建议下一步"}
-                            </p>
-                            <p className="mt-2 text-sm leading-6 app-text">{describeSkillNextStep(skill, t)}</p>
-                          </div>
-                        </div>
-
-                        <div className="mt-5 space-y-4">
-                          <div className="space-y-2">
-                            <label className="block text-xs uppercase tracking-[0.16em] app-text-soft">
-                              {t.centerRepositoryCurrentCategoryLabel || "归档分类"}
-                            </label>
-                            <select
-                              className="app-input h-10 w-full rounded-2xl px-3 text-sm"
-                              onChange={(event) =>
-                                void onUpdateInstalledSkillCategory({
-                                  id: skill.id,
-                                  category: event.target.value || null
-                                })
-                              }
-                              value={skill.category || ""}
-                            >
-                              <option value="">{t.unclassifiedOption || "未分类"}</option>
-                              {availableCategories.map((category) => (
-                                <option key={category} value={category}>
-                                  {category}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="rounded-2xl border border-black/10 p-4 dark:border-white/10">
-                            <div className="flex items-center justify-between gap-3">
-                              <label className="text-xs uppercase tracking-[0.16em] app-text-soft">
-                                {t.centerRepositoryConnectedTargetsLabel || "已连接目标"}
-                              </label>
-                              <span className="text-xs app-text-soft">
-                                {`${skill.syncTargetCount} ${t.syncTargetsCountSuffix || "个"}`}
-                              </span>
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {skill.syncTargets.length === 0 ? (
-                                <span className="text-xs app-text-soft">
-                                  {t.noSyncTargetsYet || "还没有绑定同步目标。"}
-                                </span>
-                              ) : (
-                                skill.syncTargets.map((syncTarget) => (
-                                  <span
-                                    key={syncTarget.id}
-                                    className="inline-flex items-center gap-2 rounded-full border border-black/10 px-3 py-1 text-xs app-text-soft dark:border-white/10"
-                                    title={syncTarget.path}
-                                  >
-                                    <span>{syncTarget.label}</span>
-                                    <button
-                                      className="text-[11px] app-text-soft hover:app-text"
-                                      onClick={() =>
-                                        void onRemoveSyncTarget({ syncTargetId: syncTarget.id, skillId: skill.id })
-                                      }
-                                      type="button"
-                                    >
-                                      ×
-                                    </button>
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                            <div className="mt-4 flex flex-col gap-2">
-                              <div className="flex items-center gap-2">
-                                <select
-                                  className="app-input h-10 flex-1 rounded-2xl px-3 text-sm"
-                                  onChange={(event) =>
-                                    setSelectedSyncTargetPathBySkill((current) => ({
-                                      ...current,
-                                      [skill.id]: event.target.value
-                                    }))
-                                  }
-                                  value={selectedSyncTargetPathBySkill[skill.id] || ""}
-                                >
-                                  <option value="">{t.addSyncTargetPlaceholder || "选择一个同步目标目录"}</option>
-                                  {availableTargets.map((candidate) => (
-                                    <option key={candidate.id} value={candidate.path}>
-                                      {syncTargetOptionLabel(candidate, t)}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  className="app-button"
-                                  onClick={() => {
-                                    const targetPath = selectedSyncTargetPathBySkill[skill.id];
-                                    const candidate = targetPath ? syncTargetCandidateMap.get(targetPath) : undefined;
-                                    if (!candidate) {
-                                      return;
-                                    }
-
-                                    void onAddSyncTarget({
-                                      skillId: skill.id,
-                                      scope: candidate.scope,
-                                      providerKey: candidate.key,
-                                      label: candidate.label,
-                                      path: candidate.path
-                                    });
-                                    setSelectedSyncTargetPathBySkill((current) => ({
-                                      ...current,
-                                      [skill.id]: ""
-                                    }));
-                                  }}
-                                  type="button"
-                                >
-                                  {t.addSyncTargetAction || "添加"}
-                                </button>
-                              </div>
-                              {availableTargets.length === 0 ? (
-                                <p className="text-xs app-text-soft">
-                                  {t.centerRepositoryNoAvailableTarget || "没有可新增的同步目标。"}
-                                </p>
-                              ) : null}
-                              <button
-                                className="app-button"
-                                disabled={skill.syncTargetCount === 0}
-                                onClick={() => void onGoSyncStatus()}
-                                type="button"
-                              >
-                                {t.centerRepositoryGoSyncAction || "查看发布与同步"}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </SectionCard>
-
       <SectionCard 
         title={t.localInstallDirectory || "中心仓库目录"} 
         subtitle={t.localInstallDirectorySubtitle || "查看和管理中心仓库在磁盘上的真实目录结构"}
       >
+        <div className="mb-4 mt-2 p-3 bg-black/5 dark:bg-white/5 rounded-xl border border-black/10 dark:border-white/10 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <span className="text-[11px] uppercase font-bold text-zinc-500 shrink-0 tracking-wider">物理路径</span>
+            <code className="text-[13px] font-mono truncate text-zinc-800 dark:text-zinc-200 select-all">{snapshot.settings.installDir || "未设置"}</code>
+          </div>
+          <button 
+            onClick={() => void onOpenPath(snapshot.settings.installDir || "")} 
+            className="app-icon-button shrink-0 h-8 w-8 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors" 
+            title="在文件夹中打开"
+          >
+            <FolderOpen className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
+          </button>
+        </div>
         <div className="mt-4">
           <WorkspaceTree
             nodes={filteredTree}
             projectRoot={snapshot.settings.installDir || ""}
             onOpenPath={onOpenPath}
-            onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-            onCopyWorkspaceSkill={onCopyWorkspaceSkill}
             actionMode="none"
             importedProjects={snapshot.importedProjects}
             emptyMessage={t.projectTreeEmpty || "没有找到可安装的技能"}
-          />
+          renderNodeRight={(node) => {
+            if (node.kind !== 'skill') return null;
+            const skill = snapshot.installedSkills.find(s => s.installPath === node.absolutePath);
+            if (!skill) {
+              return (
+                 <div className="flex items-center gap-3 mr-2">
+                   <div className="hidden sm:block">
+                     <span className="inline-flex items-center gap-1 rounded-full border border-black/10 dark:border-white/10 px-2 py-0.5 text-[10px] app-text-soft bg-black/5 dark:bg-white/5">
+                        未入库
+                     </span>
+                   </div>
+                   <button 
+                     className="app-button shrink-0 px-2" 
+                     type="button" 
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       void onGoStaged();
+                     }} 
+                     title="前往添加来源扫描"
+                   >
+                     <FolderPlus className="h-4 w-4" />
+                   </button>
+                 </div>
+              );
+            }
+            return (
+               <div className="flex items-center gap-3 mr-2">
+                 <div className="hidden sm:block">
+                   <SyncStatusBadge status={skill.syncStatus} t={t} />
+                 </div>
+                 <SkillConfigDialog 
+                   skill={skill}
+                   t={t}
+                   availableCategories={availableCategories}
+                   syncTargetCandidates={syncTargetCandidates}
+                   syncTargetCandidateMap={syncTargetCandidateMap}
+                   importedProjects={snapshot.importedProjects}
+                   onUpdateInstalledSkillCategory={onUpdateInstalledSkillCategory}
+                   onRemoveSyncTarget={onRemoveSyncTarget}
+                   onAddSyncTarget={onAddSyncTarget}
+                   onGoSyncStatus={onGoSyncStatus}
+                 />
+               </div>
+            );
+          }}
+        />
         </div>
       </SectionCard>
     </div>

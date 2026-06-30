@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
+
 import {
   AlertCircle,
   CheckCircle2,
@@ -23,7 +25,6 @@ export type WorkspaceSection =
   | "ai-workspace"
   | "local-install"
   | "sync-status"
-  | "conflicts"
   | "projects"
   | "staged"
   | "logs"
@@ -63,6 +64,50 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     syncInstalledSkill, syncAllSkills, adoptSyncTarget,
     updateStagedSourceCategory, updateInstalledSkillCategory
   } = logic;
+
+  // Auto refresh when section changes
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section]);
+
+  const [sidebarWidth, setSidebarWidth] = useState(340);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({ isDragging: false });
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    dragRef.current.isDragging = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!dragRef.current.isDragging) return;
+      let newWidth = moveEvent.clientX;
+      if (newWidth < 180) {
+        setSidebarCollapsed(true);
+        // snap width to match the collapsed size, but don't strictly enforce it unless we need to.
+        newWidth = 84;
+      } else {
+        setSidebarCollapsed(false);
+        if (newWidth > 600) newWidth = 600;
+        setSidebarWidth(newWidth);
+      }
+    };
+
+    const onMouseUp = () => {
+      setIsDragging(false);
+      dragRef.current.isDragging = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
 
   const detailPanel = (
     <WorkspaceDetailPanel
@@ -171,11 +216,19 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         ) : null}
       </div>
 
-      <div className={cn(
-        "grid min-h-screen grid-cols-1 xl:h-screen xl:overflow-hidden transition-all duration-300",
-        sidebarCollapsed ? "xl:grid-cols-[84px,minmax(0,1fr)]" : "xl:grid-cols-[340px,minmax(0,1fr)]"
-      )}>
-        <WorkspaceNavSidebar
+      <div 
+        className={cn(
+          "grid min-h-screen grid-cols-1 xl:h-screen xl:overflow-hidden",
+          !isDragging && "transition-all duration-300"
+        )}
+        style={{
+          gridTemplateColumns: sidebarCollapsed 
+            ? "84px minmax(0,1fr)" 
+            : `${sidebarWidth}px minmax(0,1fr)`
+        }}
+      >
+        <div className="relative xl:h-full">
+          <WorkspaceNavSidebar
           section={section}
           sidebarCollapsed={sidebarCollapsed}
           setSidebarCollapsed={setSidebarCollapsed}
@@ -192,8 +245,13 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
           onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
           onCreateWorkspaceFolder={createWorkspaceFolder}
         />
+        <div 
+          className="absolute top-0 -right-2 h-full w-4 cursor-col-resize hover:bg-black/10 dark:hover:bg-white/10 active:bg-blue-500/50 z-[100] transition-colors"
+          onMouseDown={startResizing}
+        />
+      </div>
 
-        <div className="flex min-h-screen flex-col xl:h-screen xl:overflow-y-auto">
+      <div className="flex min-h-screen flex-col xl:h-screen xl:overflow-y-auto">
           <header className="app-topbar drag-region">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
@@ -204,6 +262,12 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
+                {busyLabel ? (
+                  <div className="mr-2 inline-flex items-center gap-2 rounded-full border border-signal/30 bg-signal/10 px-3 py-1.5 text-sm text-signal animate-in fade-in zoom-in duration-200">
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    {busyLabel}
+                  </div>
+                ) : null}
                 <button
                   aria-label={t.refresh}
                   className="app-icon-button rounded-2xl"
@@ -217,26 +281,8 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 >
                   <RefreshCcw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
                 </button>
-                <button
-                  aria-label={t.openInstallFolder}
-                  className="app-icon-button rounded-2xl"
-                  onClick={() => void openPath(snapshot?.settings.installDir || "")}
-                  title={t.openInstallFolder}
-                  type="button"
-                >
-                  <FolderOpen className="h-4 w-4" />
-                </button>
               </div>
             </div>
-
-            {busyLabel ? (
-              <div className="mt-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-end">
-                <div className="inline-flex items-center gap-2 rounded-full border border-signal/30 bg-signal/10 px-4 py-2 text-sm text-signal">
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                  {busyLabel}
-                </div>
-              </div>
-            ) : null}
           </header>
 
           <main className="flex-1 p-5">
@@ -255,7 +301,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
                   onGoProjects={() => router.push("/projects" as import("next").Route)}
                   onGoSyncStatus={() => router.push("/sync-status" as import("next").Route)}
-                  onGoConflicts={() => router.push("/conflicts" as import("next").Route)}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onImportFolder={importFolderWithPicker}
@@ -328,7 +373,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
                   onGoProjects={() => router.push("/projects" as import("next").Route)}
                   onGoSyncStatus={() => router.push("/sync-status" as import("next").Route)}
-                  onGoConflicts={() => router.push("/conflicts" as import("next").Route)}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onImportFolder={importFolderWithPicker}

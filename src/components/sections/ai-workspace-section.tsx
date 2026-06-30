@@ -1,8 +1,7 @@
 import { Search } from "lucide-react";
 import { useState, useEffect } from "react";
-import type { SkillManagerSnapshot, WorkspaceTreeNode } from "@shared/contracts";
+import type { SkillManagerSnapshot, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
-import { OverviewMetric } from "../ui/typography";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 import { ProviderIcon } from "../ui/icons";
 import { cn } from "@/lib/cn";
@@ -15,13 +14,17 @@ export function AiWorkspaceSection({
   t,
   onOpenPath,
   searchValue,
-  onSearchValueChange
+  onSearchValueChange,
+  onCopyWorkspaceSkill,
+  onCreateWorkspaceFolder
 }: {
   snapshot: SkillManagerSnapshot;
   t: TranslationDictionary;
   onOpenPath: (path: string) => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
+  onCopyWorkspaceSkill: (input: CopyWorkspaceSkillInput) => AsyncActionResult;
+  onCreateWorkspaceFolder: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
 }) {
   const sources = snapshot.systemSkillSources;
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
@@ -62,16 +65,9 @@ export function AiWorkspaceSection({
 
   return (
     <div className="space-y-6">
-      <SectionCard
-        title={t.systemTargetsTitle || t.sectionAiWorkspace || "系统目标"}
-        subtitle={t.systemTargetsSubtitle || "这里只展示这台电脑上的系统级发布目标目录，具体发布动作集中在同步状态页。"}
-      >
-        <div className="grid gap-4 md:grid-cols-3">
-          <OverviewMetric label={t.systemTargetsProvidersMetric || "目标类型"} value={sources.length} />
-          <OverviewMetric label={t.systemTargetsAvailableMetric || "可用目录"} value={availableSourceCount} />
-          <OverviewMetric label={t.systemTargetsSkillsMetric || "目录内 Skill"} value={totalSkillCount} />
-        </div>
-      </SectionCard>
+      <div className="mb-4">
+        <p className="text-sm app-text-soft">在这里管理你可以分发和部署 Skill 的目标端点</p>
+      </div>
 
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
         {sources.map((source) => {
@@ -141,8 +137,11 @@ export function AiWorkspaceSection({
                 nodes={filterTree(activeSource.tree, searchValue)}
                 projectRoot={activeSource.path}
                 onOpenPath={onOpenPath}
-                onInstallWorkspaceSkill={() => undefined}
-                actionMode="none"
+                actionMode="install"
+                onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+                localInstallDir={snapshot.settings.installDir}
+                installDirTree={snapshot.installDirTree}
+                onCreateWorkspaceFolder={onCreateWorkspaceFolder}
                 emptyMessage={t.projectTreeEmpty || "暂无技能"}
               />
             </div>

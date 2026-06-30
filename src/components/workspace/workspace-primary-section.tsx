@@ -20,7 +20,6 @@ const AiWorkspaceSection = dynamic(() => import('../sections/ai-workspace-sectio
 const LocalInstallSection = dynamic(() => import('../sections/local-install-section').then(mod => mod.LocalInstallSection));
 const ProjectsSection = dynamic(() => import('../sections/projects-section').then(mod => mod.ProjectsSection));
 const SyncStatusSection = dynamic(() => import('../sections/sync-status-section').then(mod => mod.SyncStatusSection));
-const ConflictsSection = dynamic(() => import('../sections/conflicts-section').then(mod => mod.ConflictsSection));
 
 import type { WorkspaceSection } from "../workspace-app";
 type TranslationDictionary = Record<string, string>;
@@ -38,7 +37,6 @@ export function WorkspacePrimarySection({
   onGoLocalInstall,
   onGoProjects,
   onGoSyncStatus,
-  onGoConflicts,
   remoteUrl,
   onRemoteUrlChange,
   selectedStageIds,
@@ -94,7 +92,6 @@ export function WorkspacePrimarySection({
   onGoLocalInstall: () => void;
   onGoProjects: () => void;
   onGoSyncStatus: () => void;
-  onGoConflicts: () => void;
   onCopySkill: (id: string) => void;
   onMoveSkill: (id: string) => void;
   onCategoryChange: (value: string) => void;
@@ -175,7 +172,6 @@ export function WorkspacePrimarySection({
           onGoLocalInstall={onGoLocalInstall}
           onGoProjects={onGoProjects}
           onGoSyncStatus={onGoSyncStatus}
-          onGoConflicts={onGoConflicts}
           snapshot={snapshot}
           t={t}
         />
@@ -188,6 +184,8 @@ export function WorkspacePrimarySection({
           onOpenPath={onOpenPath}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
+          onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+          onCreateWorkspaceFolder={onCreateWorkspaceFolder}
         />
       );
     case "local-install":
@@ -196,8 +194,6 @@ export function WorkspacePrimarySection({
           snapshot={snapshot}
           t={t}
           onOpenPath={onOpenPath}
-          onInstallWorkspaceSkill={onInstallWorkspaceSkill}
-          onCopyWorkspaceSkill={onCopyWorkspaceSkill}
           onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           onAddSyncTarget={onAddSyncTarget}
           onRemoveSyncTarget={onRemoveSyncTarget}
@@ -217,18 +213,6 @@ export function WorkspacePrimarySection({
           onSearchValueChange={onSearchValueChange}
           onOpenPath={onOpenPath}
           onSyncInstalledSkill={onSyncInstalledSkill}
-          onGoConflicts={onGoConflicts}
-        />
-      );
-    case "conflicts":
-      return (
-        <ConflictsSection
-          snapshot={snapshot}
-          t={t}
-          searchValue={searchValue}
-          onSearchValueChange={onSearchValueChange}
-          onOpenPath={onOpenPath}
-          onSyncInstalledSkill={onSyncInstalledSkill}
           onAdoptSyncTarget={onAdoptSyncTarget}
         />
       );
@@ -241,6 +225,8 @@ export function WorkspacePrimarySection({
           onRemoveProject={onRemoveProject}
           onImportProject={onImportProject}
           onInstallWorkspaceSkill={onInstallWorkspaceSkill}
+          onCopyWorkspaceSkill={onCopyWorkspaceSkill}
+          onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />

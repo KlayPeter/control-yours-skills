@@ -3,7 +3,6 @@ import { Eye, Plus, RefreshCcw, Trash2, UploadCloud, FolderInput, Link2 } from "
 import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, StagedSourceRecord } from "@shared/contracts";
 
-import { SectionCard } from "../ui/cards";
 import { SourceBadge, StatusIndicator } from "../ui/badges";
 import { IconActionButton } from "../ui/buttons";
 import { OverviewMetric, RelativeTimeText } from "../ui/typography";
@@ -96,13 +95,9 @@ export function StagedSection({
 
   return (
     <div className="space-y-6">
-      <SectionCard
-        title={t.stagedImportTitle || "添加来源到暂存区"}
-        subtitle={
-          t.stagedImportSubtitle ||
-          "所有新来源先进入暂存区，在这里检查解析结果、推荐分类和安装条件，确认后再纳入中心仓库。"
-        }
-      >
+      <div className="mb-4">
+        <p className="text-sm app-text-soft">在这里导入外部压缩包或本地文件夹作为来源端点。</p>
+      </div>
         <div className="grid gap-4 xl:grid-cols-3">
           <div
             {...dropzone.getRootProps()}
@@ -162,12 +157,10 @@ export function StagedSection({
             </button>
           </div>
         </div>
-      </SectionCard>
 
-      <SectionCard
-        title={t.stagedSources}
-        subtitle={t.stagedSourcesSubtitle}
-        actions={
+      <div className="space-y-4 mt-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-4">
+          <h3 className="text-base font-semibold app-text">{t.stagedSources}</h3>
           <div className="flex flex-wrap gap-2">
             <button
               className="app-button"
@@ -213,8 +206,7 @@ export function StagedSection({
               {t.clearStaging}
             </button>
           </div>
-        }
-      >
+        </div>
         {snapshot.stagedSources.length ? (
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-4">
@@ -344,7 +336,7 @@ export function StagedSection({
         ) : (
           <EmptyState description={t.stagingAreaEmptyDescription} title={t.stagingAreaEmpty} />
         )}
-      </SectionCard>
+      </div>
     </div>
   );
 }

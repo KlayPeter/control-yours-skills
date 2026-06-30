@@ -7,7 +7,7 @@ import {
   HardDriveDownload,
   Inbox,
   FolderOpen,
-  Logs,
+  History,
   Settings,
   FolderPlus,
   RefreshCcw,
@@ -30,18 +30,16 @@ const navItems: Array<{
 }> = [
   { section: "overview", href: "/", icon: LayoutDashboard },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  { section: "projects", href: "/projects" as any, icon: FolderOpen },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { section: "ai-workspace", href: "/ai-workspace" as any, icon: Sparkles },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { section: "local-install", href: "/local-install" as any, icon: HardDriveDownload },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { section: "staged", href: "/staged" as any, icon: Inbox },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { section: "projects", href: "/projects" as any, icon: FolderOpen },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { section: "sync-status", href: "/sync-status" as any, icon: GitBranch },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { section: "conflicts", href: "/conflicts" as any, icon: AlertTriangle },
-  { section: "logs", href: "/logs", icon: Logs },
+  { section: "logs", href: "/logs", icon: History },
   { section: "settings", href: "/settings", icon: Settings }
 ];
 
@@ -51,7 +49,6 @@ export function navLabel(section: WorkspaceSection, t: TranslationDictionary) {
     case "ai-workspace": return t.sectionAiWorkspace;
     case "local-install": return t.sectionLocalInstall;
     case "sync-status": return t.sectionSyncStatus;
-    case "conflicts": return t.sectionConflicts;
     case "projects": return t.sectionProjects;
     case "staged": return t.sectionStaged;
     case "logs": return t.sectionLogs;
@@ -125,10 +122,6 @@ export function WorkspaceNavSidebar({
             const active = item.section === section;
             const syncAttentionCount =
               snapshot?.installedSkills.filter((skill) => skill.syncTargetCount > 0 && skill.syncStatus !== "synced").length || 0;
-            const conflictCount =
-              snapshot?.installedSkills.flatMap((skill) =>
-                skill.syncTargets.filter((target) => target.status === "conflict" || target.status === "local_changes")
-              ).length || 0;
             return (
               <Link
                 key={item.section}
@@ -155,9 +148,6 @@ export function WorkspaceNavSidebar({
                 {!sidebarCollapsed && item.section === "sync-status" && syncAttentionCount ? (
                   <span className="app-sidebar-count app-sidebar-count-signal">{syncAttentionCount}</span>
                 ) : null}
-                {!sidebarCollapsed && item.section === "conflicts" && conflictCount ? (
-                  <span className="app-sidebar-count app-sidebar-count-danger">{conflictCount}</span>
-                ) : null}
               </Link>
             );
           })}
@@ -168,17 +158,17 @@ export function WorkspaceNavSidebar({
             <div className="flex items-center justify-between gap-3 px-2">
               <div className="flex items-center gap-2">
                 <button 
-                  className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "projects" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
-                  onClick={() => setSidebarTab("projects")}
-                >
-                  {t.projectDirectories}
-                </button>
-                <span className="text-xs text-black/10 dark:text-white/10">|</span>
-                <button 
                   className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "installDir" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
                   onClick={() => setSidebarTab("installDir")}
                 >
                   {t.sectionLocalInstall}
+                </button>
+                <span className="text-xs text-black/10 dark:text-white/10">|</span>
+                <button 
+                  className={cn("text-xs font-medium tracking-[0.08em] transition-all", sidebarTab === "projects" ? "app-text" : "app-text-soft opacity-40 hover:opacity-100 hover:app-text")}
+                  onClick={() => setSidebarTab("projects")}
+                >
+                  {t.projectDirectories}
                 </button>
               </div>
               {sidebarTab === "projects" ? (

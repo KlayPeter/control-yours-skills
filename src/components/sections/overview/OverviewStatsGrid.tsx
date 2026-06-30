@@ -51,8 +51,11 @@ export function OverviewStatsGrid({
             </div>
             <h3 className="font-medium text-sm text-muted-foreground">{t.sectionAiWorkspace}</h3>
           </div>
-          <div className="text-3xl font-semibold tracking-tight">
-            {systemSkillCount}
+          <div className="flex items-baseline gap-1.5">
+            <div className="text-3xl font-semibold tracking-tight">
+              {systemSkillCount}
+            </div>
+            <span className="text-sm font-normal text-muted-foreground">{t.skillsUnit || "个技能"}</span>
           </div>
         </SectionCard>
       </div>
@@ -68,8 +71,11 @@ export function OverviewStatsGrid({
             </div>
             <h3 className="font-medium text-sm text-muted-foreground">{t.sectionLocalInstall}</h3>
           </div>
-          <div className="text-3xl font-semibold tracking-tight">
-            {localInstallCount}
+          <div className="flex items-baseline gap-1.5">
+            <div className="text-3xl font-semibold tracking-tight">
+              {localInstallCount}
+            </div>
+            <span className="text-sm font-normal text-muted-foreground">{t.skillsUnit || "个技能"}</span>
           </div>
         </SectionCard>
       </div>
@@ -85,8 +91,11 @@ export function OverviewStatsGrid({
             </div>
             <h3 className="font-medium text-sm text-muted-foreground">{t.sectionProjects}</h3>
           </div>
-          <div className="text-3xl font-semibold tracking-tight">
-            {projectSkillCount}
+          <div className="flex items-baseline gap-1.5">
+            <div className="text-3xl font-semibold tracking-tight">
+              {projectSkillCount}
+            </div>
+            <span className="text-sm font-normal text-muted-foreground">{t.skillsUnit || "个技能"}</span>
           </div>
         </SectionCard>
       </div>
@@ -102,8 +111,11 @@ export function OverviewStatsGrid({
             </div>
             <h3 className="font-medium text-sm text-muted-foreground">{t.sectionStaged}</h3>
           </div>
-          <div className="text-3xl font-semibold tracking-tight">
-            {stagedCount}
+          <div className="flex items-baseline gap-1.5">
+            <div className="text-3xl font-semibold tracking-tight">
+              {stagedCount}
+            </div>
+            <span className="text-sm font-normal text-muted-foreground">{t.sourcesUnit || "个来源"}</span>
           </div>
         </SectionCard>
       </div>

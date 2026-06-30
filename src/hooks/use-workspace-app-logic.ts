@@ -108,7 +108,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     id: string;
     action: "copy" | "move";
   } | null>(null);
-  const [sidebarTab, setSidebarTab] = useState<"projects" | "installDir">("projects");
+  const [sidebarTab, setSidebarTab] = useState<"projects" | "installDir">("installDir");
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(globalSidebarCollapsed);
 
   const setSidebarCollapsed = (val: boolean) => {
