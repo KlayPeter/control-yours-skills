@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Github, Folder, FileArchive } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { InstalledSkillRecord, InstallStrategy, SourceStatus, StagedSourceRecord, SyncStatus } from "@shared/contracts";
 
@@ -66,19 +66,26 @@ export function SourceBadge({
   source: StagedSourceRecord["sourceType"] | InstalledSkillRecord["sourceType"];
   t: TranslationDictionary;
 }) {
+  const isGithub = source === "githubRepo";
+  const isFolder = source === "localFolder" || source === "localDir";
+  const isZip = source === "localZip" || source === "remoteZip";
+  
   const label =
     source === "localZip"
       ? t.sourceBadgeLocalZip
       : source === "localFolder"
         ? t.sourceBadgeLocalFolder
-      : source === "githubRepo"
+      : isGithub
         ? t.sourceBadgeGithubRepo
         : source === "localDir"
           ? t.sourceBadgeLocalDirectory
           : t.sourceBadgeRemoteZip;
 
   return (
-    <span className="app-surface-subtle rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.16em] app-text-soft">
+    <span className="app-surface-subtle inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs uppercase tracking-[0.16em] app-text-soft">
+      {isGithub && <Github className="h-3 w-3" />}
+      {isFolder && <Folder className="h-3 w-3" />}
+      {isZip && <FileArchive className="h-3 w-3" />}
       {label}
     </span>
   );

@@ -24,6 +24,10 @@ export function stagedNextStepLabel(source: StagedSourceRecord, t: TranslationDi
     return t.stagedNextInstall;
   }
 
+  if (source.status === "ready" && isRemoteStagedSource(source)) {
+    return t.stagedNextManual;
+  }
+
   if (source.status === "error") {
     return t.stagedNextError;
   }
@@ -247,7 +251,7 @@ export function StagedSection({
                         <SourceBadge source={item.sourceType} t={t} />
                       </div>
                       <p className="mt-2 text-sm app-text-soft">
-                        {item.detectedDescription || item.errorMessage || t.waitingForMetadataParsing}
+                        {item.detectedDescription || item.errorMessage || (item.status === "pending" || item.status === "processing" ? t.waitingForMetadataParsing : (t.noDescriptionExtractedForSkill || t.noDescriptionAvailable))}
                       </p>
                       {item.suggestedCategory ? (
                         <div className="mt-3 rounded-2xl border border-moss/20 bg-moss/10 px-3 py-2 text-xs app-text-soft">
