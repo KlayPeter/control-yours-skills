@@ -84,12 +84,20 @@
     "files": [
       "dist-electron/**/*",
       "build/app/**/*",
+      "build/app/node_modules/**/*",
+      "build/icon.png",
       "node_modules/**/*",
       "package.json"
     ],
     "asarUnpack": [
       "build/app/**/*",
       "node_modules/better-sqlite3/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/app/node_modules",
+        "to": "app.asar.unpacked/build/app/node_modules"
+      }
     ],
     "extraMetadata": {
       "main": "dist-electron/main/index.js"

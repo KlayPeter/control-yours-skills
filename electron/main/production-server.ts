@@ -85,20 +85,21 @@ export async function startProductionRenderer(): Promise<ProductionRendererHandl
   const port = await findAvailablePort(3211);
   const host = "127.0.0.1";
   const url = `http://${host}:${port}`;
-  const child = spawn(process.execPath, [serverEntrypoint], {
+  const { utilityProcess } = require("electron");
+  const child: any = utilityProcess.fork(serverEntrypoint, [], {
     cwd: standaloneRoot,
-    stdio: "ignore",
-    windowsHide: true,
+    stdio: "pipe",
     env: {
       ...process.env,
-      ELECTRON_RUN_AS_NODE: "1",
       NODE_ENV: "production",
       HOSTNAME: host,
       PORT: String(port)
     }
   });
 
-  child.unref();
+  child.stdout?.on("data", (d: any) => console.log("CHILD STDOUT", d.toString()));
+  child.stderr?.on("data", (d: any) => console.error("CHILD STDERR", d.toString()));
+  child.on("exit", (code: any) => console.log("CHILD EXITED WITH", code));
 
   await waitForServer(url, 20_000);
 

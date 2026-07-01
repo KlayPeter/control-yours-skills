@@ -13,9 +13,11 @@ export interface RuntimePaths {
   homeDir: string;
 }
 
+import { app } from "electron";
+
 export function resolveRuntimePaths(userDataPath: string): RuntimePaths {
-  const appRoot = process.env.NODE_ENV === "production" ? process.resourcesPath : process.cwd();
-  const isDevelopment = process.env.NODE_ENV !== "production";
+  const isDevelopment = !app.isPackaged;
+  const appRoot = !isDevelopment ? process.resourcesPath : process.cwd();
   const dataRoot = isDevelopment ? path.join(appRoot, "data") : userDataPath;
 
   return {

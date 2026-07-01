@@ -7,7 +7,7 @@ import { startProductionRenderer } from "./production-server";
 import { SkillManagerBackend } from "./skill-manager-backend";
 import { setupUpdater } from "./updater";
 
-const isDevelopment = process.env.NODE_ENV !== "production";
+const isDevelopment = !app.isPackaged;
 
 function createWindow(rendererUrl: string) {
   const iconPath = path.join(app.getAppPath(), "build", "icon.png");
@@ -39,7 +39,11 @@ function createWindow(rendererUrl: string) {
 }
 
 async function bootstrap() {
-  await app.whenReady();
+  const fs = require('fs');
+  const logPath = path.join(app.getPath('userData'), 'crash.log');
+  fs.writeFileSync(logPath, 'Starting bootstrap...\n');
+  try {
+    await app.whenReady();
 
   const productionRenderer = isDevelopment ? null : await startProductionRenderer();
   const rendererUrl = isDevelopment
@@ -71,6 +75,9 @@ async function bootstrap() {
       setupUpdater(w);
     }
   });
+  } catch (err: any) {
+    fs.appendFileSync(logPath, 'ERROR: ' + (err.stack || err).toString() + '\n');
+  }
 }
 
 app.on("window-all-closed", () => {
