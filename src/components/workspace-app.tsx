@@ -138,32 +138,41 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
       />
 
       {stagedModalOpen && selectedStagedDetail ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => {
-          setStagedModalOpen(false);
-          clearSelectedStagedDetail();
-        }}>
-          <div className="app-panel flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-black/10 dark:border-white/10 px-6 py-5">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+          onClick={() => {
+            setStagedModalOpen(false);
+            clearSelectedStagedDetail();
+          }}
+        >
+          <div
+            className="app-panel flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-black/10 bg-white/35 px-6 py-5 dark:border-white/10 dark:bg-white/[0.03]">
               <div>
-                <h3 className="text-xl font-semibold app-text">
+                <p className="text-[11px] uppercase tracking-[0.18em] app-text-soft">解析详情</p>
+                <h3 className="mt-2 text-2xl font-semibold tracking-tight app-text">
                   {selectedStagedDetail.detectedName || t.stagedSourceDetail}
                 </h3>
-                <p className="mt-1 text-sm app-text-soft">{t.stagedSourceDetailSubtitle}</p>
+                <p className="mt-2 text-sm leading-6 app-text-soft">{t.stagedSourceDetailSubtitle}</p>
               </div>
               <button
-                className="app-icon-button"
+                aria-label="Close staged detail"
+                className="app-icon-button rounded-2xl"
                 onClick={() => {
                   setStagedModalOpen(false);
                   clearSelectedStagedDetail();
                 }}
                 type="button"
               >
-                ×
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="max-h-[calc(85vh-92px)] overflow-y-auto px-6 py-5">
+            <div className="max-h-[calc(88vh-108px)] overflow-y-auto px-5 py-5 sm:px-6">
               <WorkspaceDetailPanel
+                embedded
                 onInstallStaged={handleInstallManyWithProgress}
                 onOpenPath={openPath}
                 onParseStaged={parseStagedSources}
