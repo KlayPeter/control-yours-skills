@@ -71,13 +71,9 @@ function normalizeReadmeExcerpt(markdown: string | null) {
     return null;
   }
 
-  return markdown
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 8)
-    .join("\n")
-    .slice(0, 1200);
+  // Preserve empty lines for markdown formatting, just slice the first 25 lines or 1200 chars
+  const lines = markdown.split(/\r?\n/).slice(0, 25);
+  return lines.join("\n").slice(0, 1200);
 }
 
 function unique(items: string[]) {
@@ -104,6 +100,18 @@ function shellLabel(environment: EnvironmentInfo) {
   return environment.os === "win32" ? "PowerShell" : "Terminal";
 }
 
+function targetSkillDirectoryLabel(environment: EnvironmentInfo) {
+  if (environment.os === "win32") {
+    return "~/.codex/skills or %USERPROFILE%\\.codex\\skills";
+  }
+
+  return "~/.codex/skills";
+}
+
+function normalizeCommandLine(line: string) {
+  return line.replace(/^(?:\$|>)+\s*/, "").trim();
+}
+
 function commandToToolName(command: string) {
   return command.split(/\s+/)[0]?.toLowerCase() || "";
 }
@@ -117,19 +125,46 @@ function detectCommandCandidates(readme: string) {
   const commands: string[] = [];
 
   for (const line of lines) {
-    if (/^(npm|npx|pnpm|yarn|uv|pip|python|py|git|curl|tar)\s+/i.test(line)) {
-      commands.push(line);
+    const normalized = normalizeCommandLine(line);
+    if (/^(npm|npx|pnpm|yarn|uv|pip|python|py|git|curl|tar)\s+/i.test(normalized)) {
+      commands.push(normalized);
+      continue;
+    }
+
+    for (const match of line.matchAll(/`((?:npm|npx|pnpm|yarn|uv|pip|python|py|git|curl|tar)\s+[^`]+)`/gi)) {
+      commands.push(normalizeCommandLine(match[1]));
+    }
+
+    const embedded = normalized.match(/\b(?:npm|npx|pnpm|yarn|uv|pip|python|py|git|curl|tar)\s+.+$/i);
+    if (embedded) {
+      commands.push(normalizeCommandLine(embedded[0]));
     }
   }
 
   return unique(commands);
 }
 
+function stripMarkdown(text: string) {
+  return text
+    .replace(/!\[(.*?)\]\(.*?\)/g, "") // remove images entirely
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1") // clean links
+    .replace(/(\*\*|__)(.*?)\1/g, "$2") // bold
+    .replace(/(\*|_)(.*?)\1/g, "$2") // italic
+    .replace(/`([^`]+)`/g, "$1") // inline code
+    .replace(/~~(.*?)~~/g, "$1") // strikethrough
+    .replace(/^#+\s+/g, "") // headings
+    .replace(/^-\s+/g, "") // list items
+    .trim();
+}
+
 function detectManualSteps(readme: string) {
   const lines = readme.split(/\r?\n/).map((line) => line.trim());
-  const steps = lines.filter((line) =>
-    /(copy|move|place|install to|put under|\.codex|\.claude|\.agents|skills|~\/)/i.test(line)
-  );
+  const steps = lines
+    .filter((line) =>
+      /(^\d+[.)]\s)|(^[-*+]\s)|(copy|move|place|install to|put under|clone|download|extract|open|run|execute|cd\s+|\.codex|\.claude|\.agents|skills|~\/|安装|复制|移动|解压|终端|命令)/i.test(line)
+    )
+    .map(stripMarkdown)
+    .filter((line) => line.length > 5 && !/^(npm|npx|pnpm|yarn|uv|pip|python|py|git|curl|tar)\s+/i.test(line));
 
   return unique(steps).slice(0, 8);
 }
@@ -191,7 +226,8 @@ function prerequisitesForTool(tool: string, environment: EnvironmentInfo) {
     case "python":
     case "py":
     case "pip":
-      if (hasTool(environment, "python") || hasTool(environment, "py")) {
+    case "uv":
+      if (hasTool(environment, "python") || hasTool(environment, "py") || hasTool(environment, "uv")) {
         return [];
       }
 
@@ -234,20 +270,52 @@ function buildArchiveInstallStrategy(reason: string | null, environment: Environ
   };
 }
 
+function inferWorkingDirectory(commands: string[], manualSteps: string[]) {
+  if (manualSteps.some((step) => /(仓库根目录|项目根目录|repo root|project root)/i.test(step))) {
+    return "仓库根目录";
+  }
+
+  return commands.length > 0 ? "仓库根目录" : null;
+}
+
+function buildRuleBasedSteps(sourceType: SourceType, commands: string[], manualSteps: string[], environment: EnvironmentInfo) {
+  const steps: string[] = [];
+
+  if (sourceType === "githubRepo") {
+    steps.push("先在浏览器打开该 GitHub 仓库，把仓库 clone 到本地，或者下载 ZIP 后解压到一个你能找到的位置。");
+  } else if (sourceType === "remoteZip") {
+    steps.push("先把远程 ZIP 下载到本地并解压，然后在解压后的目录里继续后续安装步骤。");
+  }
+
+  if (commands.length > 0) {
+    steps.push(`打开 ${shellLabel(environment)}，进入仓库根目录后再执行下面识别到的命令。`);
+  }
+
+  steps.push(...manualSteps);
+
+  if (commands.length === 0 && manualSteps.length === 0) {
+    steps.push(`没有识别到明确命令，请先在 ${osLabel(environment.os)} 上阅读 README 里的安装章节。`);
+    steps.push(`如果这是一个 Skill，确认结构后再把技能目录复制到 ${targetSkillDirectoryLabel(environment)}。`);
+  }
+
+  return unique(steps);
+}
+
 function buildManualStrategy(
   reason: string | null,
   steps: string[],
   commands: string[],
-  environment: EnvironmentInfo
+  environment: EnvironmentInfo,
+  workingDirectory?: string | null
 ): InstallStrategy {
   const requiredTools = collectRequiredTools(commands);
 
   return {
-    type: "manual",
+    type: commands.length > 0 ? "command" : "manual",
     title: "Manual install guide",
     reason,
-    command: commands[0] || null,
-    workingDirectory: null,
+    command: commands.length > 0 ? commands.join("\n") : null,
+    workingDirectory: workingDirectory ?? inferWorkingDirectory(commands, steps),
     prerequisiteSteps: buildPrerequisiteSteps(requiredTools, environment),
     manualSteps: unique(steps),
     requiredTools,
@@ -256,7 +324,11 @@ function buildManualStrategy(
   };
 }
 
-function chooseStrategyFromRules(sourceType: SourceType, readme: string | null, environment: EnvironmentInfo) {
+export function analyzeRemoteReadmeWithRules(
+  sourceType: SourceType,
+  readme: string | null,
+  environment: EnvironmentInfo
+) {
   if (sourceType === "localZip") {
     return {
       type: "archiveCopy",
@@ -283,9 +355,9 @@ function chooseStrategyFromRules(sourceType: SourceType, readme: string | null, 
     return buildManualStrategy(
       "README content was not found, so only basic repository metadata could be recognized.",
       [
-        `Open the repository on ${osLabel(environment.os)} and read its installation section manually.`,
-        `If the repository uses Node.js tools such as npm or npx, install Node.js first.`,
-        `Copy the skill files into the appropriate local skills directory only after you confirm the repository structure.`
+        `先在 ${osLabel(environment.os)} 上打开仓库主页，手动阅读安装章节。`,
+        `如果 README 里使用 npm、npx、pnpm 或 yarn，先确认本机已经安装 Node.js。`,
+        `确认目录结构无误后，再把技能目录复制到 ${targetSkillDirectoryLabel(environment)}。`
       ],
       [],
       environment
@@ -294,15 +366,11 @@ function chooseStrategyFromRules(sourceType: SourceType, readme: string | null, 
 
   const commands = detectCommandCandidates(readme);
   const manualSteps = detectManualSteps(readme);
-  const steps = [
-    `Review the README carefully in ${shellLabel(environment)} before installing anything manually.`,
-    ...commands.map((command) => `Repository command found: ${command}`),
-    ...manualSteps
-  ];
+  const steps = buildRuleBasedSteps(sourceType, commands, manualSteps, environment);
 
   return buildManualStrategy(
     commands.length > 0
-      ? "The repository includes install-related commands, but the app will only summarize them instead of executing them."
+      ? `The repository includes install commands for ${osLabel(environment.os)} and they were summarized as manual steps.`
       : "The repository was recognized from README metadata and manual installation notes.",
     steps.length > 0
       ? steps
@@ -345,11 +413,11 @@ async function analyzeWithAi(input: {
           {
             role: "system",
             content:
-              "You analyze skill repositories. Return JSON with keys name, description, summary, installCommands, installSteps. Summarize what the skill does. Do not claim the app can auto-install it."
+              "You are an expert at analyzing software repositories. Return a JSON object with keys: name, description, summary, workingDirectory, installCommands, installSteps. \nRules:\n1. 'summary' must concisely explain what the skill does in Chinese.\n2. 'workingDirectory' should say where the user should run commands, such as 仓库根目录, 解压后的目录, or 全局终端.\n3. 'installSteps' must be an array of clean, beginner-friendly manual installation steps in Chinese.\n4. The steps must explicitly tell the user where to operate, what to install first if tools are missing, which commands to run, and where to copy the final skill files.\n5. DO NOT include raw Markdown symbols (like **, [], !) in installSteps. Provide pure actionable text.\n6. Do not claim the app can auto-install it."
           },
           {
             role: "user",
-            content: `Repository URL: ${input.sourceValue}\nCurrent OS: ${osLabel(input.environment.os)}\n\nREADME:\n${input.readme.slice(0, 12000)}`
+            content: `Repository URL: ${input.sourceValue}\nCurrent OS: ${osLabel(input.environment.os)}\nCurrent shell: ${shellLabel(input.environment)}\nDetected tools: ${input.environment.tools.map((tool) => `${tool.name}:${tool.available ? "yes" : "no"}`).join(", ")}\nTarget skill directory: ${targetSkillDirectoryLabel(input.environment)}\n\nREADME:\n${input.readme.slice(0, 12000)}`
           }
         ]
       })
@@ -375,6 +443,7 @@ async function analyzeWithAi(input: {
       name?: string;
       description?: string;
       summary?: string;
+      workingDirectory?: string;
       installCommands?: string[];
       installSteps?: string[];
     };
@@ -394,7 +463,8 @@ async function analyzeWithAi(input: {
         "AI summarized the repository README and extracted manual installation guidance.",
         steps,
         commands,
-        input.environment
+        input.environment,
+        parsed.workingDirectory?.trim() || null
       )
     };
   } catch {
@@ -421,7 +491,7 @@ export async function analyzeRemoteSource(input: RemoteAnalysisInput): Promise<R
   }
 
   const readmeExcerpt = normalizeReadmeExcerpt(readme);
-  const installStrategy = chooseStrategyFromRules(input.sourceType, readme, input.environment);
+  const installStrategy = analyzeRemoteReadmeWithRules(input.sourceType, readme, input.environment);
   
   let detectedDescription: string | null = null;
   if (readmeExcerpt) {

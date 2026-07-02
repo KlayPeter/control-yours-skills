@@ -111,6 +111,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   const detailPanel = (
     <WorkspaceDetailPanel
+      environment={snapshot?.runtime.environment ?? null}
       onInstallStaged={installStagedSources}
       onOpenPath={openPath}
       onParseStaged={parseStagedSources}
@@ -173,6 +174,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
             <div className="max-h-[calc(88vh-108px)] overflow-y-auto px-5 py-5 sm:px-6">
               <WorkspaceDetailPanel
                 embedded
+                environment={snapshot?.runtime.environment ?? null}
                 onInstallStaged={handleInstallManyWithProgress}
                 onOpenPath={openPath}
                 onParseStaged={parseStagedSources}
