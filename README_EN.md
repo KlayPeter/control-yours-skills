@@ -75,7 +75,15 @@ We are constantly evolving to make AI skill management more intelligent and seam
 Head over to our [Releases Page](https://github.com/KlayPeter/control-yours-skills/releases/latest) and download the latest setup file for your platform.
 
 - **Windows**: `Control Your Skills-Setup-<version>.exe`
-*(macOS and Linux installers are being built)*
+- **macOS (Apple Silicon)**: `Control Your Skills-<version>-arm64.dmg`
+
+> **⚠️ macOS Installation Notice (Important)**
+> As this is a free open-source project, it is currently not signed with an Apple Developer certificate. When you open the app on a Mac for the first time, macOS Gatekeeper may show a warning saying "App is damaged and can't be opened" or "Cannot verify developer".
+> **Solution**: This is normal for unsigned apps. To bypass this, open the `Terminal` app and run the following command to remove the quarantine attribute:
+> ```bash
+> sudo xattr -cr "/Applications/Control Your Skills.app"
+> ```
+> Press Enter (you may be asked for your login password). After that, you can open the app normally.
 
 ---
 

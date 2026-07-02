@@ -75,7 +75,15 @@
 前往我们的 [Releases 页面](https://github.com/KlayPeter/control-yours-skills/releases/latest) 下载适用于你系统的最新安装包。
 
 - **Windows**: `Control Your Skills-Setup-<version>.exe`
-*(macOS 和 Linux 安装包正在构建中)*
+- **macOS (Apple Silicon)**: `Control Your Skills-<version>-arm64.dmg`
+
+> **⚠️ macOS 安装须知 (重要)**
+> 由于本项目为免费开源工具，暂未进行 Apple 开发者签名。在 Mac 上首次安装打开时，系统可能会拦截并提示“应用已损坏，无法打开。你应该将它移到废纸篓”或“无法验证开发者”。
+> **解决方法**：这属于 macOS 的 Gatekeeper 安全拦截机制，属于正常现象。请打开 Mac 的「终端 (Terminal)」应用，执行以下命令强制放行该应用：
+> ```bash
+> sudo xattr -cr "/Applications/Control Your Skills.app"
+> ```
+> 执行完毕后（期间可能需要输入开机密码），即可正常双击打开。
 
 ---
 
