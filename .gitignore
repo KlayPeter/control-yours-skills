@@ -12,3 +12,4 @@ tsconfig.tsbuildinfo
 npm-debug.log*
 .norgore
 .agent
+.DS_Store

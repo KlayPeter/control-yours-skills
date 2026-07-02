@@ -39,6 +39,18 @@ export function stagedNextStepLabel(source: StagedSourceRecord, t: TranslationDi
   return t.stagedNextPending;
 }
 
+function stripMarkdown(text: string | null) {
+  if (!text) return null;
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1") // bold
+    .replace(/\*(.*?)\*/g, "$1")     // italic
+    .replace(/__(.*?)__/g, "$1")     // bold
+    .replace(/_(.*?)_/g, "$1")       // italic
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1") // links
+    .replace(/`([^`]+)`/g, "$1")     // inline code
+    .replace(/~~(.*?)~~/g, "$1");    // strikethrough
+}
+
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
 
@@ -56,6 +68,7 @@ export function StagedSection({
   onRemoteAction,
   onToggleStageSelection,
   onLoadStagedDetail,
+  onOpenStagedDetail,
   onParseStaged,
   onInstallStaged,
   onUpdateStagedCategory,
@@ -75,6 +88,7 @@ export function StagedSection({
   onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   onToggleStageSelection: (id: string) => void;
   onLoadStagedDetail: (id: string) => AsyncActionResult;
+  onOpenStagedDetail: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
   onInstallStaged: (ids: string[]) => AsyncActionResult;
   onUpdateStagedCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
@@ -251,7 +265,7 @@ export function StagedSection({
                         <SourceBadge source={item.sourceType} t={t} />
                       </div>
                       <p className="mt-2 text-sm app-text-soft">
-                        {item.detectedDescription || item.errorMessage || (item.status === "pending" || item.status === "processing" ? t.waitingForMetadataParsing : (t.noDescriptionExtractedForSkill || t.noDescriptionAvailable))}
+                        {stripMarkdown(item.detectedDescription) || item.errorMessage || (item.status === "pending" || item.status === "processing" ? t.waitingForMetadataParsing : (t.noDescriptionExtractedForSkill || t.noDescriptionAvailable))}
                       </p>
                       {item.suggestedCategory ? (
                         <div className="mt-3 rounded-2xl border border-moss/20 bg-moss/10 px-3 py-2 text-xs app-text-soft">
@@ -314,7 +328,7 @@ export function StagedSection({
                     <IconActionButton
                       icon={Eye}
                       label={t.view}
-                      onClick={() => void onLoadStagedDetail(item.id)}
+                      onClick={() => void onOpenStagedDetail(item.id)}
                       tone="success"
                     />
                     <IconActionButton

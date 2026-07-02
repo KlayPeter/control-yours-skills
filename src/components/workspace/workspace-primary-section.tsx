@@ -59,6 +59,7 @@ export function WorkspacePrimarySection({
   onRemoveStaged,
   onClearStaged,
   onLoadStagedDetail,
+  onOpenStagedDetail,
   onSelectLog,
   onInstallWorkspaceSkill,
   onCopyWorkspaceSkill,
@@ -237,6 +238,7 @@ export function WorkspacePrimarySection({
           dropzone={dropzone}
           remoteUrl={remoteUrl}
           onLoadStagedDetail={onLoadStagedDetail}
+          onOpenStagedDetail={onOpenStagedDetail}
           onImportZip={onImportZip}
           onImportFolder={onImportFolder}
           onRemoteAction={onRemoteAction}

@@ -422,11 +422,23 @@ export async function analyzeRemoteSource(input: RemoteAnalysisInput): Promise<R
 
   const readmeExcerpt = normalizeReadmeExcerpt(readme);
   const installStrategy = chooseStrategyFromRules(input.sourceType, readme, input.environment);
+  
+  let detectedDescription: string | null = null;
+  if (readmeExcerpt) {
+    const lines = readmeExcerpt.split(/\r?\n/).map(line => line.trim());
+    for (const line of lines) {
+      if (line && !line.startsWith("#") && !line.startsWith("![") && !line.startsWith("<") && !line.startsWith(">")) {
+        detectedDescription = line.slice(0, 200);
+        break;
+      }
+    }
+  }
+
   const baseResult: RemoteAnalysisResult = {
     sourceType: input.sourceType,
     analysisMethod: "rules",
     detectedName: isGitHubRepoUrl(input.sourceValue) ? extractRepoOwnerAndName(input.sourceValue).repo : null,
-    detectedDescription: null,
+    detectedDescription,
     analysisSummary: installStrategy.reason,
     archiveUrl,
     readmeUrl,

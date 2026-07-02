@@ -137,7 +137,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
         title={modalState?.title || t.modalInstalledSkills}
       />
 
-      {section === "local-install" && stagedModalOpen && selectedStagedDetail ? (
+      {stagedModalOpen && selectedStagedDetail ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => {
           setStagedModalOpen(false);
           clearSelectedStagedDetail();
