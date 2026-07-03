@@ -13,6 +13,9 @@
     <a href="https://www.electronjs.org/">
       <img src="https://img.shields.io/badge/Electron-Desktop-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" />
     </a>
+    <a href="./LICENSE">
+      <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT" />
+    </a>
   </p>
 
   <p>
@@ -56,13 +59,13 @@ The current AI Coding ecosystem is blossoming, and developers frequently use mul
 - **Local ZIP / Folders**: Supports drag-and-drop importing of existing local archives or directories.
 
 ### 💻 4. Modern Desktop App
-Breaking away from the obscure operations of traditional CLIs, we've built a high-aesthetic, responsive desktop client based on **Electron + Next.js + TypeScript**. With graphical overviews, drag-and-drop interactions, and one-click conflict resolution, geeky configuration workflows are transformed into a smooth product experience.
+Breaking away from the obscure operations of traditional CLIs, I've built a high-aesthetic, responsive desktop client based on **Electron + Next.js + TypeScript**. With graphical overviews, drag-and-drop interactions, and one-click conflict resolution, geeky configuration workflows are transformed into a smooth product experience.
 
 ---
 
 ## 🗺️ Roadmap & Future Plans
 
-We are constantly evolving to make AI skill management more intelligent and seamless. Upcoming killer features:
+I am constantly evolving to make AI skill management more intelligent and seamless. Upcoming killer features:
 
 - [ ] **🔗 URL One-Click Install**: Found an amazing skill on GitHub or elsewhere? Just paste the link! The system will automatically parse the repository and seamlessly install the skill into your designated local category—no more tedious manual downloading and extracting!
 - [ ] **🧠 AI-Powered Skill Discovery**: Provide a native smart search box to scour the internet for high-quality open-source skills using natural language.
@@ -72,7 +75,7 @@ We are constantly evolving to make AI skill management more intelligent and seam
 
 ## 📥 Download & Install
 
-Head over to our [Releases Page](https://github.com/KlayPeter/control-yours-skills/releases/latest) and download the latest setup file for your platform.
+Head over to the [Releases Page](https://github.com/KlayPeter/control-yours-skills/releases/latest) and download the latest setup file for your platform.
 
 - **Windows**: `Control Your Skills-Setup-<version>.exe`
 - **macOS (Apple Silicon)**: `Control Your Skills-<version>-arm64.dmg`
@@ -119,6 +122,19 @@ The generated installer will be stored in the `release/` directory.
 
 ---
 
+## 🤝 Contributing
+
+Found a bug? Have a great idea for a new feature? I welcome Issues and Pull Requests!
+Before contributing, please be sure to read my [Contributing Guide (CONTRIBUTING_EN.md)](./CONTRIBUTING_EN.md).
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT** License. See the [LICENSE](./LICENSE) file for details.
+
+---
+
 <div align="center">
-  <i>Built with ❤️ for the AI Agent Ecosystem. Take Control of Your Skills.</i>
+  <i>"Open source is a marathon, and so is the exploration of AI. Keep pacing, keep building." 🏃‍♂️</i>
 </div>

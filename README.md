@@ -13,6 +13,9 @@
     <a href="https://www.electronjs.org/">
       <img src="https://img.shields.io/badge/Electron-Desktop-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" />
     </a>
+    <a href="./LICENSE">
+      <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License: MIT" />
+    </a>
   </p>
 
   <p>
@@ -62,7 +65,7 @@
 
 ## 🗺️ 开发计划 (Roadmap & Future Plans)
 
-我们正在持续进化，为了让 AI 技能管理更加智能和无感。即将推出的杀手级功能：
+我正在持续进化，为了让 AI 技能管理更加智能和无感。即将推出的杀手级功能：
 
 - [ ] **🔗 一键链接安装 (URL One-Click Install)**：仅需贴入 GitHub 或其他网址，系统自动解析仓库，并替你一键安装至指定的本地分类下，再也不需要繁琐的手动下载与解压！
 - [ ] **🧠 强 AI 驱动技能检索 (AI-Powered Skill Discovery)**：提供原生的智能搜索框，用自然语言搜罗全网优质开源技能。
@@ -72,7 +75,7 @@
 
 ## 📥 下载安装 (Download & Install)
 
-前往我们的 [Releases 页面](https://github.com/KlayPeter/control-yours-skills/releases/latest) 下载适用于你系统的最新安装包。
+前往项目的 [Releases 页面](https://github.com/KlayPeter/control-yours-skills/releases/latest) 下载适用于你系统的最新安装包。
 
 - **Windows**: `Control Your Skills-Setup-<version>.exe`
 - **macOS (Apple Silicon)**: `Control Your Skills-<version>-arm64.dmg`
@@ -119,6 +122,19 @@ pnpm run dist
 
 ---
 
+## 🤝 参与贡献 (Contributing)
+
+发现 Bug？有很棒的新功能想法？欢迎提交 Issue 或 Pull Request！
+在参与贡献之前，请务必阅读本项目的 [贡献指南 (CONTRIBUTING.md)](./CONTRIBUTING.md)。
+
+---
+
+## 📄 许可证 (License)
+
+本项目采用 **MIT** 许可证开源。详情请参见 [LICENSE](./LICENSE) 文件。
+
+---
+
 <div align="center">
-  <i>Built with ❤️ for the AI Agent Ecosystem. Take Control of Your Skills.</i>
+  <i>"开源是一场马拉松，AI 时代的探索更是如此。步履不停，构建不止。" 🏃‍♂️</i>
 </div>
