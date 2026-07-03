@@ -914,7 +914,42 @@ export class SkillManagerBackend {
         }
 
         const slug = slugifySkillName(staged.detectedName || path.basename(staged.skillRootPath));
-        const installPath = await this.resolveInstallPath(installBaseDir, slug, settings.conflictPolicy);
+        let installPath = await this.resolveInstallPath(installBaseDir, slug, settings.conflictPolicy);
+        
+        // Check if an existing skill occupies this installPath or has the exact same name
+        let existingRecordRow = this.database
+          .prepare("select * from installed_skills where install_path = ? or name = ?")
+          .get(installPath, staged.detectedName || slug) as any;
+
+        if (existingRecordRow) {
+          if (settings.conflictPolicy === "skip") {
+            await this.writeLog(
+              "install",
+              "warning",
+              "Skipped installation because a skill with the same path or name already exists.",
+              installPath,
+              id
+            );
+            this.updateStagedSource(id, {
+              status: "error",
+              errorMessage: `Skipped: A skill named "${staged.detectedName || slug}" already exists.`,
+              updatedAt: nowIso()
+            });
+            continue;
+          }
+          
+          if (settings.conflictPolicy === "overwrite") {
+            // Force the installPath to be the existing record's path to overwrite it
+            installPath = existingRecordRow.install_path;
+          } else {
+            // If append-suffix, we let it be a new record, so clear existingRecordRow
+            // unless the installPath itself is what matched (which shouldn't happen with append-suffix)
+            if (existingRecordRow.install_path !== installPath) {
+              existingRecordRow = null; 
+            }
+          }
+        }
+
         await this.writeLog(
           "install",
           "info",
@@ -933,40 +968,73 @@ export class SkillManagerBackend {
           force: false
         });
 
-        const record: InstalledSkillRecord = {
-          id: randomUUID(),
-          name: staged.detectedName || slug,
-          slug,
-          description: staged.detectedDescription,
-          category: resolvedCategory || null,
-          syncStatus: "managed",
-          syncTargetCount: 0,
-          syncTargets: [],
-          installPath,
-          skillMdPath: path.join(installPath, "SKILL.md"),
-          sourceType: staged.sourceType,
-          sourceValue: staged.sourceValue,
-          installedAt: nowIso(),
-          updatedAt: nowIso()
-        };
+        if (existingRecordRow && settings.conflictPolicy === "overwrite") {
+          // Update existing record
+          this.database
+            .prepare(
+              `
+                update installed_skills
+                set name = ?, description = ?, category = ?, source_type = ?, source_value = ?, updated_at = ?
+                where id = ?
+              `
+            )
+            .run(
+              staged.detectedName || slug,
+              staged.detectedDescription,
+              resolvedCategory || null,
+              staged.sourceType,
+              staged.sourceValue,
+              nowIso(),
+              existingRecordRow.id
+            );
+          
+          installed.push(this.getInstalledSkill(existingRecordRow.id)!);
+        } else {
+          // Insert new record
+          const record: InstalledSkillRecord = {
+            id: randomUUID(),
+            name: staged.detectedName || slug,
+            slug,
+            description: staged.detectedDescription,
+            category: resolvedCategory || null,
+            syncStatus: "managed",
+            syncTargetCount: 0,
+            syncTargets: [],
+            installPath,
+            skillMdPath: path.join(installPath, "SKILL.md"),
+            sourceType: staged.sourceType,
+            sourceValue: staged.sourceValue,
+            installedAt: nowIso(),
+            updatedAt: nowIso()
+          };
 
-        this.database.prepare("delete from installed_skills where install_path = ?").run(installPath);
-        this.database
-          .prepare(
-            `
-              insert into installed_skills (
-                id, name, slug, description, category, install_path, skill_md_path, source_type, source_value, installed_at, updated_at
-              ) values (
-                @id, @name, @slug, @description, @category, @installPath, @skillMdPath, @sourceType, @sourceValue, @installedAt, @updatedAt
-              )
-            `
-          )
-          .run(record);
+          this.database
+            .prepare(
+              `
+                insert into installed_skills (
+                  id, name, slug, description, category, install_path, skill_md_path,
+                  source_type, source_value, installed_at, updated_at
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `
+            )
+            .run(
+              record.id,
+              record.name,
+              record.slug,
+              record.description,
+              record.category,
+              record.installPath,
+              record.skillMdPath,
+              record.sourceType,
+              record.sourceValue,
+              record.installedAt,
+              record.updatedAt
+            );
+          await this.writeLog("install", "info", `Installed skill: ${record.name}`, installPath, id);  
+          installed.push(record);
+        }
 
         this.database.prepare("delete from staged_sources where id = ?").run(id);
-
-        await this.writeLog("install", "info", `Installed skill: ${record.name}`, installPath, id);
-        installed.push(record);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown install error.";
         this.updateStagedSource(id, {

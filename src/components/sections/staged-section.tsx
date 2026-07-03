@@ -333,7 +333,8 @@ export function StagedSection({
                     />
                     <IconActionButton
                       icon={RefreshCcw}
-                      label={t.reparse}
+                      label={t.reparseMetadata}
+                      isLoading={item.status === "processing"}
                       onClick={() => void onParseStaged([item.id])}
                     />
                     <IconActionButton

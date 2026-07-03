@@ -28,30 +28,36 @@ export function CopyButton({
   );
 }
 
+import { LoaderCircle } from "lucide-react";
+
 export function IconActionButton({
   icon: Icon,
   label,
   onClick,
-  tone = "default"
+  tone = "default",
+  isLoading = false
 }: {
   icon: typeof Search;
   label: string;
   onClick: () => void;
   tone?: "default" | "danger" | "success";
+  isLoading?: boolean;
 }) {
   return (
     <button
       aria-label={label}
+      disabled={isLoading}
       className={cn(
         "app-icon-button rounded-2xl",
         tone === "danger" && "border-ember/25 bg-ember/10 text-ember hover:border-ember/40 hover:bg-ember/15",
-        tone === "success" && "border-moss/25 bg-moss/10 text-moss hover:border-moss/40 hover:bg-moss/15"
+        tone === "success" && "border-moss/25 bg-moss/10 text-moss hover:border-moss/40 hover:bg-moss/15",
+        isLoading && "opacity-50 cursor-wait"
       )}
       onClick={onClick}
       title={label}
       type="button"
     >
-      <Icon className="h-4 w-4" />
+      {isLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
     </button>
   );
 }

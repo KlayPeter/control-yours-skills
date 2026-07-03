@@ -10,7 +10,7 @@ function statusTone(status: SourceStatus) {
   }
 
   if (status === "ready") {
-    return "text-signal bg-signal/15 border-signal/25";
+    return "text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700";
   }
 
   if (status === "error") {
