@@ -12,6 +12,12 @@ export function registerIpcHandlers(backend: SkillManagerBackend) {
   ipcMain.handle("skill-manager:import-local-folder", (_event, folderPath: string) =>
     backend.importLocalFolder(folderPath)
   );
+  ipcMain.handle("skill-manager:preview-local-folder-import", (_event, folderPath: string) =>
+    backend.previewLocalFolderImport(folderPath)
+  );
+  ipcMain.handle("skill-manager:commit-folder-import", (_event, input) =>
+    backend.commitFolderImport(input)
+  );
   ipcMain.handle("skill-manager:add-remote-source", (_event, url: string) =>
     backend.addRemoteSource(url)
   );

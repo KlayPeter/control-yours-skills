@@ -11,12 +11,12 @@ import { dialog, shell } from "electron";
 import extractZip from "extract-zip";
 
 import type {
-  EnvironmentInfo,
   ExportInstalledSkillInput,
-  FolderImportResult,
+  FolderImportPreviewResult,
   ImportedProjectRecord,
   InstallWorkspaceSkillInput,
   CopyWorkspaceSkillInput,
+  CommitFolderImportInput,
   InstallStagedSourcesInput,
   DirectoryValidationResult,
   InstallStrategy,
@@ -521,7 +521,7 @@ export class SkillManagerBackend {
     return { ok: true, data: refreshed };
   }
 
-  async importLocalFolder(folderPath: string): Promise<OperationResult<FolderImportResult>> {
+  async previewLocalFolderImport(folderPath: string): Promise<OperationResult<FolderImportPreviewResult>> {
     const normalizedFolderPath = folderPath.trim();
     if (!normalizedFolderPath) {
       return { ok: false, error: "Please choose a local folder." };
@@ -538,12 +538,59 @@ export class SkillManagerBackend {
     }
 
     const existingByPath = new Set(this.listStagedSources().map((item) => item.sourceValue));
-    const records: StagedSourceRecord[] = [];
+    const skills = [];
     const skippedPaths: string[] = [];
 
     for (const skill of discoveredSkills) {
       if (existingByPath.has(skill.rootPath)) {
         skippedPaths.push(skill.rootPath);
+        continue;
+      }
+
+      const readmeExcerpt = await this.readLocalReadmeExcerpt(skill.rootPath, skill.skillMdPath);
+      const classification = classifySkill({
+        name: skill.name,
+        description: skill.description,
+        sourceValue: skill.rootPath,
+        skillRootPath: skill.rootPath,
+        markdown: skill.markdown,
+        readmeExcerpt
+      });
+
+      skills.push({
+        name: skill.name,
+        description: skill.description,
+        rootPath: skill.rootPath,
+        skillMdPath: skill.skillMdPath,
+        suggestedCategory: classification.suggestedCategory,
+      });
+    }
+
+    return {
+      ok: true,
+      data: {
+        sourcePath: normalizedFolderPath,
+        totalDetected: discoveredSkills.length,
+        skippedCount: skippedPaths.length,
+        skills,
+        skippedPaths
+      }
+    };
+  }
+
+  async commitFolderImport(input: CommitFolderImportInput): Promise<OperationResult<StagedSourceRecord[]>> {
+    if (!input.sourcePath || !input.selectedPaths || input.selectedPaths.length === 0) {
+      return { ok: false, error: "No skills selected for import." };
+    }
+
+    const discoveredSkills = await discoverSkillDirectories(input.sourcePath);
+    const existingByPath = new Set(this.listStagedSources().map((item) => item.sourceValue));
+    const selectedPathSet = new Set(input.selectedPaths);
+    
+    const records: StagedSourceRecord[] = [];
+    
+    for (const skill of discoveredSkills) {
+      if (!selectedPathSet.has(skill.rootPath) || existingByPath.has(skill.rootPath)) {
         continue;
       }
 
@@ -599,20 +646,28 @@ export class SkillManagerBackend {
       "staged",
       "info",
       `Imported local folder with ${records.length} detected skill${records.length === 1 ? "" : "s"}.`,
-      normalizedFolderPath,
+      input.sourcePath,
       null
     );
 
     return {
       ok: true,
-      data: {
-        sourcePath: normalizedFolderPath,
-        importedCount: records.length,
-        skippedCount: skippedPaths.length,
-        records,
-        skippedPaths
-      }
+      data: records
     };
+  }
+
+  async importLocalFolder(folderPath: string): Promise<OperationResult<StagedSourceRecord[]>> {
+    const previewResult = await this.previewLocalFolderImport(folderPath);
+    if (!previewResult.ok || !previewResult.data) {
+      return { ok: false, error: previewResult.error || "Preview failed." };
+    }
+    
+    const selectedPaths = previewResult.data.skills.map(s => s.rootPath);
+    if (selectedPaths.length === 0) {
+      return { ok: true, data: [] };
+    }
+    
+    return this.commitFolderImport({ sourcePath: folderPath, selectedPaths });
   }
 
   async addRemoteSource(url: string): Promise<OperationResult<StagedSourceRecord>> {

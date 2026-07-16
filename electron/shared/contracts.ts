@@ -95,12 +95,23 @@ export interface StagedSourceDetail extends StagedSourceRecord {
   markdown: string | null;
 }
 
-export interface FolderImportResult {
+export interface FolderImportPreviewResult {
   sourcePath: string;
-  importedCount: number;
+  totalDetected: number;
   skippedCount: number;
-  records: StagedSourceRecord[];
+  skills: Array<{
+    name: string | null;
+    description: string | null;
+    rootPath: string;
+    skillMdPath: string;
+    suggestedCategory: string | null;
+  }>;
   skippedPaths: string[];
+}
+
+export interface CommitFolderImportInput {
+  sourcePath: string;
+  selectedPaths: string[];
 }
 
 export interface InstalledSkillRecord {
@@ -320,7 +331,9 @@ export interface AdoptSyncTargetInput {
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
-  importLocalFolder(folderPath: string): Promise<OperationResult<FolderImportResult>>;
+  importLocalFolder(folderPath: string): Promise<OperationResult<StagedSourceRecord[]>>;
+  previewLocalFolderImport(folderPath: string): Promise<OperationResult<FolderImportPreviewResult>>;
+  commitFolderImport(input: CommitFolderImportInput): Promise<OperationResult<StagedSourceRecord[]>>;
   addRemoteSource(url: string): Promise<OperationResult<StagedSourceRecord>>;
   parseStagedSources(ids: string[]): Promise<OperationResult<StagedSourceRecord[]>>;
   installStagedSources(input: InstallStagedSourcesInput): Promise<OperationResult<InstalledSkillRecord[]>>;

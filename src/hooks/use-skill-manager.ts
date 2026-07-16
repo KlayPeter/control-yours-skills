@@ -6,6 +6,8 @@ import type {
   AdoptSyncTargetInput,
   InstallWorkspaceSkillInput,
   CopyWorkspaceSkillInput,
+  FolderImportPreviewResult,
+  CommitFolderImportInput,
   InstalledSkillDetail,
   Locale,
   SaveSettingsInput,
@@ -517,13 +519,39 @@ export function useSkillManager(initialSkillId?: string) {
           throw new Error(result.error || t.failedToImportFolder);
         }
 
-        if (result.data.records[0]) {
-          await loadStagedDetail(result.data.records[0].id);
+        if (result.data[0]) {
+          await loadStagedDetail(result.data[0].id);
         }
 
         setNotice(
-          result.data.importedCount > 1
-            ? `${t.folderImportedAndParsed} (${result.data.importedCount})`
+          result.data.length > 1
+            ? `${t.folderImportedAndParsed} (${result.data.length})`
+            : t.folderImportedAndParsed
+        );
+        return result.data;
+      }),
+    previewLocalFolderImport: (folderPath: string) =>
+      runAction("正在预览文件夹...", async () => {
+        const result = await api.previewLocalFolderImport(folderPath);
+        if (!result.ok || !result.data) {
+          throw new Error(result.error || t.failedToImportFolder);
+        }
+        return result.data;
+      }),
+    commitFolderImport: (input: CommitFolderImportInput) =>
+      runAction("正在导入所选项...", async () => {
+        const result = await api.commitFolderImport(input);
+        if (!result.ok || !result.data) {
+          throw new Error(result.error || t.failedToImportFolder);
+        }
+
+        if (result.data[0]) {
+          await loadStagedDetail(result.data[0].id);
+        }
+
+        setNotice(
+          result.data.length > 1
+            ? `${t.folderImportedAndParsed} (${result.data.length})`
             : t.folderImportedAndParsed
         );
         return result.data;

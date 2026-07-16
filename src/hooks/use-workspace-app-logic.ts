@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { useSkillManager } from "@/hooks/use-skill-manager";
 import { getSkillManagerApi } from "@/lib/electron-api";
-import type { WorkspaceSkillSource, WorkspaceSkillProviderKey, SaveSettingsInput, SkillManagerSnapshot } from "@shared/contracts";
+import type { WorkspaceSkillSource, WorkspaceSkillProviderKey, SaveSettingsInput, SkillManagerSnapshot, FolderImportPreviewResult } from "@shared/contracts";
 import type { WorkspaceSection } from "../components/workspace-app";
 import { translations, type TranslationDictionary } from "@/locales/translations";
 
@@ -99,6 +99,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     sources: WorkspaceSkillSource[];
   } | null>(null);
   const [stagedModalOpen, setStagedModalOpen] = useState(false);
+  const [folderPreviewState, setFolderPreviewState] = useState<FolderImportPreviewResult | null>(null);
   const [installConfirmContext, setInstallConfirmContext] = useState<{
     sourceRoot: string;
   skillRootPath: string;
@@ -345,24 +346,9 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
       return;
     }
 
-    const imported = await importLocalFolder(result.data);
-    if (!imported) {
-      return;
-    }
-
-    if (mode === "install" && imported.records.length > 0) {
-      await installStagedSources(
-        imported.records.map((record) => record.id),
-        settingsDraft.defaultSkillCategory || undefined
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.push("/local-install" as any);
-      return;
-    }
-
-    if (imported.records[0]) {
-      await loadStagedDetail(imported.records[0].id);
-      setStagedModalOpen(true);
+    const preview = await previewLocalFolderImport(result.data);
+    if (preview) {
+      setFolderPreviewState(preview);
     }
   };
 
@@ -488,6 +474,8 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     validateDirectory,
     importLocalArchive,
     importLocalFolder,
+    previewLocalFolderImport,
+    commitFolderImport,
     addRemoteSource,
     parseStagedSources,
     installStagedSources,
@@ -516,6 +504,8 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     setModalState,
     stagedModalOpen,
     setStagedModalOpen,
+    folderPreviewState,
+    setFolderPreviewState,
     installConfirmContext,
     setInstallConfirmContext,
     moveCopyContext,

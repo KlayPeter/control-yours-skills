@@ -19,6 +19,7 @@ import { cn } from "@/lib/cn";
 import { WorkspaceNavSidebar, navLabel } from "./workspace/workspace-nav-sidebar";
 import { useWorkspaceAppLogic } from "@/hooks/use-workspace-app-logic";
 export type { TranslationDictionary } from "@/locales/translations";
+import type { FolderImportPreviewResult } from "@shared/contracts";
 
 export type WorkspaceSection =
   | "overview"
@@ -35,7 +36,58 @@ interface WorkspaceAppProps {
   initialSkillId?: string;
 }
 
+function FolderPreviewList({ preview, onCommit, onCancel }: { preview: FolderImportPreviewResult, onCommit: (paths: string[]) => void, onCancel: () => void }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set(preview.skills.map(s => s.rootPath)));
+  
+  const toggle = (path: string) => {
+    const next = new Set(selected);
+    if (next.has(path)) next.delete(path);
+    else next.add(path);
+    setSelected(next);
+  };
 
+  return (
+    <div className="flex flex-col gap-4">
+      {preview.skills.map(skill => (
+        <label key={skill.rootPath} className="flex items-start gap-3 p-3 rounded-xl border border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+          <input 
+            type="checkbox" 
+            className="mt-1 h-4 w-4 rounded app-input" 
+            checked={selected.has(skill.rootPath)}
+            onChange={() => toggle(skill.rootPath)}
+          />
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-medium app-text truncate">{skill.name || "未命名技能"}</span>
+            <span className="text-xs app-text-soft truncate mt-1" title={skill.rootPath}>{skill.rootPath}</span>
+            {skill.suggestedCategory && (
+              <span className="text-[10px] uppercase tracking-wider text-signal mt-2">推荐分类: {skill.suggestedCategory}</span>
+            )}
+          </div>
+        </label>
+      ))}
+      <div className="flex justify-between items-center mt-4 pt-4 border-t border-black/10 dark:border-white/10">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input 
+            type="checkbox" 
+            className="h-4 w-4 rounded app-input" 
+            checked={selected.size === preview.skills.length && preview.skills.length > 0}
+            onChange={(e) => {
+              if (e.target.checked) setSelected(new Set(preview.skills.map(s => s.rootPath)));
+              else setSelected(new Set());
+            }}
+          />
+          <span className="text-sm app-text">全选</span>
+        </label>
+        <div className="flex gap-2">
+          <button className="app-button" onClick={onCancel}>取消</button>
+          <button className="app-button-primary" onClick={() => onCommit(Array.from(selected))} disabled={selected.size === 0}>
+            导入选中项 ({selected.size})
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
   const logic = useWorkspaceAppLogic(section, initialSkillId);
@@ -43,8 +95,9 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     router, snapshot, busyLabel, notice, error, isRefreshing, selectedSkillDetail,
     selectedStagedDetail, setNotice, setError, clearSelectedStagedDetail, refresh,
     openPath, installWorkspaceSkill, copyWorkspaceSkillToDirectory, createWorkspaceFolder,
-    settingsDraft, setSettingsDraft, modalState, setModalState, stagedModalOpen,
-    setStagedModalOpen, installConfirmContext, setInstallConfirmContext,
+    setSettingsDraft, modalState, setModalState, stagedModalOpen,
+    setStagedModalOpen, folderPreviewState, setFolderPreviewState, 
+    installConfirmContext, setInstallConfirmContext,
     moveCopyContext, setMoveCopyContext, sidebarTab, setSidebarTab, sidebarCollapsed,
     setSidebarCollapsed, t, selectedLog, installPathConfigured, headerPath,
     dropzone, pendingCount, failureCount, activeTheme,
@@ -61,7 +114,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     setSelectedLogId, loadStagedDetail, installStagedSources, parseStagedSources,
     removeStagedSources, clearStagedSources, toggleStageSelection, saveSettings,
     rescanInstalledSkill, pickDirectory, addSyncTarget, removeSyncTarget,
-    syncInstalledSkill, syncAllSkills, adoptSyncTarget,
+    syncInstalledSkill, syncAllSkills, adoptSyncTarget, commitFolderImport,
     updateStagedSourceCategory, updateInstalledSkillCategory
   } = logic;
 
@@ -436,6 +489,42 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
           </main>
         </div>
       </div>
+      
+      {folderPreviewState ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm transition-opacity dark:bg-black/60" onClick={() => setFolderPreviewState(null)}>
+          <div className="app-panel flex w-full max-w-[600px] flex-col overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-black/10 px-6 py-5 dark:border-white/10 bg-white/50 dark:bg-black/50">
+              <div>
+                <h3 className="text-lg font-semibold tracking-tight app-text mb-1">导入结果预览</h3>
+                <p className="text-sm app-text-soft">
+                  共发现 {folderPreviewState.totalDetected} 个技能，其中 {folderPreviewState.skippedCount} 个已在暂存区。
+                </p>
+              </div>
+              <button
+                className="app-icon-button rounded-2xl"
+                onClick={() => setFolderPreviewState(null)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="max-h-[50vh] overflow-y-auto px-6 py-4 flex flex-col gap-3">
+              {folderPreviewState.skills.length === 0 ? (
+                <div className="text-center text-sm app-text-soft py-8">没有新的可导入技能。</div>
+              ) : (
+                <FolderPreviewList preview={folderPreviewState} onCommit={async (selectedPaths) => {
+                  await commitFolderImport({
+                    sourcePath: folderPreviewState.sourcePath,
+                    selectedPaths
+                  });
+                  setFolderPreviewState(null);
+                }} onCancel={() => setFolderPreviewState(null)} />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {installConfirmContext ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm transition-opacity dark:bg-black/60" onClick={() => setInstallConfirmContext(null)}>
           <div className="app-panel flex w-full max-w-[320px] flex-col overflow-hidden p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
