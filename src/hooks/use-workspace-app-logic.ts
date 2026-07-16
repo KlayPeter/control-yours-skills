@@ -48,6 +48,8 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     validateDirectory,
     importLocalArchive,
     importLocalFolder,
+    previewLocalFolderImport,
+    commitFolderImport,
     addRemoteSource,
     parseStagedSources,
     installStagedSources,
@@ -86,7 +88,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
     theme: readCachedTheme(),
     locale: "zh-CN",
     ai: {
-      enabled: true,
+      enabled: false,
       provider: "deepseek",
       baseUrl: "https://api.deepseek.com",
       apiKey: "",
@@ -337,6 +339,7 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
   };
 
   const importFolderWithPicker = async (mode: "staged" | "install") => {
+    void mode;
     const initialPath =
       settingsDraft.projectDirs[settingsDraft.projectDirs.length - 1] ||
       snapshot?.settings.installDir ||

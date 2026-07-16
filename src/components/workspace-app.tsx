@@ -95,7 +95,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     router, snapshot, busyLabel, notice, error, isRefreshing, selectedSkillDetail,
     selectedStagedDetail, setNotice, setError, clearSelectedStagedDetail, refresh,
     openPath, installWorkspaceSkill, copyWorkspaceSkillToDirectory, createWorkspaceFolder,
-    setSettingsDraft, modalState, setModalState, stagedModalOpen,
+    settingsDraft, setSettingsDraft, modalState, setModalState, stagedModalOpen,
     setStagedModalOpen, folderPreviewState, setFolderPreviewState, 
     installConfirmContext, setInstallConfirmContext,
     moveCopyContext, setMoveCopyContext, sidebarTab, setSidebarTab, sidebarCollapsed,

@@ -23,7 +23,7 @@ function createDefaultSettings(paths: RuntimePaths): SettingsRecord {
     theme: "light",
     locale: "zh-CN",
     ai: {
-      enabled: true,
+      enabled: false,
       provider: "deepseek",
       baseUrl: "https://api.deepseek.com",
       apiKey: "",
@@ -58,7 +58,7 @@ export function createDatabase(paths: RuntimePaths) {
       theme text not null,
       locale text not null default 'zh-CN',
       ai_provider text not null default 'deepseek',
-      ai_enabled integer not null default 1,
+      ai_enabled integer not null default 0,
       ai_base_url text not null default 'https://api.deepseek.com',
       ai_api_key text not null default '',
       ai_model text not null default 'deepseek-v4-pro',
@@ -177,7 +177,7 @@ export function createDatabase(paths: RuntimePaths) {
   }
   if (!settingsColumns.some((column) => column.name === "ai_enabled")) {
     database.exec(
-      "alter table settings add column ai_enabled integer not null default 1;",
+      "alter table settings add column ai_enabled integer not null default 0;",
     );
   }
   if (!settingsColumns.some((column) => column.name === "ai_base_url")) {
@@ -317,9 +317,12 @@ export function createDatabase(paths: RuntimePaths) {
             skill_categories = coalesce(nullif(skill_categories, ''), '[]'),
             default_skill_category = coalesce(default_skill_category, ''),
             ai_provider = coalesce(nullif(ai_provider, ''), 'deepseek'),
-            ai_enabled = coalesce(ai_enabled, 1),
+            ai_enabled = case
+              when trim(ai_api_key) = '' or trim(ai_api_key) = 'xxx' then 0
+              else coalesce(ai_enabled, 1)
+            end,
             ai_base_url = coalesce(nullif(ai_base_url, ''), 'https://api.deepseek.com'),
-            ai_api_key = case when ai_api_key = '' then 'xxx' else ai_api_key end,
+            ai_api_key = case when trim(ai_api_key) = 'xxx' then '' else ai_api_key end,
             ai_model = coalesce(nullif(ai_model, ''), 'deepseek-v4-pro')
           where id = 1
         `,

@@ -36,7 +36,7 @@ const fallbackSettings: SettingsRecord = {
   theme: "light",
   locale: "en",
   ai: {
-    enabled: true,
+    enabled: false,
     provider: "deepseek",
     baseUrl: "https://api.deepseek.com",
     apiKey: "",

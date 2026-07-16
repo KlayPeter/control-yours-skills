@@ -19,6 +19,7 @@ import type {
   CommitFolderImportInput,
   InstallStagedSourcesInput,
   DirectoryValidationResult,
+  EnvironmentInfo,
   InstallStrategy,
   InstalledSkillDetail,
   InstalledSkillRecord,
