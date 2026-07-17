@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Search, FolderPlus, FolderOpen, ArrowRight, Settings, X, ChevronDown, Check } from "lucide-react";
+import { Search, FolderPlus, FolderOpen, ArrowRight, Settings, X, ChevronDown, Check, Tags } from "lucide-react";
 import * as Select from "@radix-ui/react-select";
 import { ProviderIcon } from "../ui/icons";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, ImportedProjectRecord, WorkspaceSkillSource } from "@shared/contracts";
@@ -8,6 +8,7 @@ import { SectionCard } from "../ui/cards";
 import { SyncStatusBadge } from "../ui/badges";
 import { WorkspaceTree } from "../workspace/workspace-tree";
 import { SkillLifecycleDialog } from "../workspace/skill-lifecycle-dialog";
+import { getSkillManagerApi } from "@/lib/electron-api";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -397,20 +398,38 @@ export function LocalInstallSection({
 }) {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(new Set());
+  const [tagFilter, setTagFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [batchTag, setBatchTag] = useState("");
+  const [batchCategory, setBatchCategory] = useState("__unchanged__");
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchNotice, setBatchNotice] = useState<string | null>(null);
   const installTree = snapshot.installDirTree;
+  const installedSkillByPath = new Map(snapshot.installedSkills.map((skill) => [skill.installPath, skill]));
+  const allTags = [...new Set(snapshot.installedSkills.flatMap((skill) => skill.tags))].sort();
 
-  // Simple search filter function that filters the tree nodes by name
   const filterTree = (nodes: WorkspaceTreeNode[], search: string): WorkspaceTreeNode[] => {
-    if (!search) return nodes;
-    const lowerSearch = search.toLowerCase();
+    const lowerSearch = search.trim().toLowerCase();
     
     return nodes.map(node => {
-      if (node.kind === 'skill' && node.name.toLowerCase().includes(lowerSearch)) {
-        return node;
+      if (node.kind === 'skill') {
+        const skill = installedSkillByPath.get(node.absolutePath);
+        const matchesSearch = !lowerSearch || [
+          node.name,
+          skill?.name,
+          skill?.slug,
+          skill?.description,
+          ...(skill?.tags || [])
+        ].some((value) => value?.toLowerCase().includes(lowerSearch));
+        const matchesTag = !tagFilter || skill?.tags.includes(tagFilter);
+        const matchesCategory = !categoryFilter || skill?.category === categoryFilter;
+        return matchesSearch && matchesTag && matchesCategory ? node : null;
       }
       if (node.kind === 'folder') {
         const filteredChildren = filterTree(node.children, search);
-        if (filteredChildren.length > 0 || node.name.toLowerCase().includes(lowerSearch)) {
+        if (filteredChildren.length > 0) {
           return { ...node, children: filteredChildren };
         }
       }
@@ -421,6 +440,55 @@ export function LocalInstallSection({
   const filteredTree = filterTree(installTree, searchValue);
   const syncTargetCandidates = [...snapshot.systemSkillSources, ...snapshot.workspaceSkillSources];
   const syncTargetCandidateMap = new Map(syncTargetCandidates.map((candidate) => [candidate.path, candidate]));
+  const visiblePaths = new Set<string>();
+  const collectVisiblePaths = (nodes: WorkspaceTreeNode[]) => {
+    for (const node of nodes) {
+      if (node.kind === "skill") visiblePaths.add(node.absolutePath);
+      else collectVisiblePaths(node.children);
+    }
+  };
+  collectVisiblePaths(filteredTree);
+  const visibleSkillIds = snapshot.installedSkills
+    .filter((skill) => visiblePaths.has(skill.installPath))
+    .map((skill) => skill.id);
+
+  const toggleSkillSelection = (skillId: string) => {
+    setSelectedSkillIds((current) => {
+      const next = new Set(current);
+      if (next.has(skillId)) next.delete(skillId);
+      else next.add(skillId);
+      return next;
+    });
+  };
+
+  const runBatchUpdate = async (action: "category" | "add-tag" | "remove-tag") => {
+    if (selectedSkillIds.size === 0 || (action !== "category" && !batchTag.trim())) return;
+    setBatchBusy(true);
+    setBatchError(null);
+    setBatchNotice(null);
+    try {
+      const result = await getSkillManagerApi().batchUpdateInstalledSkills({
+        ids: [...selectedSkillIds],
+        ...(action === "category"
+          ? { category: batchCategory === "__uncategorized__" ? null : batchCategory }
+          : {}),
+        ...(action === "add-tag" ? { addTags: [batchTag] } : {}),
+        ...(action === "remove-tag" ? { removeTags: [batchTag] } : {})
+      });
+      if (!result.ok || !result.data) {
+        throw new Error(result.error || "批量更新失败。");
+      }
+      setBatchTag("");
+      setBatchNotice(`已更新 ${result.data.length} 个技能。`);
+      await Promise.resolve()
+        .then(() => onRefresh())
+        .catch(() => setBatchError("更新已成功，但列表刷新失败；请点击右上角刷新。"));
+    } catch (updateError) {
+      setBatchError(updateError instanceof Error ? updateError.message : "批量更新失败。");
+    } finally {
+      setBatchBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -503,6 +571,53 @@ export function LocalInstallSection({
         )}
       </div>
 
+      <div className="app-surface-subtle rounded-3xl p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="grid flex-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-xs uppercase tracking-[0.16em] app-text-soft" htmlFor="asset-category-filter">分类筛选</label>
+              <select className="app-input mt-2 h-10 w-full rounded-2xl px-3 text-sm" id="asset-category-filter" onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
+                <option value="">全部分类</option>
+                {snapshot.installCategories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-[0.16em] app-text-soft" htmlFor="asset-tag-filter">标签筛选</label>
+              <select className="app-input mt-2 h-10 w-full rounded-2xl px-3 text-sm" id="asset-tag-filter" onChange={(event) => setTagFilter(event.target.value)} value={tagFilter}>
+                <option value="">全部标签</option>
+                {allTags.map((tag) => <option key={tag} value={tag}>#{tag}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm app-text-soft">已选 {selectedSkillIds.size} 个</span>
+            <button className="app-button px-3" disabled={visibleSkillIds.length === 0} onClick={() => setSelectedSkillIds(new Set(visibleSkillIds))} type="button">全选筛选结果</button>
+            <button className="app-button px-3" disabled={selectedSkillIds.size === 0} onClick={() => setSelectedSkillIds(new Set())} type="button">清空选择</button>
+          </div>
+        </div>
+
+        {selectedSkillIds.size > 0 ? (
+          <div className="mt-4 border-t border-black/10 pt-4 dark:border-white/10">
+            <div className="grid gap-3 xl:grid-cols-[minmax(180px,0.8fr),auto,minmax(180px,1fr),auto,auto]">
+              <select aria-label="批量分类" className="app-input h-10 rounded-2xl px-3 text-sm" onChange={(event) => setBatchCategory(event.target.value)} value={batchCategory}>
+                <option value="__unchanged__">选择批量分类</option>
+                <option value="__uncategorized__">取消分类</option>
+                {snapshot.installCategories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
+              </select>
+              <button className="app-button px-4" disabled={batchBusy || batchCategory === "__unchanged__"} onClick={() => void runBatchUpdate("category")} type="button">应用分类</button>
+              <div className="relative">
+                <Tags className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 app-text-soft" />
+                <input aria-label="批量标签" className="app-input h-10 w-full rounded-2xl pl-9 pr-3 text-sm" maxLength={40} onChange={(event) => setBatchTag(event.target.value)} placeholder="输入标签，例如 stable" value={batchTag} />
+              </div>
+              <button className="app-button px-4" disabled={batchBusy || !batchTag.trim()} onClick={() => void runBatchUpdate("add-tag")} type="button">添加标签</button>
+              <button className="app-button px-4" disabled={batchBusy || !batchTag.trim()} onClick={() => void runBatchUpdate("remove-tag")} type="button">移除标签</button>
+            </div>
+            {batchError ? <p className="mt-3 text-sm text-red-600 dark:text-red-300">{batchError}</p> : null}
+            {batchNotice ? <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-300">{batchNotice}</p> : null}
+          </div>
+        ) : null}
+      </div>
+
       <SectionCard 
         title={t.localInstallDirectory || "中心仓库目录"} 
         subtitle={t.localInstallDirectorySubtitle || "查看和管理中心仓库在磁盘上的真实目录结构"}
@@ -555,6 +670,17 @@ export function LocalInstallSection({
             }
             return (
                <div className="flex items-center gap-3 mr-2">
+                 <input
+                   aria-label={`选择 ${skill.name}`}
+                   checked={selectedSkillIds.has(skill.id)}
+                   className="h-4 w-4 rounded border-black/20 dark:border-white/20"
+                   onChange={() => toggleSkillSelection(skill.id)}
+                   onClick={(event) => event.stopPropagation()}
+                   type="checkbox"
+                 />
+                 {skill.tags.slice(0, 2).map((tag) => (
+                   <span className="hidden rounded-full border border-black/10 px-2 py-0.5 text-[10px] app-text-soft dark:border-white/10 xl:inline-flex" key={tag}>#{tag}</span>
+                 ))}
                  <div className="hidden sm:block">
                    <SyncStatusBadge status={skill.syncStatus} t={t} />
                  </div>
