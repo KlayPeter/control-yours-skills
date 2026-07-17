@@ -62,6 +62,7 @@ import { computeDirectoryHash, replaceDirectory } from "./utils/sync-engine";
 import { diffDirectories } from "./utils/directory-diff";
 import { createDirectorySnapshot } from "./utils/directory-snapshot";
 import { applySkillTagChanges, normalizeSkillTags } from "./utils/skill-tags";
+import { resolveScannedSkillCategory } from "./utils/skill-records";
 import {
   resolveSystemProviderSkillPath,
   scanProjectTree,
@@ -475,7 +476,7 @@ export class SkillManagerBackend {
         if (existing) {
           updateStmt.run({
             installPath: skill.installPath,
-            category: skill.category ?? existing.category,
+            category: resolveScannedSkillCategory(existing.category, skill.category),
             name: skill.name,
             description: skill.description
           });
@@ -2293,8 +2294,12 @@ export class SkillManagerBackend {
     const skillCategories = [...new Set(input.skillCategories.map((item) => this.resolveInstallCategory(item)).filter(Boolean))];
     const defaultSkillCategory = this.resolveInstallCategory(input.defaultSkillCategory);
     const snapshots = {
-      retentionCount: Math.min(100, Math.max(5, Math.round(input.snapshots.retentionCount))),
-      storageLimitMb: Math.min(10_240, Math.max(256, Math.round(input.snapshots.storageLimitMb)))
+      retentionCount: Number.isFinite(input.snapshots.retentionCount)
+        ? Math.min(100, Math.max(5, Math.round(input.snapshots.retentionCount)))
+        : 20,
+      storageLimitMb: Number.isFinite(input.snapshots.storageLimitMb)
+        ? Math.min(10_240, Math.max(256, Math.round(input.snapshots.storageLimitMb)))
+        : 1024
     };
 
     if (installDir) {
