@@ -143,14 +143,13 @@ export function WorkspaceTreeNodeRow({
   renderNodeRight?: (node: WorkspaceTreeNode) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isFolder = node.kind === "folder";
 
   return (
     <div>
       <div className={cn(
         "group relative flex items-center gap-3 transition-all",
-        isMenuOpen ? "z-50" : "z-0",
+        "z-0",
         isFolder 
           ? "py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-2 -mx-2"
           : "my-1 p-3 rounded-xl border border-transparent hover:border-black/5 dark:hover:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:shadow-sm"

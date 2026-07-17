@@ -5,7 +5,6 @@ import { useState, useRef, useEffect } from "react";
 import {
   AlertCircle,
   CheckCircle2,
-  FolderOpen,
   LoaderCircle,
   RefreshCcw,
   X
@@ -99,23 +98,23 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     setStagedModalOpen, folderPreviewState, setFolderPreviewState, 
     installConfirmContext, setInstallConfirmContext,
     moveCopyContext, setMoveCopyContext, sidebarTab, setSidebarTab, sidebarCollapsed,
-    setSidebarCollapsed, t, selectedLog, installPathConfigured, headerPath,
-    dropzone, pendingCount, failureCount, activeTheme,
+    setSidebarCollapsed, t, selectedLog, installPathConfigured,
+    dropzone, pendingCount, failureCount,
     handleImportProject, handleRemoveProject, handleCreateCategory,
     handleInstallWorkspaceSkill, openSystemSourceModal, importZipWithPicker, importFolderWithPicker,
     handleRemoteAction, openStagedDetailModal, handleInstallWithProgress,
     handleInstallManyWithProgress, handlePickInstallDir, handleQuickChooseInstallDir,
     handleValidateInstallDir, handlePickTempDir, handleValidateTempDir,
     searchValue, setSearchValue,
-    selectedCategoryFilter, setSelectedCategoryFilter, newCategoryName,
+    setSelectedCategoryFilter, newCategoryName,
     setNewCategoryName, remoteUrl, setRemoteUrl, primarySectionCategory,
     copySkill, moveSkill,
     selectedSkillId, selectedStagedId, selectedLogId, installedSkills, selectedStageIds,
-    setSelectedLogId, loadStagedDetail, installStagedSources, parseStagedSources,
+    setSelectedLogId, installStagedSources, parseStagedSources,
     removeStagedSources, clearStagedSources, toggleStageSelection, saveSettings,
     rescanInstalledSkill, pickDirectory, addSyncTarget, removeSyncTarget,
     syncInstalledSkill, syncAllSkills, adoptSyncTarget, commitFolderImport,
-    updateStagedSourceCategory, updateInstalledSkillCategory
+    updateStagedSourceCategory
   } = logic;
 
   // Auto refresh when section changes
@@ -368,7 +367,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onImportFolder={importFolderWithPicker}
-                  onLoadStagedDetail={loadStagedDetail}
                   onOpenStagedDetail={openStagedDetailModal}
                   onInstallStagedWithProgress={handleInstallWithProgress}
                   onOpenPath={openPath}
@@ -392,7 +390,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onSyncAllSkills={syncAllSkills}
                   onAdoptSyncTarget={adoptSyncTarget}
                   onUpdateStagedSourceCategory={updateStagedSourceCategory}
-                  onUpdateInstalledSkillCategory={updateInstalledSkillCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
                   onCreateWorkspaceFolder={createWorkspaceFolder}
                   onSaveSettings={() => saveSettings(settingsDraft)}
@@ -436,7 +433,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onImportFolder={importFolderWithPicker}
-                  onLoadStagedDetail={loadStagedDetail}
                   onOpenStagedDetail={openStagedDetailModal}
                   onInstallStagedWithProgress={handleInstallWithProgress}
                   onOpenPath={openPath}
@@ -460,7 +456,6 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onSyncAllSkills={syncAllSkills}
                   onAdoptSyncTarget={adoptSyncTarget}
                   onUpdateStagedSourceCategory={updateStagedSourceCategory}
-                  onUpdateInstalledSkillCategory={updateInstalledSkillCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
                   onCreateWorkspaceFolder={createWorkspaceFolder}
                   onSaveSettings={() => saveSettings(settingsDraft)}

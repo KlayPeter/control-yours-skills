@@ -12,23 +12,6 @@ type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
 type InstalledSkillCard = SkillManagerSnapshot["installedSkills"][number];
 
-function describeSkillStatus(skill: InstalledSkillCard, t: TranslationDictionary) {
-  switch (skill.syncStatus) {
-    case "synced":
-      return t.centerRepositoryStatusSyncedHint || "中心仓库和已绑定目标一致。";
-    case "outdated":
-      return t.centerRepositoryStatusOutdatedHint || "中心仓库有更新，已绑定目标还没跟上。";
-    case "local_changes":
-      return t.centerRepositoryStatusLocalChangesHint || "某个目标目录被改过了，中心仓库和目标可能不一致。";
-    case "conflict":
-      return t.centerRepositoryStatusConflictHint || "中心仓库和目标目录都变了，需要去冲突页决策。";
-    case "sync_failed":
-      return t.centerRepositoryStatusFailedHint || "最近一次同步没有成功，建议检查同步状态。";
-    default:
-      return t.centerRepositoryStatusManagedHint || "已经纳入中心仓库，但还没有绑定同步目标。";
-  }
-}
-
 function describeSkillNextStep(skill: InstalledSkillCard, t: TranslationDictionary) {
   if (skill.syncTargetCount === 0) {
     return t.centerRepositoryNextStepBindTarget || "先绑定至少一个同步目标，这个 skill 才能分发出去。";
@@ -54,32 +37,21 @@ function formatPathPreview(path: string) {
   return `.../${segments.slice(-4).join("/")}`;
 }
 
-function syncTargetOptionLabel(candidate: SkillManagerSnapshot["systemSkillSources"][number], t: TranslationDictionary) {
-  const scopeLabel = candidate.scope === "system"
-    ? t.syncTargetScopeSystem || "系统"
-    : t.syncTargetScopeProject || "项目";
-  return `${scopeLabel} / ${candidate.label} / ${candidate.path}`;
-}
-
 function SkillConfigDialog({
   skill,
   t,
-  availableCategories,
   syncTargetCandidates,
   syncTargetCandidateMap,
   importedProjects,
-  onUpdateInstalledSkillCategory,
   onRemoveSyncTarget,
   onAddSyncTarget,
   onGoSyncStatus
 }: {
   skill: InstalledSkillCard;
   t: TranslationDictionary;
-  availableCategories: string[];
   syncTargetCandidates: WorkspaceSkillSource[];
   syncTargetCandidateMap: Map<string, WorkspaceSkillSource>;
   importedProjects: ImportedProjectRecord[];
-  onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
   onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
   onGoSyncStatus: () => AsyncActionResult;
@@ -404,7 +376,6 @@ export function LocalInstallSection({
   onCreateWorkspaceFolder,
   onAddSyncTarget,
   onRemoveSyncTarget,
-  onUpdateInstalledSkillCategory,
   onGoStaged,
   onGoSyncStatus,
   searchValue,
@@ -416,7 +387,6 @@ export function LocalInstallSection({
   onCreateWorkspaceFolder?: (input: { parentPath: string; folderName: string }) => AsyncActionResult;
   onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
   onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
-  onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   onGoStaged: () => AsyncActionResult;
   onGoSyncStatus: () => AsyncActionResult;
   searchValue: string;
@@ -446,50 +416,8 @@ export function LocalInstallSection({
   };
 
   const filteredTree = filterTree(installTree, searchValue);
-  const filteredInstalledSkills = snapshot.installedSkills.filter((skill) => {
-    const term = searchValue.trim().toLowerCase();
-    if (!term) {
-      return true;
-    }
-
-    return (
-      skill.name.toLowerCase().includes(term) ||
-      skill.slug.toLowerCase().includes(term) ||
-      skill.description?.toLowerCase().includes(term) ||
-      skill.category?.toLowerCase().includes(term)
-    );
-  });
-  const availableCategories = [...new Set([
-    ...snapshot.settings.skillCategories,
-    ...snapshot.installCategories.map((category) => category.name)
-  ])].sort((left, right) => left.localeCompare(right));
-  const categorizedCount = snapshot.installedSkills.filter((skill) => Boolean(skill.category)).length;
-  const connectedTargetCount = snapshot.installedSkills.reduce((count, skill) => count + skill.syncTargetCount, 0);
   const syncTargetCandidates = [...snapshot.systemSkillSources, ...snapshot.workspaceSkillSources];
   const syncTargetCandidateMap = new Map(syncTargetCandidates.map((candidate) => [candidate.path, candidate]));
-  const sortedInstalledSkills = [...filteredInstalledSkills].sort((left, right) => {
-    const leftCategory = left.category || "zzz";
-    const rightCategory = right.category || "zzz";
-    return leftCategory.localeCompare(rightCategory) || left.name.localeCompare(right.name);
-  });
-  const groupedInstalledSkills = sortedInstalledSkills.reduce<Array<{ key: string; label: string; skills: typeof sortedInstalledSkills }>>(
-    (groups, skill) => {
-      const key = skill.category || "__uncategorized__";
-      const existingGroup = groups.find((group) => group.key === key);
-      if (existingGroup) {
-        existingGroup.skills.push(skill);
-        return groups;
-      }
-
-      groups.push({
-        key,
-        label: skill.category || t.unclassifiedOption || "未分类",
-        skills: [skill]
-      });
-      return groups;
-    },
-    []
-  );
 
   return (
     <div className="space-y-6">
@@ -630,11 +558,9 @@ export function LocalInstallSection({
                  <SkillConfigDialog 
                    skill={skill}
                    t={t}
-                   availableCategories={availableCategories}
                    syncTargetCandidates={syncTargetCandidates}
                    syncTargetCandidateMap={syncTargetCandidateMap}
                    importedProjects={snapshot.importedProjects}
-                   onUpdateInstalledSkillCategory={onUpdateInstalledSkillCategory}
                    onRemoveSyncTarget={onRemoveSyncTarget}
                    onAddSyncTarget={onAddSyncTarget}
                    onGoSyncStatus={onGoSyncStatus}

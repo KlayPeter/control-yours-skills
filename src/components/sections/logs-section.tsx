@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { SkillManagerSnapshot, LogRecord } from "@shared/contracts";
-import { GitCommit, X } from "lucide-react";
+import { X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { RelativeTimeText } from "../ui/typography";
 import { EmptyState } from "../ui/empty-state";

@@ -6,6 +6,7 @@ import { registerIpcHandlers } from "./ipc";
 import { startProductionRenderer } from "./production-server";
 import { SkillManagerBackend } from "./skill-manager-backend";
 import { setupUpdater } from "./updater";
+import { isTrustedRendererUrl } from "./ipc-security";
 
 const isDevelopment = !app.isPackaged;
 
@@ -26,6 +27,18 @@ function createWindow(rendererUrl: string) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
+    }
+  });
+
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", (event, navigationUrl) => {
+    if (!isTrustedRendererUrl(navigationUrl, rendererUrl)) {
+      event.preventDefault();
+    }
+  });
+  window.webContents.on("will-redirect", (event, redirectUrl) => {
+    if (!isTrustedRendererUrl(redirectUrl, rendererUrl)) {
+      event.preventDefault();
     }
   });
 
@@ -51,7 +64,7 @@ async function bootstrap() {
     : productionRenderer!.url;
 
   const backend = new SkillManagerBackend(app.getPath("userData"));
-  registerIpcHandlers(backend);
+  registerIpcHandlers(backend, rendererUrl);
 
   const iconPath = path.join(app.getAppPath(), "build", "icon.png");
   if (process.platform === "darwin") {

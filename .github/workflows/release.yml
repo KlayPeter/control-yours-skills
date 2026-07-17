@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  pull_request:
   push:
     tags:
       - "v*"
@@ -29,17 +30,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify tests and types
+        run: npm test && npm run typecheck && npm run lint
+
       - name: Build app bundle
         run: npm run build
 
       - name: Build and publish Windows installer
-        if: matrix.os == 'windows-latest'
+        if: github.event_name != 'pull_request' && matrix.os == 'windows-latest'
         run: npm run release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and publish Mac DMG
-        if: matrix.os == 'macos-latest'
+        if: github.event_name != 'pull_request' && matrix.os == 'macos-latest'
         run: npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

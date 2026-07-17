@@ -67,7 +67,6 @@ export function StagedSection({
   onImportFolder,
   onRemoteAction,
   onToggleStageSelection,
-  onLoadStagedDetail,
   onOpenStagedDetail,
   onParseStaged,
   onInstallStaged,
@@ -87,7 +86,6 @@ export function StagedSection({
   onImportFolder: (mode: "staged" | "install") => AsyncActionResult;
   onRemoteAction: (mode: "staged" | "install") => AsyncActionResult;
   onToggleStageSelection: (id: string) => void;
-  onLoadStagedDetail: (id: string) => AsyncActionResult;
   onOpenStagedDetail: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
   onInstallStaged: (ids: string[]) => AsyncActionResult;

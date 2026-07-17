@@ -11,8 +11,7 @@ import {
   Settings,
   FolderPlus,
   RefreshCcw,
-  GitBranch,
-  AlertTriangle
+  GitBranch
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { LogoIcon } from "@/components/ui/logo-icon";

@@ -1,4 +1,4 @@
-import { FolderPlus, FolderSearch, Search } from "lucide-react";
+import { FolderPlus, Search } from "lucide-react";
 import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode, CopyWorkspaceSkillInput } from "@shared/contracts";
 import { SectionCard } from "../ui/cards";
 import { WorkspaceTree } from "../workspace/workspace-tree";
@@ -37,8 +37,6 @@ export function ProjectsSection({
   onSearchValueChange: (value: string) => void;
 }) {
   const projects = snapshot.importedProjects;
-  const totalSkillCount = projects.reduce((sum, project) => sum + countSkillsInTree(project.tree), 0);
-  const searchableProjectCount = projects.filter((project) => countSkillsInTree(project.tree) > 0).length;
 
   // Simple search filter function that filters the tree nodes by name
   const filterTree = (nodes: WorkspaceTreeNode[], search: string): WorkspaceTreeNode[] => {

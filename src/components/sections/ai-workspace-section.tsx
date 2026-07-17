@@ -60,8 +60,6 @@ export function AiWorkspaceSection({
   };
 
   const activeSource = sources.find(s => s.id === activeSourceId) || sources[0];
-  const availableSourceCount = sources.filter((source) => source.exists).length;
-  const totalSkillCount = sources.reduce((count, source) => count + source.skillCount, 0);
 
   return (
     <div className="space-y-6">

@@ -6,7 +6,6 @@ import type {
   AdoptSyncTargetInput,
   InstallWorkspaceSkillInput,
   CopyWorkspaceSkillInput,
-  FolderImportPreviewResult,
   CommitFolderImportInput,
   InstalledSkillDetail,
   Locale,

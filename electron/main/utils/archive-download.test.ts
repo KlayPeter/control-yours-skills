@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { downloadRemoteArchive } from "./archive-download";
 
 const createdDirectories: string[] = [];
+const resolvePublicHost = async () => ["93.184.216.34"];
 
 async function createTempDirectory() {
   const tempRoot = path.join(process.cwd(), ".tmp-tests");
@@ -29,7 +30,7 @@ describe("downloadRemoteArchive", () => {
       new Response(new Uint8Array([1, 2, 3]), { status: 200 })
     );
 
-    await downloadRemoteArchive("https://example.com/skill.zip", archivePath, { fetchImpl });
+    await downloadRemoteArchive("https://example.com/skill.zip", archivePath, { fetchImpl, resolveHost: resolvePublicHost });
 
     await expect(fs.readFile(archivePath)).resolves.toEqual(Buffer.from([1, 2, 3]));
   });
@@ -55,7 +56,11 @@ describe("downloadRemoteArchive", () => {
     );
 
     await expect(
-      downloadRemoteArchive("https://example.com/skill.zip", archivePath, { fetchImpl, maxBytes: 10 })
+      downloadRemoteArchive("https://example.com/skill.zip", archivePath, {
+        fetchImpl,
+        maxBytes: 10,
+        resolveHost: resolvePublicHost
+      })
     ).rejects.toThrow("download limit");
     await expect(fs.access(archivePath)).rejects.toThrow();
   });
@@ -72,8 +77,43 @@ describe("downloadRemoteArchive", () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(body, { status: 200 }));
 
     await expect(
-      downloadRemoteArchive("https://example.com/skill.zip", archivePath, { fetchImpl, maxBytes: 10 })
+      downloadRemoteArchive("https://example.com/skill.zip", archivePath, {
+        fetchImpl,
+        maxBytes: 10,
+        resolveHost: resolvePublicHost
+      })
     ).rejects.toThrow("download limit");
     await expect(fs.access(archivePath)).rejects.toThrow();
+  });
+
+  it("rejects private network destinations before making a request", async () => {
+    const directory = await createTempDirectory();
+    const fetchImpl = vi.fn<typeof fetch>();
+
+    await expect(
+      downloadRemoteArchive("https://127.0.0.1/skill.zip", path.join(directory, "skill.zip"), { fetchImpl })
+    ).rejects.toThrow("private network");
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("validates every redirect destination before requesting it", async () => {
+    const directory = await createTempDirectory();
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: { location: "https://internal.example/skill.zip" }
+      })
+    );
+    const resolveHost = vi.fn(async (hostname: string) =>
+      hostname === "internal.example" ? ["127.0.0.1"] : ["93.184.216.34"]
+    );
+
+    await expect(
+      downloadRemoteArchive("https://example.com/skill.zip", path.join(directory, "skill.zip"), {
+        fetchImpl,
+        resolveHost
+      })
+    ).rejects.toThrow("private network");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

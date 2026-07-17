@@ -58,7 +58,6 @@ export function WorkspacePrimarySection({
   onInstallStaged,
   onRemoveStaged,
   onClearStaged,
-  onLoadStagedDetail,
   onOpenStagedDetail,
   onSelectLog,
   onInstallWorkspaceSkill,
@@ -76,7 +75,6 @@ export function WorkspacePrimarySection({
   onSyncInstalledSkill,
   onAdoptSyncTarget,
   onUpdateStagedSourceCategory,
-  onUpdateInstalledSkillCategory,
   newCategoryName,
   onNewCategoryNameChange
 }: {
@@ -118,7 +116,6 @@ export function WorkspacePrimarySection({
   onInstallStaged: (ids: string[]) => AsyncActionResult;
   onRemoveStaged: (ids: string[]) => AsyncActionResult;
   onClearStaged: () => Promise<number | undefined>;
-  onLoadStagedDetail: (id: string) => AsyncActionResult;
   onOpenStagedDetail: (id: string) => void;
   onInstallStagedWithProgress: (id: string) => Promise<void>;
   onSelectLog: (logId: string) => void;
@@ -142,7 +139,6 @@ export function WorkspacePrimarySection({
   onSyncAllSkills: () => AsyncActionResult;
   onAdoptSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
   onUpdateStagedSourceCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
-  onUpdateInstalledSkillCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   newCategoryName: string;
   onNewCategoryNameChange: (value: string) => void;
 }) {
@@ -195,7 +191,6 @@ export function WorkspacePrimarySection({
           onCreateWorkspaceFolder={onCreateWorkspaceFolder}
           onAddSyncTarget={onAddSyncTarget}
           onRemoveSyncTarget={onRemoveSyncTarget}
-          onUpdateInstalledSkillCategory={onUpdateInstalledSkillCategory}
           onGoStaged={onGoStaged}
           onGoSyncStatus={onGoSyncStatus}
           searchValue={searchValue}
@@ -237,7 +232,6 @@ export function WorkspacePrimarySection({
           installPathConfigured={installPathConfigured}
           dropzone={dropzone}
           remoteUrl={remoteUrl}
-          onLoadStagedDetail={onLoadStagedDetail}
           onOpenStagedDetail={onOpenStagedDetail}
           onImportZip={onImportZip}
           onImportFolder={onImportFolder}

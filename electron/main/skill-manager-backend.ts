@@ -7,7 +7,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import type Database from "better-sqlite3";
-import { dialog, shell } from "electron";
+import { dialog, safeStorage, shell } from "electron";
 import extractZip from "extract-zip";
 
 import type {
@@ -56,6 +56,35 @@ import {
 } from "./utils/workspace-sources";
 
 const execFileAsync = promisify(execFile);
+const ENCRYPTED_API_KEY_PREFIX = "safe-storage:v1:";
+
+function encryptApiKey(apiKey: string) {
+  if (!apiKey.trim()) {
+    return "";
+  }
+
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error("Secure credential storage is unavailable on this device.");
+  }
+
+  return `${ENCRYPTED_API_KEY_PREFIX}${safeStorage.encryptString(apiKey).toString("base64")}`;
+}
+
+function decryptApiKey(storedValue: string) {
+  if (!storedValue.startsWith(ENCRYPTED_API_KEY_PREFIX)) {
+    return storedValue;
+  }
+
+  if (!safeStorage.isEncryptionAvailable()) {
+    return "";
+  }
+
+  try {
+    return safeStorage.decryptString(Buffer.from(storedValue.slice(ENCRYPTED_API_KEY_PREFIX.length), "base64"));
+  } catch {
+    return "";
+  }
+}
 
 interface SettingsRow {
   install_dir: string;
@@ -445,11 +474,11 @@ export class SkillManagerBackend {
     const stagedSources = this.listStagedSources();
     
     // Sync physical folders to DB before fetching installed skills
-    await this.syncPhysicalSkills(settings.installDir.trim());
+    const physicalCategories = await this.syncPhysicalSkills(settings.installDir.trim());
     await this.refreshSyncTargetStates();
 
     const installedSkills = this.listInstalledSkills();
-    const installCategories = await this.listInstallCategories(settings, installedSkills);
+    const installCategories = this.listInstallCategories(settings, installedSkills, physicalCategories);
     const installDirTree = settings.installDir && fs.existsSync(settings.installDir) 
       ? await scanProjectTree(settings.installDir, true)
       : [];
@@ -1793,14 +1822,21 @@ export class SkillManagerBackend {
       }
     }
 
-    await this.persistSettings({
-      ...input,
-      installDir,
-      tempDir,
-      projectDirs,
-      skillCategories,
-      defaultSkillCategory: defaultSkillCategory && skillCategories.includes(defaultSkillCategory) ? defaultSkillCategory : ""
-    });
+    try {
+      await this.persistSettings({
+        ...input,
+        installDir,
+        tempDir,
+        projectDirs,
+        skillCategories,
+        defaultSkillCategory: defaultSkillCategory && skillCategories.includes(defaultSkillCategory) ? defaultSkillCategory : ""
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Failed to save settings securely."
+      };
+    }
 
     await this.writeLog(
       "settings",
@@ -1897,7 +1933,22 @@ export class SkillManagerBackend {
 
   private getSettings() {
     const row = this.database.prepare("select * from settings where id = 1").get() as SettingsRow;
-    return toSettingsRecord(row);
+    const apiKey = decryptApiKey(row.ai_api_key);
+
+    if (row.ai_api_key && !row.ai_api_key.startsWith(ENCRYPTED_API_KEY_PREFIX)) {
+      try {
+        this.database
+          .prepare("update settings set ai_api_key = ? where id = 1")
+          .run(encryptApiKey(row.ai_api_key));
+      } catch {
+        this.database
+          .prepare("update settings set ai_api_key = '', ai_enabled = 0 where id = 1")
+          .run();
+        return toSettingsRecord({ ...row, ai_api_key: "", ai_enabled: 0 });
+      }
+    }
+
+    return toSettingsRecord({ ...row, ai_api_key: apiKey, ai_enabled: apiKey ? row.ai_enabled : 0 });
   }
 
   private listStagedSources() {
@@ -1916,18 +1967,15 @@ export class SkillManagerBackend {
     return rows.map((row) => this.withSyncMetadata(toInstalledRecord(row)));
   }
 
-  private async listInstallCategories(
+  private listInstallCategories(
     settings: SettingsRecord,
-    installedSkills: InstalledSkillRecord[]
-  ): Promise<SkillCategoryRecord[]> {
+    installedSkills: InstalledSkillRecord[],
+    physicalCategories: string[]
+  ): SkillCategoryRecord[] {
     const installDir = settings.installDir.trim();
     if (!installDir) {
       return [];
     }
-
-    // syncPhysicalSkills is already called in getSnapshot, so we can just read from physical folders again quickly
-    // or just rely on what is in the DB now. Actually, let's keep it calling sync to be safe and to get the empty folders.
-    const physicalCategories = await this.syncPhysicalSkills(installDir);
 
     const discovered = new Set([
       ...settings.skillCategories.map((item) => this.resolveInstallCategory(item)).filter(Boolean),
@@ -2283,13 +2331,19 @@ export class SkillManagerBackend {
       .prepare("select * from sync_targets")
       .all() as SyncTargetRow[];
 
+    const sourceHashes = new Map<string, string | null>();
+
     for (const row of syncTargetRows) {
       const installed = installedById.get(row.skill_id);
       if (!installed) {
         continue;
       }
 
-      const sourceHash = await computeDirectoryHash(installed.installPath);
+      let sourceHash = sourceHashes.get(installed.id);
+      if (sourceHash === undefined) {
+        sourceHash = await computeDirectoryHash(installed.installPath);
+        sourceHashes.set(installed.id, sourceHash);
+      }
       const targetHash = row.target_skill_path ? await computeDirectoryHash(row.target_skill_path) : null;
       let status: SyncStatus = row.status;
       let conflictDetail = row.conflict_detail;
@@ -2429,7 +2483,7 @@ export class SkillManagerBackend {
         input.ai.provider,
         input.ai.enabled ? 1 : 0,
         input.ai.baseUrl.trim(),
-        input.ai.apiKey,
+        encryptApiKey(input.ai.apiKey),
         input.ai.model.trim(),
         nowIso()
       );
@@ -2638,5 +2692,11 @@ export class SkillManagerBackend {
         `
       )
       .run(randomUUID(), type, level, message, detail, relatedId, nowIso());
+
+    this.database
+      .prepare(
+        "delete from logs where id not in (select id from logs order by created_at desc limit 1000)"
+      )
+      .run();
   }
 }

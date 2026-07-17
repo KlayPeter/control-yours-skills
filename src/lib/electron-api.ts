@@ -6,7 +6,6 @@ import type {
   DirectoryValidationResult,
   ExportInstalledSkillInput,
   FolderImportPreviewResult,
-  CommitFolderImportInput,
   InstalledSkillRecord,
   InstalledSkillDetail,
   InstallWorkspaceSkillInput,

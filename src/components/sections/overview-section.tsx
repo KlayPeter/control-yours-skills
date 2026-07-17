@@ -2,9 +2,7 @@ import type { SkillManagerSnapshot, WorkspaceSkillSource } from "@shared/contrac
 import { ArrowRight, Boxes, FolderPlus, GitBranch, Inbox, Sparkles } from "lucide-react";
 
 import { SectionCard } from "../ui/cards";
-import { OverviewMetric } from "../ui/typography";
 import { OverviewStatsGrid } from "./overview/OverviewStatsGrid";
-import { countSkillsInTree } from "@/lib/tree-utils";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -36,19 +34,6 @@ export function OverviewSection({
   onGoProjects: () => void;
   onGoSyncStatus: () => void;
 }) {
-  const centerRepositoryCount = snapshot.installedSkills.length;
-  const importedProjectSkillCount = snapshot.importedProjects.reduce(
-    (total, project) => total + countSkillsInTree(project.tree),
-    0
-  );
-  const uncategorizedCount = snapshot.installedSkills.filter((skill) => !skill.category).length;
-  const attentionSkillCount = snapshot.installedSkills.filter(
-    (skill) => skill.syncTargetCount > 0 && skill.syncStatus !== "synced"
-  ).length;
-  const conflictTargetCount = snapshot.installedSkills.flatMap((skill) =>
-    skill.syncTargets.filter((target) => target.status === "conflict" || target.status === "local_changes")
-  ).length;
-  const readyToInstallCount = snapshot.summary.readyCount;
   const primarySystemSource = snapshot.systemSkillSources.find((source) => source.exists) || null;
 
   return (
