@@ -27,11 +27,15 @@ import type {
   LogRecord,
   OperationResult,
   SaveSettingsInput,
+  SaveSkillMarkdownInput,
+  RestoreSkillSnapshotInput,
+  PinSkillSnapshotInput,
   SkillCategoryRecord,
   SettingsRecord,
   SkillManagerSnapshot,
   SyncOperationRecord,
   SyncPreview,
+  SkillSnapshotRecord,
   PreviewSyncInput,
   SyncStatus,
   SyncTargetRecord,
@@ -107,6 +111,8 @@ interface SettingsRow {
   ai_base_url: string;
   ai_api_key: string;
   ai_model: string;
+  snapshot_retention_count: number;
+  snapshot_storage_limit_mb: number;
   created_at: string;
   updated_at: string;
 }
@@ -168,6 +174,19 @@ interface SyncTargetRow {
   last_synced_target_hash: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface SkillSnapshotRow {
+  id: string;
+  skill_id: string;
+  sync_target_id: string | null;
+  side: SkillSnapshotRecord["side"];
+  reason: string;
+  content_hash: string | null;
+  snapshot_path: string;
+  size_bytes: number;
+  is_pinned: number;
+  created_at: string;
 }
 
 interface LogRow {
@@ -239,8 +258,26 @@ function toSettingsRecord(row: SettingsRow): SettingsRecord {
       apiKey: row.ai_api_key,
       model: row.ai_model
     },
+    snapshots: {
+      retentionCount: row.snapshot_retention_count,
+      storageLimitMb: row.snapshot_storage_limit_mb
+    },
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function toSkillSnapshotRecord(row: SkillSnapshotRow): SkillSnapshotRecord {
+  return {
+    id: row.id,
+    skillId: row.skill_id,
+    syncTargetId: row.sync_target_id,
+    side: row.side,
+    reason: row.reason,
+    contentHash: row.content_hash,
+    sizeBytes: row.size_bytes,
+    isPinned: Boolean(row.is_pinned),
+    createdAt: row.created_at
   };
 }
 
@@ -1191,10 +1228,127 @@ export class SkillManagerBackend {
       data: {
         ...installed,
         markdown: await safeReadText(installed.skillMdPath),
+        contentHash: exists ? await computeDirectoryHash(installed.installPath) : null,
         exists,
         syncTargets
       }
     };
+  }
+
+  async listSkillSnapshots(skillId: string): Promise<OperationResult<SkillSnapshotRecord[]>> {
+    if (!this.getInstalledSkill(skillId)) {
+      return { ok: false, error: "The selected installed skill could not be found." };
+    }
+
+    const rows = this.database
+      .prepare(
+        `
+          select * from skill_snapshots
+          where skill_id = ? and side = 'center'
+          order by is_pinned desc, created_at desc
+        `
+      )
+      .all(skillId) as SkillSnapshotRow[];
+
+    return { ok: true, data: rows.map(toSkillSnapshotRecord) };
+  }
+
+  async saveSkillMarkdown(input: SaveSkillMarkdownInput): Promise<OperationResult<InstalledSkillDetail>> {
+    const installed = this.getInstalledSkill(input.skillId);
+    if (!installed) {
+      return { ok: false, error: "The selected installed skill could not be found." };
+    }
+
+    if (!input.markdown.trim()) {
+      return { ok: false, error: "SKILL.md cannot be empty." };
+    }
+
+    const currentHash = await computeDirectoryHash(installed.installPath);
+    if (currentHash !== input.expectedHash) {
+      return { ok: false, error: "This skill changed after it was opened. Reload it before saving." };
+    }
+
+    const stagedPath = path.join(this.paths.tempRoot, `skill-edit-${randomUUID()}`);
+    try {
+      await createDirectorySnapshot(installed.installPath, stagedPath);
+      await fsp.writeFile(path.join(stagedPath, "SKILL.md"), input.markdown, "utf8");
+      const parsed = await detectSkillDirectory(stagedPath);
+      await this.createSafetySnapshot({
+        skillId: installed.id,
+        syncTargetId: null,
+        side: "center",
+        reason: "before-edit",
+        sourcePath: installed.installPath
+      });
+      await replaceDirectory(stagedPath, installed.installPath);
+      this.updateInstalledSkillMetadata(installed.id, installed.installPath, parsed);
+      await this.writeLog("install", "info", `Updated SKILL.md: ${parsed.name}`, installed.installPath, installed.id);
+      return this.getInstalledSkillDetail(installed.id);
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Failed to update SKILL.md." };
+    } finally {
+      await fsp.rm(stagedPath, { recursive: true, force: true });
+    }
+  }
+
+  async restoreSkillSnapshot(input: RestoreSkillSnapshotInput): Promise<OperationResult<InstalledSkillDetail>> {
+    const row = this.database
+      .prepare("select * from skill_snapshots where id = ?")
+      .get(input.snapshotId) as SkillSnapshotRow | undefined;
+    if (!row || row.side !== "center") {
+      return { ok: false, error: "The selected center snapshot could not be found." };
+    }
+
+    const installed = this.getInstalledSkill(row.skill_id);
+    if (!installed) {
+      return { ok: false, error: "The installed skill for this snapshot could not be found." };
+    }
+
+    const currentHash = await computeDirectoryHash(installed.installPath);
+    if (currentHash !== input.expectedCurrentHash) {
+      return { ok: false, error: "This skill changed after it was opened. Reload it before restoring." };
+    }
+
+    const snapshotHash = await computeDirectoryHash(row.snapshot_path);
+    if (!snapshotHash || snapshotHash !== row.content_hash) {
+      return { ok: false, error: "The selected snapshot is missing or failed its integrity check." };
+    }
+
+    const stagedPath = path.join(this.paths.tempRoot, `skill-restore-${randomUUID()}`);
+    try {
+      await createDirectorySnapshot(row.snapshot_path, stagedPath);
+      const parsed = await detectSkillDirectory(stagedPath);
+      await this.createSafetySnapshot({
+        skillId: installed.id,
+        syncTargetId: null,
+        side: "center",
+        reason: "before-restore",
+        sourcePath: installed.installPath
+      });
+      await replaceDirectory(stagedPath, installed.installPath);
+      this.updateInstalledSkillMetadata(installed.id, installed.installPath, parsed);
+      await this.writeLog("install", "info", `Restored skill snapshot: ${parsed.name}`, row.id, installed.id);
+      return this.getInstalledSkillDetail(installed.id);
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Failed to restore the skill snapshot." };
+    } finally {
+      await fsp.rm(stagedPath, { recursive: true, force: true });
+    }
+  }
+
+  async pinSkillSnapshot(input: PinSkillSnapshotInput): Promise<OperationResult<SkillSnapshotRecord>> {
+    const row = this.database
+      .prepare("select * from skill_snapshots where id = ?")
+      .get(input.snapshotId) as SkillSnapshotRow | undefined;
+    if (!row) {
+      return { ok: false, error: "The selected snapshot could not be found." };
+    }
+
+    this.database
+      .prepare("update skill_snapshots set is_pinned = ? where id = ?")
+      .run(input.pinned ? 1 : 0, input.snapshotId);
+
+    return { ok: true, data: toSkillSnapshotRecord({ ...row, is_pinned: input.pinned ? 1 : 0 }) };
   }
 
   async rescanInstalledSkill(id: string): Promise<OperationResult<InstalledSkillDetail>> {
@@ -1912,6 +2066,10 @@ export class SkillManagerBackend {
     const projectDirs = [...new Set(input.projectDirs.map((item) => item.trim()).filter(Boolean))];
     const skillCategories = [...new Set(input.skillCategories.map((item) => this.resolveInstallCategory(item)).filter(Boolean))];
     const defaultSkillCategory = this.resolveInstallCategory(input.defaultSkillCategory);
+    const snapshots = {
+      retentionCount: Math.min(100, Math.max(5, Math.round(input.snapshots.retentionCount))),
+      storageLimitMb: Math.min(10_240, Math.max(256, Math.round(input.snapshots.storageLimitMb)))
+    };
 
     if (installDir) {
       const installValidation = await this.validateDirectory(installDir);
@@ -1943,6 +2101,7 @@ export class SkillManagerBackend {
         tempDir,
         projectDirs,
         skillCategories,
+        snapshots,
         defaultSkillCategory: defaultSkillCategory && skillCategories.includes(defaultSkillCategory) ? defaultSkillCategory : ""
       });
     } catch (error) {
@@ -2580,6 +2739,8 @@ export class SkillManagerBackend {
             ai_base_url = ?,
             ai_api_key = ?,
             ai_model = ?,
+            snapshot_retention_count = ?,
+            snapshot_storage_limit_mb = ?,
             updated_at = ?
           where id = 1
         `
@@ -2599,6 +2760,8 @@ export class SkillManagerBackend {
         input.ai.baseUrl.trim(),
         encryptApiKey(input.ai.apiKey),
         input.ai.model.trim(),
+        input.snapshots.retentionCount,
+        input.snapshots.storageLimitMb,
         nowIso()
       );
   }
@@ -2803,26 +2966,33 @@ export class SkillManagerBackend {
     const contentHash = await computeDirectoryHash(input.sourcePath);
     const snapshot = await createDirectorySnapshot(input.sourcePath, snapshotPath);
 
-    this.database
-      .prepare(
-        `
-          insert into skill_snapshots (
-            id, skill_id, sync_target_id, side, reason, content_hash,
-            snapshot_path, size_bytes, is_pinned, created_at
-          ) values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
-        `
-      )
-      .run(
-        snapshotId,
-        input.skillId,
-        input.syncTargetId,
-        input.side,
-        input.reason,
-        contentHash,
-        snapshot.snapshotPath,
-        snapshot.sizeBytes,
-        nowIso()
-      );
+    try {
+      this.database
+        .prepare(
+          `
+            insert into skill_snapshots (
+              id, skill_id, sync_target_id, side, reason, content_hash,
+              snapshot_path, size_bytes, is_pinned, created_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+          `
+        )
+        .run(
+          snapshotId,
+          input.skillId,
+          input.syncTargetId,
+          input.side,
+          input.reason,
+          contentHash,
+          snapshot.snapshotPath,
+          snapshot.sizeBytes,
+          nowIso()
+        );
+    } catch (error) {
+      await fsp.rm(snapshot.snapshotPath, { recursive: true, force: true });
+      throw error;
+    }
+
+    const settings = this.getSettings();
 
     const expired = this.database
       .prepare(
@@ -2831,16 +3001,56 @@ export class SkillManagerBackend {
           from skill_snapshots
           where skill_id = ? and is_pinned = 0
           order by created_at desc
-          limit -1 offset 20
+          limit -1 offset ?
         `
       )
-      .all(input.skillId) as Array<{ id: string; snapshot_path: string }>;
+      .all(input.skillId, settings.snapshots.retentionCount) as Array<{ id: string; snapshot_path: string }>;
     for (const item of expired) {
-      await fsp.rm(item.snapshot_path, { recursive: true, force: true });
-      this.database.prepare("delete from skill_snapshots where id = ?").run(item.id);
+      await this.deleteSnapshot(item);
+    }
+
+    const storageLimitBytes = settings.snapshots.storageLimitMb * 1024 * 1024;
+    let totalSize = (this.database.prepare("select coalesce(sum(size_bytes), 0) as total from skill_snapshots").get() as { total: number }).total;
+    if (totalSize > storageLimitBytes) {
+      const removable = this.database
+        .prepare(
+          `
+            select id, snapshot_path, size_bytes
+            from skill_snapshots
+            where is_pinned = 0 and id != ?
+            order by created_at asc
+          `
+        )
+        .all(snapshotId) as Array<{ id: string; snapshot_path: string; size_bytes: number }>;
+      for (const item of removable) {
+        if (totalSize <= storageLimitBytes) break;
+        await this.deleteSnapshot(item);
+        totalSize -= item.size_bytes;
+      }
     }
 
     return snapshotId;
+  }
+
+  private async deleteSnapshot(item: { id: string; snapshot_path: string }) {
+    await fsp.rm(item.snapshot_path, { recursive: true, force: true });
+    this.database.prepare("delete from skill_snapshots where id = ?").run(item.id);
+  }
+
+  private updateInstalledSkillMetadata(
+    skillId: string,
+    installPath: string,
+    parsed: Awaited<ReturnType<typeof detectSkillDirectory>>
+  ) {
+    this.database
+      .prepare(
+        `
+          update installed_skills
+          set name = ?, slug = ?, description = ?, skill_md_path = ?, updated_at = ?
+          where id = ?
+        `
+      )
+      .run(parsed.name, parsed.slug, parsed.description, path.join(installPath, "SKILL.md"), nowIso(), skillId);
   }
 
   private insertSyncOperation(record: SyncOperationRecord) {

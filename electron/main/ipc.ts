@@ -11,7 +11,10 @@ import type {
   InstallWorkspaceSkillInput,
   RemoveSyncTargetInput,
   PreviewSyncInput,
+  PinSkillSnapshotInput,
+  RestoreSkillSnapshotInput,
   SaveSettingsInput,
+  SaveSkillMarkdownInput,
   SyncInstalledSkillInput,
   UpdateInstalledSkillCategoryInput,
   UpdateStagedSourceCategoryInput
@@ -104,6 +107,18 @@ export function registerIpcHandlers(backend: SkillManagerBackend, rendererUrl: s
   );
   registerHandler("skill-manager:execute-sync-decision", (input: ExecuteSyncDecisionInput) =>
     backend.executeSyncDecision(input)
+  );
+  registerHandler("skill-manager:list-skill-snapshots", (skillId: string) =>
+    backend.listSkillSnapshots(skillId)
+  );
+  registerHandler("skill-manager:save-skill-markdown", (input: SaveSkillMarkdownInput) =>
+    backend.saveSkillMarkdown(input)
+  );
+  registerHandler("skill-manager:restore-skill-snapshot", (input: RestoreSkillSnapshotInput) =>
+    backend.restoreSkillSnapshot(input)
+  );
+  registerHandler("skill-manager:pin-skill-snapshot", (input: PinSkillSnapshotInput) =>
+    backend.pinSkillSnapshot(input)
   );
   registerHandler("skill-manager:update-staged-source-category", (input: UpdateStagedSourceCategoryInput) =>
     backend.updateStagedSourceCategory(input)

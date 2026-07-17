@@ -29,6 +29,10 @@ function createDefaultSettings(paths: RuntimePaths): SettingsRecord {
       apiKey: "",
       model: "deepseek-v4-pro",
     },
+    snapshots: {
+      retentionCount: 20,
+      storageLimitMb: 1024,
+    },
     createdAt: now,
     updatedAt: now,
   };
@@ -63,6 +67,8 @@ export function createDatabase(paths: RuntimePaths) {
       ai_base_url text not null default 'https://api.deepseek.com',
       ai_api_key text not null default '',
       ai_model text not null default 'deepseek-v4-pro',
+      snapshot_retention_count integer not null default 20,
+      snapshot_storage_limit_mb integer not null default 1024,
       created_at text not null,
       updated_at text not null
     );
@@ -228,6 +234,16 @@ export function createDatabase(paths: RuntimePaths) {
       "alter table settings add column ai_model text not null default 'deepseek-v4-pro';",
     );
   }
+  if (!settingsColumns.some((column) => column.name === "snapshot_retention_count")) {
+    database.exec(
+      "alter table settings add column snapshot_retention_count integer not null default 20;",
+    );
+  }
+  if (!settingsColumns.some((column) => column.name === "snapshot_storage_limit_mb")) {
+    database.exec(
+      "alter table settings add column snapshot_storage_limit_mb integer not null default 1024;",
+    );
+  }
 
   const stagedColumns = database
     .prepare("pragma table_info(staged_sources)")
@@ -309,11 +325,13 @@ export function createDatabase(paths: RuntimePaths) {
         `
           insert into settings (
             id, install_dir, temp_dir, project_dir, project_dirs, skill_categories, default_skill_category, conflict_policy, theme, locale,
-            ai_provider, ai_enabled, ai_base_url, ai_api_key, ai_model, created_at, updated_at
+            ai_provider, ai_enabled, ai_base_url, ai_api_key, ai_model,
+            snapshot_retention_count, snapshot_storage_limit_mb, created_at, updated_at
           )
           values (
             1, @installDir, @tempDir, '', @projectDirs, @skillCategories, @defaultSkillCategory, @conflictPolicy, @theme, @locale,
-            @aiProvider, @aiEnabled, @aiBaseUrl, @aiApiKey, @aiModel, @createdAt, @updatedAt
+            @aiProvider, @aiEnabled, @aiBaseUrl, @aiApiKey, @aiModel,
+            @snapshotRetentionCount, @snapshotStorageLimitMb, @createdAt, @updatedAt
           )
         `,
       )
@@ -326,6 +344,8 @@ export function createDatabase(paths: RuntimePaths) {
         aiBaseUrl: defaults.ai.baseUrl,
         aiApiKey: defaults.ai.apiKey,
         aiModel: defaults.ai.model,
+        snapshotRetentionCount: defaults.snapshots.retentionCount,
+        snapshotStorageLimitMb: defaults.snapshots.storageLimitMb,
       });
   } else {
     const existingProjectData = database

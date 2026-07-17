@@ -44,10 +44,15 @@ describe("createDatabase", () => {
     const paths = await createTestPaths();
     const database = createDatabase(paths);
     const settings = database
-      .prepare("select ai_enabled, ai_api_key from settings where id = 1")
-      .get() as { ai_enabled: number; ai_api_key: string };
+      .prepare("select ai_enabled, ai_api_key, snapshot_retention_count, snapshot_storage_limit_mb from settings where id = 1")
+      .get() as { ai_enabled: number; ai_api_key: string; snapshot_retention_count: number; snapshot_storage_limit_mb: number };
 
-    expect(settings).toEqual({ ai_enabled: 0, ai_api_key: "" });
+    expect(settings).toEqual({
+      ai_enabled: 0,
+      ai_api_key: "",
+      snapshot_retention_count: 20,
+      snapshot_storage_limit_mb: 1024
+    });
     closeDatabase(database);
   });
 

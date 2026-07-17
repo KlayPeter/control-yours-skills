@@ -14,6 +14,9 @@ import type {
   LogRecord,
   OperationResult,
   PreviewSyncInput,
+  PinSkillSnapshotInput,
+  RestoreSkillSnapshotInput,
+  SaveSkillMarkdownInput,
   RemoveSyncTargetInput,
   SettingsRecord,
   SkillManagerApi,
@@ -21,6 +24,7 @@ import type {
   SyncInstalledSkillInput,
   SyncOperationRecord,
   SyncPreview,
+  SkillSnapshotRecord,
   StagedSourceDetail,
   StagedSourceRecord
 } from "@shared/contracts";
@@ -44,6 +48,10 @@ const fallbackSettings: SettingsRecord = {
     baseUrl: "https://api.deepseek.com",
     apiKey: "",
     model: "deepseek-v4-pro"
+  },
+  snapshots: {
+    retentionCount: 20,
+    storageLimitMb: 1024
   },
   createdAt: nowIso(),
   updatedAt: nowIso()
@@ -149,6 +157,22 @@ const browserFallbackApi: SkillManagerApi = {
   executeSyncDecision: async (_input: ExecuteSyncDecisionInput) => {
     void _input;
     return unavailableResult<SyncOperationRecord>();
+  },
+  listSkillSnapshots: async (_skillId: string) => {
+    void _skillId;
+    return unavailableResult<SkillSnapshotRecord[]>();
+  },
+  saveSkillMarkdown: async (_input: SaveSkillMarkdownInput) => {
+    void _input;
+    return unavailableResult<InstalledSkillDetail>();
+  },
+  restoreSkillSnapshot: async (_input: RestoreSkillSnapshotInput) => {
+    void _input;
+    return unavailableResult<InstalledSkillDetail>();
+  },
+  pinSkillSnapshot: async (_input: PinSkillSnapshotInput) => {
+    void _input;
+    return unavailableResult<SkillSnapshotRecord>();
   },
   updateStagedSourceCategory: async () => unavailableResult<StagedSourceRecord>(),
   updateInstalledSkillCategory: async () => unavailableResult<InstalledSkillRecord>(),

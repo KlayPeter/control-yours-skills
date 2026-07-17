@@ -54,6 +54,10 @@ export interface SettingsRecord {
   theme: ThemePreference;
   locale: Locale;
   ai: AiSettings;
+  snapshots: {
+    retentionCount: number;
+    storageLimitMb: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -150,6 +154,7 @@ export interface SyncTargetRecord {
 
 export interface InstalledSkillDetail extends InstalledSkillRecord {
   markdown: string | null;
+  contentHash: string | null;
   exists: boolean;
   syncTargets: SyncTargetRecord[];
 }
@@ -278,6 +283,7 @@ export interface SaveSettingsInput {
   theme: ThemePreference;
   locale: Locale;
   ai: AiSettings;
+  snapshots: SettingsRecord["snapshots"];
 }
 
 export interface InstallStagedSourcesInput {
@@ -392,6 +398,34 @@ export interface SyncOperationRecord {
   createdAt: string;
 }
 
+export interface SkillSnapshotRecord {
+  id: string;
+  skillId: string;
+  syncTargetId: string | null;
+  side: "center" | "target";
+  reason: string;
+  contentHash: string | null;
+  sizeBytes: number;
+  isPinned: boolean;
+  createdAt: string;
+}
+
+export interface SaveSkillMarkdownInput {
+  skillId: string;
+  markdown: string;
+  expectedHash: string | null;
+}
+
+export interface RestoreSkillSnapshotInput {
+  snapshotId: string;
+  expectedCurrentHash: string | null;
+}
+
+export interface PinSkillSnapshotInput {
+  snapshotId: string;
+  pinned: boolean;
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -418,6 +452,10 @@ export interface SkillManagerApi {
   adoptSyncTarget(input: AdoptSyncTargetInput): Promise<OperationResult<string>>;
   previewSync(input: PreviewSyncInput): Promise<OperationResult<SyncPreview>>;
   executeSyncDecision(input: ExecuteSyncDecisionInput): Promise<OperationResult<SyncOperationRecord>>;
+  listSkillSnapshots(skillId: string): Promise<OperationResult<SkillSnapshotRecord[]>>;
+  saveSkillMarkdown(input: SaveSkillMarkdownInput): Promise<OperationResult<InstalledSkillDetail>>;
+  restoreSkillSnapshot(input: RestoreSkillSnapshotInput): Promise<OperationResult<InstalledSkillDetail>>;
+  pinSkillSnapshot(input: PinSkillSnapshotInput): Promise<OperationResult<SkillSnapshotRecord>>;
   updateStagedSourceCategory(input: UpdateStagedSourceCategoryInput): Promise<OperationResult<StagedSourceRecord>>;
   updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;

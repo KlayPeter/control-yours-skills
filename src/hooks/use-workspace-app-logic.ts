@@ -95,6 +95,10 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
       baseUrl: "https://api.deepseek.com",
       apiKey: "",
       model: "deepseek-v4-pro"
+    },
+    snapshots: {
+      retentionCount: 20,
+      storageLimitMb: 1024
     }
   });
   const [modalState, setModalState] = useState<{
@@ -164,7 +168,8 @@ export function useWorkspaceAppLogic(section: WorkspaceSection, initialSkillId?:
       conflictPolicy: snapshot.settings.conflictPolicy,
       theme: snapshot.settings.theme,
       locale: snapshot.settings.locale,
-      ai: snapshot.settings.ai
+      ai: snapshot.settings.ai,
+      snapshots: snapshot.settings.snapshots
     });
   }, [snapshot]);
 
