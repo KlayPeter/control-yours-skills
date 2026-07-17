@@ -8,6 +8,7 @@ import type {
   CopyWorkspaceSkillInput,
   ExportInstalledSkillInput,
   ExecuteSyncDecisionInput,
+  ExecuteTrustedRemoteInstallInput,
   InstallStagedSourcesInput,
   InstallWorkspaceSkillInput,
   RemoveSyncTargetInput,
@@ -53,6 +54,12 @@ export function registerIpcHandlers(backend: SkillManagerBackend, rendererUrl: s
   );
   registerHandler("skill-manager:add-remote-source", (url: string) =>
     backend.addRemoteSource(url)
+  );
+  registerHandler("skill-manager:preview-trusted-remote-install", (stagedSourceId: string) =>
+    backend.previewTrustedRemoteInstall(stagedSourceId)
+  );
+  registerHandler("skill-manager:execute-trusted-remote-install", (input: ExecuteTrustedRemoteInstallInput) =>
+    backend.executeTrustedRemoteInstall(input)
   );
   registerHandler("skill-manager:parse-staged-sources", (ids: string[]) =>
     backend.parseStagedSources(ids)

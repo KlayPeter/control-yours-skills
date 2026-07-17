@@ -21,6 +21,7 @@ import type {
   InstallStagedSourcesInput,
   DirectoryValidationResult,
   ExecuteSyncDecisionInput,
+  ExecuteTrustedRemoteInstallInput,
   EnvironmentInfo,
   InstallStrategy,
   InstalledSkillDetail,
@@ -36,6 +37,7 @@ import type {
   SkillManagerSnapshot,
   SyncOperationRecord,
   SyncPreview,
+  TrustedRemoteInstallPreview,
   SkillSnapshotRecord,
   PreviewSyncInput,
   SyncStatus,
@@ -55,7 +57,7 @@ import { detectEnvironment, hasRequiredTools } from "./utils/environment";
 import { analyzeRemoteSource, parseInstallStrategy, requiresArchiveExtraction, serializeInstallStrategy } from "./utils/remote-analysis";
 import { classifySkill } from "./utils/skill-classification";
 import { detectSkillDirectory, discoverSkillDirectories, slugifySkillName } from "./utils/skill-parser";
-import { detectSourceType, resolveGitHubArchiveUrl, validateRemoteSource } from "./utils/source-url";
+import { detectSourceType, normalizeGitHubRepositoryUrl, resolveGitHubArchiveUrl, validateRemoteSource } from "./utils/source-url";
 import { computeDirectoryHash, replaceDirectory } from "./utils/sync-engine";
 import { diffDirectories } from "./utils/directory-diff";
 import { createDirectorySnapshot } from "./utils/directory-snapshot";
@@ -926,6 +928,161 @@ export class SkillManagerBackend {
     }
 
     return { ok: true, data: parsedRecords };
+  }
+
+  async previewTrustedRemoteInstall(
+    stagedSourceId: string
+  ): Promise<OperationResult<TrustedRemoteInstallPreview>> {
+    const staged = this.getStagedSource(stagedSourceId);
+    if (!staged) {
+      return { ok: false, error: "The selected staged source could not be found." };
+    }
+
+    try {
+      return await this.withTrustedGitHubSkill(staged, async (parsed, repositoryUrl) => {
+        const existing = this.findInstalledGitHubSkill(repositoryUrl);
+        const settings = this.getSettings();
+        if (!existing && !settings.installDir.trim()) {
+          return { ok: false, error: "Configure the center repository directory before installing." };
+        }
+
+        const installRoot = path.join(
+          settings.installDir,
+          this.resolveInstallCategory(settings.defaultSkillCategory)
+        );
+        const targetPath = existing?.installPath || await this.resolveInstallPath(installRoot, parsed.slug, "rename");
+        const [sourceHash, targetHash, difference] = await Promise.all([
+          computeDirectoryHash(parsed.rootPath),
+          computeDirectoryHash(targetPath),
+          diffDirectories(targetPath, parsed.rootPath)
+        ]);
+
+        return {
+          ok: true,
+          data: {
+            stagedSourceId: staged.id,
+            repositoryUrl,
+            action: existing ? "update" : "install",
+            installedSkillId: existing?.id || null,
+            skillName: parsed.name,
+            description: parsed.description,
+            targetPath,
+            sourceHash,
+            targetHash,
+            summary: difference.summary,
+            entries: difference.entries
+          }
+        };
+      });
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Failed to prepare the trusted GitHub source." };
+    }
+  }
+
+  async executeTrustedRemoteInstall(
+    input: ExecuteTrustedRemoteInstallInput
+  ): Promise<OperationResult<InstalledSkillDetail>> {
+    const staged = this.getStagedSource(input.stagedSourceId);
+    if (!staged) {
+      return { ok: false, error: "The selected staged source could not be found." };
+    }
+
+    try {
+      return await this.withTrustedGitHubSkill(staged, async (parsed, repositoryUrl) => {
+        const settings = this.getSettings();
+        const existing = this.findInstalledGitHubSkill(repositoryUrl);
+        const action = existing ? "update" : "install";
+        if (action !== input.action || (existing?.id || null) !== input.expectedInstalledSkillId) {
+          return { ok: false, error: "The installed state changed after review. Generate a new preview." };
+        }
+        if (!existing && !settings.installDir.trim()) {
+          return { ok: false, error: "Configure the center repository directory before installing." };
+        }
+
+        const installRoot = path.join(
+          settings.installDir,
+          this.resolveInstallCategory(settings.defaultSkillCategory)
+        );
+        const targetPath = existing?.installPath || await this.resolveInstallPath(installRoot, parsed.slug, "rename");
+        if (targetPath !== input.expectedTargetPath) {
+          return { ok: false, error: "The target path changed after review. Generate a new preview." };
+        }
+
+        const [sourceHash, targetHash] = await Promise.all([
+          computeDirectoryHash(parsed.rootPath),
+          computeDirectoryHash(targetPath)
+        ]);
+        if (sourceHash !== input.expectedSourceHash || targetHash !== input.expectedTargetHash) {
+          return { ok: false, error: "Repository or local files changed after review. Generate a new preview." };
+        }
+
+        const skillId = existing?.id || randomUUID();
+        if (existing) {
+          if (sourceHash !== targetHash) {
+            if (fs.existsSync(existing.installPath)) {
+              await this.createSafetySnapshot({
+                skillId: existing.id,
+                syncTargetId: null,
+                side: "center",
+                reason: "before-remote-update",
+                sourcePath: existing.installPath
+              });
+            }
+            await replaceDirectory(parsed.rootPath, existing.installPath);
+          }
+          this.updateInstalledSkillMetadata(existing.id, existing.installPath, parsed);
+          this.database
+            .prepare("update installed_skills set source_type = 'githubRepo', source_value = ?, updated_at = ? where id = ?")
+            .run(repositoryUrl, nowIso(), existing.id);
+        } else {
+          await replaceDirectory(parsed.rootPath, targetPath);
+          try {
+            this.database
+              .prepare(
+                `
+                  insert into installed_skills (
+                    id, name, slug, description, category, install_path, skill_md_path,
+                    source_type, source_value, installed_at, updated_at
+                  ) values (?, ?, ?, ?, ?, ?, ?, 'githubRepo', ?, ?, ?)
+                `
+              )
+              .run(
+                skillId,
+                parsed.name,
+                parsed.slug,
+                parsed.description,
+                this.resolveInstallCategory(settings.defaultSkillCategory) || null,
+                targetPath,
+                path.join(targetPath, "SKILL.md"),
+                repositoryUrl,
+                nowIso(),
+                nowIso()
+              );
+          } catch (error) {
+            await fsp.rm(targetPath, { recursive: true, force: true });
+            throw error;
+          }
+        }
+
+        this.updateStagedSource(staged.id, {
+          status: "installed",
+          installPath: targetPath,
+          errorMessage: null,
+          updatedAt: nowIso()
+        });
+        await this.writeLog(
+          "install",
+          "info",
+          `${existing ? "Updated" : "Installed"} trusted GitHub skill: ${parsed.name}`,
+          repositoryUrl,
+          skillId
+        );
+
+        return this.getInstalledSkillDetail(skillId);
+      });
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Trusted GitHub installation failed." };
+    }
   }
 
   async installStagedSources(input: InstallStagedSourcesInput): Promise<OperationResult<InstalledSkillRecord[]>> {
@@ -2598,6 +2755,41 @@ export class SkillManagerBackend {
         ...rest,
         installStrategy: serializeInstallStrategy(rest.installStrategy || null)
       });
+  }
+
+  private findInstalledGitHubSkill(repositoryUrl: string) {
+    return this.listInstalledSkills().find((skill) => {
+      if (skill.sourceType !== "githubRepo") return false;
+      try {
+        return normalizeGitHubRepositoryUrl(skill.sourceValue) === repositoryUrl;
+      } catch {
+        return false;
+      }
+    }) || null;
+  }
+
+  private async withTrustedGitHubSkill<T>(
+    staged: StagedSourceRecord,
+    action: (
+      parsed: Awaited<ReturnType<typeof detectSkillDirectory>>,
+      repositoryUrl: string
+    ) => Promise<T>
+  ) {
+    if (staged.sourceType !== "githubRepo") {
+      throw new Error("Trusted installation is only available for public GitHub repositories.");
+    }
+
+    const repositoryUrl = normalizeGitHubRepositoryUrl(staged.sourceValue);
+    const extractionPath = path.join(this.paths.tempRoot, `trusted-github-${staged.id}-${randomUUID()}`);
+    try {
+      await this.ensureDirectory(extractionPath);
+      const archivePath = await this.resolveArchivePath(staged);
+      await this.extractArchive(archivePath, extractionPath);
+      const parsed = await detectSkillDirectory(extractionPath);
+      return await action(parsed, repositoryUrl);
+    } finally {
+      await fsp.rm(extractionPath, { recursive: true, force: true });
+    }
   }
 
   private async resolveArchivePath(staged: StagedSourceRecord, installStrategy?: InstallStrategy | null) {

@@ -27,11 +27,25 @@ export function isGitHubRepoUrl(source: string) {
 }
 
 export function resolveGitHubArchiveUrl(source: string) {
-  const url = new URL(source);
-  const [owner, repoWithSuffix] = url.pathname.split("/").filter(Boolean);
-  const repo = repoWithSuffix.replace(/\.git$/i, "");
+  const url = new URL(normalizeGitHubRepositoryUrl(source));
+  const [owner, repo] = url.pathname.split("/").filter(Boolean);
 
   return `https://github.com/${owner}/${repo}/archive/HEAD.zip`;
+}
+
+export function normalizeGitHubRepositoryUrl(source: string) {
+  const url = new URL(source.trim());
+  if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "github.com" || url.username || url.password) {
+    throw new Error("Trusted installation requires a public HTTPS GitHub repository URL.");
+  }
+
+  const [owner, repoWithSuffix] = url.pathname.split("/").filter(Boolean);
+  const repo = repoWithSuffix?.replace(/\.git$/i, "");
+  if (!owner || !repo) {
+    throw new Error("Trusted installation requires a GitHub owner and repository name.");
+  }
+
+  return `https://github.com/${owner}/${repo}`;
 }
 
 export function validateRemoteSource(source: string) {

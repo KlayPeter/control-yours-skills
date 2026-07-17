@@ -6,6 +6,7 @@ import type {
   BatchUpdateInstalledSkillsInput,
   DirectoryValidationResult,
   ExecuteSyncDecisionInput,
+  ExecuteTrustedRemoteInstallInput,
   ExportInstalledSkillInput,
   FolderImportPreviewResult,
   InstalledSkillRecord,
@@ -25,6 +26,7 @@ import type {
   SyncInstalledSkillInput,
   SyncOperationRecord,
   SyncPreview,
+  TrustedRemoteInstallPreview,
   SkillSnapshotRecord,
   StagedSourceDetail,
   StagedSourceRecord
@@ -110,6 +112,14 @@ const browserFallbackApi: SkillManagerApi = {
   previewLocalFolderImport: async () => unavailableResult<FolderImportPreviewResult>(),
   commitFolderImport: async () => unavailableResult<StagedSourceRecord[]>(),
   addRemoteSource: async () => unavailableResult<StagedSourceRecord>(),
+  previewTrustedRemoteInstall: async (_stagedSourceId: string) => {
+    void _stagedSourceId;
+    return unavailableResult<TrustedRemoteInstallPreview>();
+  },
+  executeTrustedRemoteInstall: async (_input: ExecuteTrustedRemoteInstallInput) => {
+    void _input;
+    return unavailableResult<InstalledSkillDetail>();
+  },
   parseStagedSources: async () => unavailableResult<StagedSourceRecord[]>(),
   installStagedSources: async () => unavailableResult(),
   removeStagedSources: async () => ({ ok: true, data: 0 }),

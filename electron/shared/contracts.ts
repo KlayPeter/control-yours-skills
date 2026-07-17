@@ -434,6 +434,29 @@ export interface BatchUpdateInstalledSkillsInput {
   removeTags?: string[];
 }
 
+export interface TrustedRemoteInstallPreview {
+  stagedSourceId: string;
+  repositoryUrl: string;
+  action: "install" | "update";
+  installedSkillId: string | null;
+  skillName: string;
+  description: string | null;
+  targetPath: string;
+  sourceHash: string | null;
+  targetHash: string | null;
+  summary: DirectoryDiffSummary;
+  entries: DirectoryDiffEntry[];
+}
+
+export interface ExecuteTrustedRemoteInstallInput {
+  stagedSourceId: string;
+  action: TrustedRemoteInstallPreview["action"];
+  expectedInstalledSkillId: string | null;
+  expectedTargetPath: string;
+  expectedSourceHash: string | null;
+  expectedTargetHash: string | null;
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -465,6 +488,8 @@ export interface SkillManagerApi {
   restoreSkillSnapshot(input: RestoreSkillSnapshotInput): Promise<OperationResult<InstalledSkillDetail>>;
   pinSkillSnapshot(input: PinSkillSnapshotInput): Promise<OperationResult<SkillSnapshotRecord>>;
   batchUpdateInstalledSkills(input: BatchUpdateInstalledSkillsInput): Promise<OperationResult<InstalledSkillRecord[]>>;
+  previewTrustedRemoteInstall(stagedSourceId: string): Promise<OperationResult<TrustedRemoteInstallPreview>>;
+  executeTrustedRemoteInstall(input: ExecuteTrustedRemoteInstallInput): Promise<OperationResult<InstalledSkillDetail>>;
   updateStagedSourceCategory(input: UpdateStagedSourceCategoryInput): Promise<OperationResult<StagedSourceRecord>>;
   updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectSourceType,
   isGitHubRepoUrl,
+  normalizeGitHubRepositoryUrl,
   resolveGitHubArchiveUrl,
   validateRemoteSource
 } from "./source-url";
@@ -16,6 +17,15 @@ describe("source-url helpers", () => {
   it("converts GitHub repositories to HEAD.zip downloads", () => {
     expect(resolveGitHubArchiveUrl("https://github.com/openai/codex")).toBe(
       "https://github.com/openai/codex/archive/HEAD.zip"
+    );
+  });
+
+  it("normalizes trusted GitHub repository URLs", () => {
+    expect(normalizeGitHubRepositoryUrl("https://github.com/openai/codex.git/tree/main")).toBe(
+      "https://github.com/openai/codex"
+    );
+    expect(() => normalizeGitHubRepositoryUrl("http://github.com/openai/codex")).toThrow(
+      "public HTTPS GitHub repository"
     );
   });
 
