@@ -27,6 +27,7 @@ function snapshotReason(reason: string) {
   if (reason === "before-edit") return "编辑前";
   if (reason === "before-restore") return "回滚前";
   if (reason === "before-overwrite") return "同步覆盖前";
+  if (reason === "before-remote-update") return "GitHub 更新前";
   return reason;
 }
 

@@ -167,6 +167,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
       onInstallStaged={installStagedSources}
       onOpenPath={openPath}
       onParseStaged={parseStagedSources}
+      onRefresh={refresh}
       onRescanInstalledSkill={rescanInstalledSkill}
       section={section}
       selectedLog={selectedLog}
@@ -230,6 +231,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                 onInstallStaged={handleInstallManyWithProgress}
                 onOpenPath={openPath}
                 onParseStaged={parseStagedSources}
+                onRefresh={refresh}
                 onRescanInstalledSkill={rescanInstalledSkill}
                 section="staged"
                 selectedLog={null}

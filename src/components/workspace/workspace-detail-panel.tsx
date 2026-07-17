@@ -6,6 +6,7 @@ import { SectionCard, DetailList } from "../ui/cards";
 import { SourceBadge, StrategyBadge, StatusIndicator } from "../ui/badges";
 import { IconActionButton, CopyButton } from "../ui/buttons";
 import { RelativeTimeText } from "../ui/typography";
+import { TrustedRemoteInstallDialog } from "./trusted-remote-install-dialog";
 
 import type { WorkspaceSection } from "../workspace-app";
 type TranslationDictionary = Record<string, string>;
@@ -249,6 +250,7 @@ export function WorkspaceDetailPanel({
   onRescanInstalledSkill,
   onParseStaged,
   onInstallStaged,
+  onRefresh,
   embedded = false,
   environment = null
 }: {
@@ -261,6 +263,7 @@ export function WorkspaceDetailPanel({
   onRescanInstalledSkill: (id: string) => AsyncActionResult;
   onParseStaged: (ids: string[]) => AsyncActionResult;
   onInstallStaged: (ids: string[]) => AsyncActionResult;
+  onRefresh: () => AsyncActionResult;
   embedded?: boolean;
   environment?: EnvironmentInfo | null;
 }) {
@@ -331,6 +334,9 @@ export function WorkspaceDetailPanel({
             tone="success"
           />
         ) : null}
+        {selectedStagedDetail.sourceType === "githubRepo" ? (
+          <TrustedRemoteInstallDialog stagedSourceId={selectedStagedDetail.id} onChanged={onRefresh} />
+        ) : null}
       </div>
     );
     const detailItems = [
@@ -386,9 +392,13 @@ export function WorkspaceDetailPanel({
               </span>
             ) : null}
           </div>
-          {isRemoteSource ? (
+          {selectedStagedDetail.sourceType === "remoteZip" ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
               {t.remoteSourceAnalysisOnly}
+            </div>
+          ) : selectedStagedDetail.sourceType === "githubRepo" ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200">
+              此公开 GitHub 仓库可在查看文件差异后进行可信安装或更新；系统不会执行仓库命令。
             </div>
           ) : null}
           <div className="mt-4">
