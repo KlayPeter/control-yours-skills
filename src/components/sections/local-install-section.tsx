@@ -7,6 +7,7 @@ import type { SkillManagerSnapshot, WorkspaceSkillProviderKey, WorkspaceTreeNode
 import { SectionCard } from "../ui/cards";
 import { SyncStatusBadge } from "../ui/badges";
 import { WorkspaceTree } from "../workspace/workspace-tree";
+import { SkillLifecycleDialog } from "../workspace/skill-lifecycle-dialog";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -378,6 +379,7 @@ export function LocalInstallSection({
   onRemoveSyncTarget,
   onGoStaged,
   onGoSyncStatus,
+  onRefresh,
   searchValue,
   onSearchValueChange
 }: {
@@ -389,6 +391,7 @@ export function LocalInstallSection({
   onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
   onGoStaged: () => AsyncActionResult;
   onGoSyncStatus: () => AsyncActionResult;
+  onRefresh: () => AsyncActionResult;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
 }) {
@@ -565,6 +568,7 @@ export function LocalInstallSection({
                    onAddSyncTarget={onAddSyncTarget}
                    onGoSyncStatus={onGoSyncStatus}
                  />
+                 <SkillLifecycleDialog skill={skill} onChanged={onRefresh} />
                </div>
             );
           }}

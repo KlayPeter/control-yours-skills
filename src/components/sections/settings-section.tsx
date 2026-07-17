@@ -7,6 +7,7 @@ import { CategorySettings } from "./settings/CategorySettings";
 import { ThemeSettings } from "./settings/ThemeSettings";
 import { GeneralSettings } from "./settings/GeneralSettings";
 import { AISettings } from "./settings/AISettings";
+import { SnapshotSettings } from "./settings/SnapshotSettings";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -75,6 +76,11 @@ export function SettingsSection({
           />
           
           <AISettings
+            settingsDraft={settingsDraft}
+            setSettingsDraft={setSettingsDraft}
+          />
+
+          <SnapshotSettings
             settingsDraft={settingsDraft}
             setSettingsDraft={setSettingsDraft}
           />

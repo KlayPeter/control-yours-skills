@@ -40,6 +40,7 @@ export function WorkspacePrimarySection({
   onGoLocalInstall,
   onGoProjects,
   onGoSyncStatus,
+  onRefresh,
   remoteUrl,
   onRemoteUrlChange,
   selectedStageIds,
@@ -93,6 +94,7 @@ export function WorkspacePrimarySection({
   onGoLocalInstall: () => void;
   onGoProjects: () => void;
   onGoSyncStatus: () => void;
+  onRefresh: () => AsyncActionResult;
   onCopySkill: (id: string) => void;
   onMoveSkill: (id: string) => void;
   onCategoryChange: (value: string) => void;
@@ -196,6 +198,7 @@ export function WorkspacePrimarySection({
           onRemoveSyncTarget={onRemoveSyncTarget}
           onGoStaged={onGoStaged}
           onGoSyncStatus={onGoSyncStatus}
+          onRefresh={onRefresh}
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
         />

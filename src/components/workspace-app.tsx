@@ -364,6 +364,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
                   onGoProjects={() => router.push("/projects" as import("next").Route)}
                   onGoSyncStatus={() => router.push("/sync-status" as import("next").Route)}
+                  onRefresh={refresh}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onImportFolder={importFolderWithPicker}
@@ -430,6 +431,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onGoLocalInstall={() => router.push("/local-install" as import("next").Route)}
                   onGoProjects={() => router.push("/projects" as import("next").Route)}
                   onGoSyncStatus={() => router.push("/sync-status" as import("next").Route)}
+                  onRefresh={refresh}
                   onImportProject={handleImportProject}
                   onImportZip={importZipWithPicker}
                   onImportFolder={importFolderWithPicker}
