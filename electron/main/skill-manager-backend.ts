@@ -11,6 +11,7 @@ import { dialog, safeStorage, shell } from "electron";
 import extractZip from "extract-zip";
 
 import type {
+  BatchUpdateInstalledSkillsInput,
   ExportInstalledSkillInput,
   FolderImportPreviewResult,
   ImportedProjectRecord,
@@ -58,6 +59,7 @@ import { detectSourceType, resolveGitHubArchiveUrl, validateRemoteSource } from 
 import { computeDirectoryHash, replaceDirectory } from "./utils/sync-engine";
 import { diffDirectories } from "./utils/directory-diff";
 import { createDirectorySnapshot } from "./utils/directory-snapshot";
+import { applySkillTagChanges, normalizeSkillTags } from "./utils/skill-tags";
 import {
   resolveSystemProviderSkillPath,
   scanProjectTree,
@@ -148,6 +150,7 @@ interface InstalledRow {
   slug: string;
   description: string | null;
   category: string | null;
+  tags: string;
   install_path: string;
   skill_md_path: string;
   source_type: SourceType;
@@ -315,6 +318,7 @@ function toInstalledRecord(row: InstalledRow): InstalledSkillRecord {
     slug: row.slug,
     description: row.description,
     category: row.category,
+    tags: parseStringList(row.tags),
     syncStatus: "managed",
     syncTargetCount: 0,
     syncTargets: [],
@@ -1118,6 +1122,7 @@ export class SkillManagerBackend {
             slug,
             description: staged.detectedDescription,
             category: resolvedCategory || null,
+            tags: [],
             syncStatus: "managed",
             syncTargetCount: 0,
             syncTargets: [],
@@ -1814,6 +1819,7 @@ export class SkillManagerBackend {
         slug: metadata.slug,
         description: metadata.description,
         category: null,
+        tags: [],
         syncStatus: "managed",
         syncTargetCount: 0,
         syncTargets: [],
@@ -1897,6 +1903,7 @@ export class SkillManagerBackend {
           slug: metadata.slug,
           description: metadata.description,
           category: null,
+          tags: [],
           syncStatus: "managed",
           syncTargetCount: 0,
           syncTargets: [],
@@ -2027,6 +2034,68 @@ export class SkillManagerBackend {
     }
 
     return { ok: true, data: refreshed };
+  }
+
+  async batchUpdateInstalledSkills(
+    input: BatchUpdateInstalledSkillsInput
+  ): Promise<OperationResult<InstalledSkillRecord[]>> {
+    const ids = [...new Set(input.ids.map((id) => id.trim()).filter(Boolean))];
+    if (ids.length === 0) {
+      return { ok: false, error: "Select at least one installed skill." };
+    }
+
+    const addTags = normalizeSkillTags(input.addTags || []);
+    const removeTags = normalizeSkillTags(input.removeTags || []);
+    const hasCategoryChange = Object.prototype.hasOwnProperty.call(input, "category");
+    const nextCategory = hasCategoryChange && input.category
+      ? this.resolveInstallCategory(input.category)
+      : null;
+    const updatedIds: string[] = [];
+    const updateStatement = this.database.prepare(
+      "update installed_skills set category = ?, tags = ?, updated_at = ? where id = ?"
+    );
+
+    const transaction = (this.database as any).transaction(() => {
+      for (const id of ids) {
+        const row = this.database
+          .prepare("select * from installed_skills where id = ?")
+          .get(id) as InstalledRow | undefined;
+        if (!row) continue;
+
+        const tags = applySkillTagChanges(parseStringList(row.tags), addTags, removeTags);
+        updateStatement.run(
+          hasCategoryChange ? nextCategory : row.category,
+          JSON.stringify(tags),
+          nowIso(),
+          id
+        );
+        updatedIds.push(id);
+      }
+    });
+    transaction();
+
+    if (updatedIds.length === 0) {
+      return { ok: false, error: "None of the selected installed skills could be found." };
+    }
+
+    await this.writeLog(
+      "settings",
+      "info",
+      `Batch updated ${updatedIds.length} installed skill${updatedIds.length === 1 ? "" : "s"}.`,
+      JSON.stringify({
+        category: hasCategoryChange ? nextCategory : undefined,
+        addTags,
+        removeTags
+      }),
+      null
+    );
+
+    return {
+      ok: true,
+      data: updatedIds
+        .map((id) => this.getInstalledSkill(id))
+        .filter((item): item is InstalledSkillRecord => Boolean(item))
+    };
   }
 
   async updateStagedSourceCategory(input: {
@@ -2855,6 +2924,7 @@ export class SkillManagerBackend {
         slug,
         description: staged.detectedDescription || parsed.description,
         category: null,
+        tags: [],
         syncStatus: "managed",
         syncTargetCount: 0,
         syncTargets: [],

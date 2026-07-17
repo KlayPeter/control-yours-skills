@@ -3,6 +3,7 @@
 import type {
   AdoptSyncTargetInput,
   AddSyncTargetInput,
+  BatchUpdateInstalledSkillsInput,
   DirectoryValidationResult,
   ExecuteSyncDecisionInput,
   ExportInstalledSkillInput,
@@ -176,6 +177,10 @@ const browserFallbackApi: SkillManagerApi = {
   },
   updateStagedSourceCategory: async () => unavailableResult<StagedSourceRecord>(),
   updateInstalledSkillCategory: async () => unavailableResult<InstalledSkillRecord>(),
+  batchUpdateInstalledSkills: async (_input: BatchUpdateInstalledSkillsInput) => {
+    void _input;
+    return unavailableResult<InstalledSkillRecord[]>();
+  },
   saveSettings: async () => unavailableResult<SettingsRecord>(),
   validateDirectory: async (targetPath: string): Promise<DirectoryValidationResult> => ({
     path: targetPath,

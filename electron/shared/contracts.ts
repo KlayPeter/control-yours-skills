@@ -124,6 +124,7 @@ export interface InstalledSkillRecord {
   slug: string;
   description: string | null;
   category: string | null;
+  tags: string[];
   syncStatus: SyncStatus;
   syncTargetCount: number;
   syncTargets: SyncTargetRecord[];
@@ -426,6 +427,13 @@ export interface PinSkillSnapshotInput {
   pinned: boolean;
 }
 
+export interface BatchUpdateInstalledSkillsInput {
+  ids: string[];
+  category?: string | null;
+  addTags?: string[];
+  removeTags?: string[];
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -456,6 +464,7 @@ export interface SkillManagerApi {
   saveSkillMarkdown(input: SaveSkillMarkdownInput): Promise<OperationResult<InstalledSkillDetail>>;
   restoreSkillSnapshot(input: RestoreSkillSnapshotInput): Promise<OperationResult<InstalledSkillDetail>>;
   pinSkillSnapshot(input: PinSkillSnapshotInput): Promise<OperationResult<SkillSnapshotRecord>>;
+  batchUpdateInstalledSkills(input: BatchUpdateInstalledSkillsInput): Promise<OperationResult<InstalledSkillRecord[]>>;
   updateStagedSourceCategory(input: UpdateStagedSourceCategoryInput): Promise<OperationResult<StagedSourceRecord>>;
   updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;

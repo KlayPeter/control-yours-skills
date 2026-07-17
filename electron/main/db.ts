@@ -104,6 +104,7 @@ export function createDatabase(paths: RuntimePaths) {
       slug text not null,
       description text,
       category text,
+      tags text not null default '[]',
       install_path text not null unique,
       skill_md_path text not null,
       source_type text not null,
@@ -286,6 +287,9 @@ export function createDatabase(paths: RuntimePaths) {
     .all() as Array<{ name: string }>;
   if (!installedColumns.some((column) => column.name === "category")) {
     database.exec("alter table installed_skills add column category text;");
+  }
+  if (!installedColumns.some((column) => column.name === "tags")) {
+    database.exec("alter table installed_skills add column tags text not null default '[]';");
   }
   const syncTargetColumns = database
     .prepare("pragma table_info(sync_targets)")

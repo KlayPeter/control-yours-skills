@@ -83,6 +83,10 @@ describe("createDatabase", () => {
     expect(tables.map((table) => table.name)).toEqual(
       expect.arrayContaining(["skill_snapshots", "sync_operations"])
     );
+    const installedColumns = database
+      .prepare("pragma table_info(installed_skills)")
+      .all() as Array<{ name: string }>;
+    expect(installedColumns.some((column) => column.name === "tags")).toBe(true);
     await expect(fs.stat(paths.snapshotsRoot)).resolves.toMatchObject({});
     closeDatabase(database);
   });

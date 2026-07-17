@@ -51,6 +51,7 @@ const api: SkillManagerApi = {
   pinSkillSnapshot: (input) => ipcRenderer.invoke("skill-manager:pin-skill-snapshot", input),
   updateStagedSourceCategory: (input) => ipcRenderer.invoke("skill-manager:update-staged-source-category", input),
   updateInstalledSkillCategory: (input) => ipcRenderer.invoke("skill-manager:update-installed-skill-category", input),
+  batchUpdateInstalledSkills: (input) => ipcRenderer.invoke("skill-manager:batch-update-installed-skills", input),
   saveSettings: (input) => ipcRenderer.invoke("skill-manager:save-settings", input),
   validateDirectory: (targetPath) => ipcRenderer.invoke("skill-manager:validate-directory", targetPath),
   openPath: (targetPath) => ipcRenderer.invoke("skill-manager:open-path", targetPath),

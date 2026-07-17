@@ -3,6 +3,7 @@ import { ipcMain } from "electron";
 import type {
   AddSyncTargetInput,
   AdoptSyncTargetInput,
+  BatchUpdateInstalledSkillsInput,
   CommitFolderImportInput,
   CopyWorkspaceSkillInput,
   ExportInstalledSkillInput,
@@ -125,6 +126,9 @@ export function registerIpcHandlers(backend: SkillManagerBackend, rendererUrl: s
   );
   registerHandler("skill-manager:update-installed-skill-category", (input: UpdateInstalledSkillCategoryInput) =>
     backend.updateInstalledSkillCategory(input)
+  );
+  registerHandler("skill-manager:batch-update-installed-skills", (input: BatchUpdateInstalledSkillsInput) =>
+    backend.batchUpdateInstalledSkills(input)
   );
   registerHandler("skill-manager:save-settings", (input: SaveSettingsInput) =>
     backend.saveSettings(input)
