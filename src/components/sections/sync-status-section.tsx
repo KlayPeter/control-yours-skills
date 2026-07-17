@@ -1,9 +1,17 @@
-import { AlertTriangle, FolderOpen, RefreshCcw, Sparkles, UploadCloud, ArrowUpCircle, GitMerge, Upload } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, FolderOpen, RefreshCcw, Sparkles, UploadCloud, Upload } from "lucide-react";
 
-import type { SkillManagerSnapshot, SyncStatus } from "@shared/contracts";
+import type {
+  ExecuteSyncDecisionInput,
+  PreviewSyncInput,
+  SkillManagerSnapshot,
+  SyncPreview,
+  SyncStatus
+} from "@shared/contracts";
 
 import { OverviewMetric } from "../ui/typography";
 import { SyncStatusBadge } from "../ui/badges";
+import { SyncPreviewDialog } from "../workspace/sync-preview-dialog";
 
 type TranslationDictionary = Record<string, string>;
 type AsyncActionResult<T = unknown> = void | Promise<T>;
@@ -26,17 +34,18 @@ export function SyncStatusSection({
   searchValue,
   onSearchValueChange,
   onOpenPath,
-  onSyncInstalledSkill,
-  onAdoptSyncTarget
+  onPreviewSync,
+  onExecuteSyncDecision
 }: {
   snapshot: SkillManagerSnapshot;
   t: TranslationDictionary;
   searchValue: string;
   onSearchValueChange: (value: string) => void;
   onOpenPath: (path: string) => AsyncActionResult;
-  onSyncInstalledSkill: (input: { skillId: string; syncTargetId?: string }) => AsyncActionResult;
-  onAdoptSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
+  onPreviewSync: (input: PreviewSyncInput) => Promise<SyncPreview | undefined>;
+  onExecuteSyncDecision: (input: ExecuteSyncDecisionInput) => AsyncActionResult;
 }) {
+  const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const installedWithTargets = snapshot.installedSkills.filter((skill) => skill.syncTargetCount > 0);
   const allTargets = installedWithTargets.flatMap((skill) =>
     skill.syncTargets.map((target) => ({
@@ -78,6 +87,17 @@ export function SyncStatusSection({
       target.path.toLowerCase().includes(term)
     );
   });
+
+  const openPreview = async (input: PreviewSyncInput) => {
+    try {
+      const preview = await onPreviewSync(input);
+      if (preview) {
+        setSyncPreview(preview);
+      }
+    } catch {
+      // The shared action layer presents the error without opening an empty dialog.
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -127,7 +147,7 @@ export function SyncStatusSection({
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           className="app-button"
-                          onClick={() => void onSyncInstalledSkill({ skillId: skill.id, syncTargetId: target.id })}
+                          onClick={() => void openPreview({ skillId: skill.id, syncTargetId: target.id, direction: "push" })}
                           type="button"
                         >
                           <RefreshCcw className="h-4 w-4" />
@@ -135,7 +155,7 @@ export function SyncStatusSection({
                         </button>
                         <button
                           className="app-button"
-                          onClick={() => void onAdoptSyncTarget({ syncTargetId: target.id, skillId: skill.id })}
+                          onClick={() => void openPreview({ skillId: skill.id, syncTargetId: target.id, direction: "adopt" })}
                           type="button"
                         >
                           <Upload className="h-4 w-4" />
@@ -198,29 +218,6 @@ export function SyncStatusSection({
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
-                      className="app-button"
-                      onClick={() => {
-                        if (skill.syncStatus === "local_changes" || skill.syncStatus === "conflict") {
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                          return;
-                        }
-                        void onSyncInstalledSkill({ skillId: skill.id });
-                      }}
-                      type="button"
-                    >
-                      {skill.syncStatus === "local_changes" || skill.syncStatus === "conflict" ? (
-                        <>
-                          <GitMerge className="h-4 w-4" />
-                          <span>解决冲突 (Resolve)</span>
-                        </>
-                      ) : (
-                        <>
-                          <ArrowUpCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                          <span>全部推送 (Push All)</span>
-                        </>
-                      )}
-                    </button>
-                    <button
                       className="app-icon-button"
                       onClick={() => void onOpenPath(skill.installPath)}
                       title={t.openFolder}
@@ -272,25 +269,24 @@ export function SyncStatusSection({
 
                           {/* Actions */}
                           <div className="flex items-center gap-2 mt-2 lg:mt-0 shrink-0">
+                            <button
+                              className="app-button"
+                              onClick={() => void openPreview({ skillId: skill.id, syncTargetId: target.id, direction: "push" })}
+                              type="button"
+                            >
+                              <UploadCloud className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">预览推送</span>
+                            </button>
                             {target.status === "local_changes" || target.status === "conflict" ? (
                               <button
-                                className="app-button bg-signal/10 hover:bg-signal/20 text-signal border-transparent"
-                                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                                className="app-button bg-signal/10 text-signal hover:bg-signal/20"
+                                onClick={() => void openPreview({ skillId: skill.id, syncTargetId: target.id, direction: "adopt" })}
                                 type="button"
                               >
-                                <GitMerge className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">解决冲突</span>
+                                <Upload className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">预览采纳</span>
                               </button>
-                            ) : (
-                              <button
-                                className="app-button"
-                                onClick={() => void onSyncInstalledSkill({ skillId: skill.id, syncTargetId: target.id })}
-                                type="button"
-                              >
-                                <UploadCloud className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">推送 (Push)</span>
-                              </button>
-                            )}
+                            ) : null}
                             <button
                               className="app-icon-button"
                               onClick={() => void onOpenPath(target.targetSkillPath || target.path)}
@@ -310,6 +306,13 @@ export function SyncStatusSection({
           )}
         </div>
       </div>
+      {syncPreview ? (
+        <SyncPreviewDialog
+          preview={syncPreview}
+          onClose={() => setSyncPreview(null)}
+          onExecute={onExecuteSyncDecision}
+        />
+      ) : null}
     </div>
   );
 }

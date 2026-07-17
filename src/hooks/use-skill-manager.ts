@@ -6,9 +6,11 @@ import type {
   AdoptSyncTargetInput,
   InstallWorkspaceSkillInput,
   CopyWorkspaceSkillInput,
+  ExecuteSyncDecisionInput,
   CommitFolderImportInput,
   InstalledSkillDetail,
   Locale,
+  PreviewSyncInput,
   SaveSettingsInput,
   SkillManagerSnapshot,
   StagedSourceDetail,
@@ -469,6 +471,32 @@ export function useSkillManager(initialSkillId?: string) {
         }
 
         setNotice(t.syncTargetAdopted);
+        return result.data;
+      }),
+    previewSync: async (input: PreviewSyncInput) => {
+      setBusyLabel("正在生成同步差异预览");
+      setError(null);
+      try {
+        const result = await api.previewSync(input);
+        if (!result.ok || !result.data) {
+          throw new Error(result.error || "无法生成同步差异预览。");
+        }
+        return result.data;
+      } catch (previewError) {
+        const message = previewError instanceof Error ? previewError.message : t.operationFailed;
+        setError(message);
+        throw previewError;
+      } finally {
+        setBusyLabel(null);
+      }
+    },
+    executeSyncDecision: (input: ExecuteSyncDecisionInput) =>
+      runAction("正在安全应用同步决策", async () => {
+        const result = await api.executeSyncDecision(input);
+        if (!result.ok || !result.data) {
+          throw new Error(result.error || "同步决策执行失败。");
+        }
+        setNotice(input.action === "overwrite-target" ? t.skillSynced : t.syncTargetAdopted);
         return result.data;
       }),
     updateStagedSourceCategory: (input: { id: string; category: string | null }) =>

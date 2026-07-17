@@ -113,7 +113,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
     setSelectedLogId, installStagedSources, parseStagedSources,
     removeStagedSources, clearStagedSources, toggleStageSelection, saveSettings,
     rescanInstalledSkill, pickDirectory, addSyncTarget, removeSyncTarget,
-    syncInstalledSkill, syncAllSkills, adoptSyncTarget, commitFolderImport,
+    syncAllSkills, previewSync, executeSyncDecision, commitFolderImport,
     updateStagedSourceCategory
   } = logic;
 
@@ -386,9 +386,9 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onCreateCategory={handleCreateCategory}
                   onAddSyncTarget={addSyncTarget}
                   onRemoveSyncTarget={removeSyncTarget}
-                  onSyncInstalledSkill={syncInstalledSkill}
                   onSyncAllSkills={syncAllSkills}
-                  onAdoptSyncTarget={adoptSyncTarget}
+                  onPreviewSync={previewSync}
+                  onExecuteSyncDecision={executeSyncDecision}
                   onUpdateStagedSourceCategory={updateStagedSourceCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
                   onCreateWorkspaceFolder={createWorkspaceFolder}
@@ -452,9 +452,9 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                   onCreateCategory={handleCreateCategory}
                   onAddSyncTarget={addSyncTarget}
                   onRemoveSyncTarget={removeSyncTarget}
-                  onSyncInstalledSkill={syncInstalledSkill}
                   onSyncAllSkills={syncAllSkills}
-                  onAdoptSyncTarget={adoptSyncTarget}
+                  onPreviewSync={previewSync}
+                  onExecuteSyncDecision={executeSyncDecision}
                   onUpdateStagedSourceCategory={updateStagedSourceCategory}
                   onCopyWorkspaceSkill={copyWorkspaceSkillToDirectory}
                   onCreateWorkspaceFolder={createWorkspaceFolder}

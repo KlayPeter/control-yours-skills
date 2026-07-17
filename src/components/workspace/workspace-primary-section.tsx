@@ -1,12 +1,15 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { DropzoneState } from "react-dropzone";
 import type {
+  CopyWorkspaceSkillInput,
+  ExecuteSyncDecisionInput,
   InstalledSkillRecord,
+  PreviewSyncInput,
   SaveSettingsInput,
   SkillManagerSnapshot,
+  SyncPreview,
   WorkspaceSkillProviderKey,
-  WorkspaceSkillSource,
-  CopyWorkspaceSkillInput
+  WorkspaceSkillSource
 } from "@shared/contracts";
 
 import { SectionCard } from "../ui/cards";
@@ -72,8 +75,8 @@ export function WorkspacePrimarySection({
   onCreateCategory,
   onAddSyncTarget,
   onRemoveSyncTarget,
-  onSyncInstalledSkill,
-  onAdoptSyncTarget,
+  onPreviewSync,
+  onExecuteSyncDecision,
   onUpdateStagedSourceCategory,
   newCategoryName,
   onNewCategoryNameChange
@@ -135,9 +138,9 @@ export function WorkspacePrimarySection({
   onCreateCategory: () => AsyncActionResult;
   onAddSyncTarget: (input: { skillId: string; scope: "project" | "system"; providerKey: WorkspaceSkillProviderKey; label: string; path: string }) => AsyncActionResult;
   onRemoveSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
-  onSyncInstalledSkill: (input: { skillId: string; syncTargetId?: string }) => AsyncActionResult;
   onSyncAllSkills: () => AsyncActionResult;
-  onAdoptSyncTarget: (input: { syncTargetId: string; skillId?: string }) => AsyncActionResult;
+  onPreviewSync: (input: PreviewSyncInput) => Promise<SyncPreview | undefined>;
+  onExecuteSyncDecision: (input: ExecuteSyncDecisionInput) => AsyncActionResult;
   onUpdateStagedSourceCategory: (input: { id: string; category: string | null }) => AsyncActionResult;
   newCategoryName: string;
   onNewCategoryNameChange: (value: string) => void;
@@ -205,8 +208,8 @@ export function WorkspacePrimarySection({
           searchValue={searchValue}
           onSearchValueChange={onSearchValueChange}
           onOpenPath={onOpenPath}
-          onSyncInstalledSkill={onSyncInstalledSkill}
-          onAdoptSyncTarget={onAdoptSyncTarget}
+          onPreviewSync={onPreviewSync}
+          onExecuteSyncDecision={onExecuteSyncDecision}
         />
       );
     case "projects":
