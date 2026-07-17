@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -48,10 +48,38 @@ export async function computeDirectoryHash(rootPath: string) {
 }
 
 export async function replaceDirectory(sourcePath: string, targetPath: string) {
-  await fsp.rm(targetPath, { recursive: true, force: true });
-  await fsp.mkdir(path.dirname(targetPath), { recursive: true });
-  await fsp.cp(sourcePath, targetPath, {
-    recursive: true,
-    force: false
-  });
+  const targetParent = path.dirname(targetPath);
+  const targetName = path.basename(targetPath);
+  const operationId = randomUUID();
+  const stagedPath = path.join(targetParent, `.${targetName}.staging-${operationId}`);
+  const backupPath = path.join(targetParent, `.${targetName}.backup-${operationId}`);
+  let movedExistingTarget = false;
+
+  await fsp.mkdir(targetParent, { recursive: true });
+
+  try {
+    await fsp.cp(sourcePath, stagedPath, {
+      recursive: true,
+      force: false
+    });
+
+    if (fs.existsSync(targetPath)) {
+      await fsp.rename(targetPath, backupPath);
+      movedExistingTarget = true;
+    }
+
+    await fsp.rename(stagedPath, targetPath);
+
+    if (movedExistingTarget) {
+      await fsp.rm(backupPath, { recursive: true, force: true });
+    }
+  } catch (error) {
+    await fsp.rm(stagedPath, { recursive: true, force: true });
+
+    if (movedExistingTarget && !fs.existsSync(targetPath) && fs.existsSync(backupPath)) {
+      await fsp.rename(backupPath, targetPath);
+    }
+
+    throw error;
+  }
 }

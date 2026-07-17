@@ -24,6 +24,17 @@ describe("source-url helpers", () => {
     expect(detectSourceType("https://example.com/skill.zip")).toBe("remoteZip");
   });
 
+  it("rejects insecure URLs and embedded credentials", () => {
+    expect(validateRemoteSource("http://example.com/skill.zip")).toEqual({
+      ok: false,
+      error: "Only HTTPS remote URLs are supported."
+    });
+    expect(validateRemoteSource("https://user:secret@example.com/skill.zip")).toEqual({
+      ok: false,
+      error: "Remote source URLs cannot include credentials."
+    });
+  });
+
   it("rejects unsupported URLs", () => {
     const validation = validateRemoteSource("https://example.com/skill");
     expect(validation.ok).toBe(false);

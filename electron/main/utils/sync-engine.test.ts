@@ -51,4 +51,16 @@ describe("replaceDirectory", () => {
     await expect(fs.readFile(path.join(targetDir, "SKILL.md"), "utf8")).resolves.toContain("Source");
     await expect(fs.access(path.join(targetDir, "old.txt"))).rejects.toThrow();
   });
+
+  it("keeps the existing target when staging the replacement fails", async () => {
+    const targetParentDir = await createTempDirectory();
+    const targetDir = path.join(targetParentDir, "skill-alpha");
+    const missingSourceDir = path.join(targetParentDir, "missing-source");
+
+    await fs.mkdir(targetDir, { recursive: true });
+    await fs.writeFile(path.join(targetDir, "SKILL.md"), "# Existing", "utf8");
+
+    await expect(replaceDirectory(missingSourceDir, targetDir)).rejects.toThrow();
+    await expect(fs.readFile(path.join(targetDir, "SKILL.md"), "utf8")).resolves.toContain("Existing");
+  });
 });

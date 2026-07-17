@@ -41,6 +41,7 @@ import type {
 import { createDatabase } from "./db";
 import type { RuntimePaths } from "./runtime-paths";
 import { resolveRuntimePaths } from "./runtime-paths";
+import { downloadRemoteArchive } from "./utils/archive-download";
 import { detectEnvironment, hasRequiredTools } from "./utils/environment";
 import { analyzeRemoteSource, parseInstallStrategy, requiresArchiveExtraction, serializeInstallStrategy } from "./utils/remote-analysis";
 import { classifySkill } from "./utils/skill-classification";
@@ -1014,15 +1015,7 @@ export class SkillManagerBackend {
           id
         );
 
-        if (settings.conflictPolicy === "overwrite") {
-          await fsp.rm(installPath, { recursive: true, force: true });
-        }
-
-        await this.ensureDirectory(path.dirname(installPath));
-        await fsp.cp(staged.skillRootPath, installPath, {
-          recursive: true,
-          force: false
-        });
+        await replaceDirectory(staged.skillRootPath, installPath);
 
         if (existingRecordRow && settings.conflictPolicy === "overwrite") {
           // Update existing record
@@ -2239,18 +2232,7 @@ export class SkillManagerBackend {
         ? resolveGitHubArchiveUrl(staged.sourceValue)
         : staged.sourceValue;
     const archivePath = path.join(this.paths.cacheRoot, `${staged.id}.zip`);
-    const response = await fetch(downloadUrl, {
-      headers: {
-        "User-Agent": "control-your-skills"
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Download failed: ${response.status} ${response.statusText}`);
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    await fsp.writeFile(archivePath, buffer);
+    await downloadRemoteArchive(downloadUrl, archivePath);
     return archivePath;
   }
 

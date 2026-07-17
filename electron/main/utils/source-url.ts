@@ -46,10 +46,17 @@ export function validateRemoteSource(source: string) {
 
   try {
     const url = new URL(trimmed);
-    if (!["http:", "https:"].includes(url.protocol)) {
+    if (url.protocol !== "https:") {
       return {
         ok: false as const,
-        error: "Only http and https remote URLs are supported."
+        error: "Only HTTPS remote URLs are supported."
+      };
+    }
+
+    if (url.username || url.password) {
+      return {
+        ok: false as const,
+        error: "Remote source URLs cannot include credentials."
       };
     }
 
