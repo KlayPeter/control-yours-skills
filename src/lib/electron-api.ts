@@ -4,6 +4,7 @@ import type {
   AdoptSyncTargetInput,
   AddSyncTargetInput,
   DirectoryValidationResult,
+  ExecuteSyncDecisionInput,
   ExportInstalledSkillInput,
   FolderImportPreviewResult,
   InstalledSkillRecord,
@@ -12,11 +13,14 @@ import type {
   CopyWorkspaceSkillInput,
   LogRecord,
   OperationResult,
+  PreviewSyncInput,
   RemoveSyncTargetInput,
   SettingsRecord,
   SkillManagerApi,
   SkillManagerSnapshot,
   SyncInstalledSkillInput,
+  SyncOperationRecord,
+  SyncPreview,
   StagedSourceDetail,
   StagedSourceRecord
 } from "@shared/contracts";
@@ -137,6 +141,14 @@ const browserFallbackApi: SkillManagerApi = {
   adoptSyncTarget: async (_input: AdoptSyncTargetInput) => {
     void _input;
     return unavailableResult<string>();
+  },
+  previewSync: async (_input: PreviewSyncInput) => {
+    void _input;
+    return unavailableResult<SyncPreview>();
+  },
+  executeSyncDecision: async (_input: ExecuteSyncDecisionInput) => {
+    void _input;
+    return unavailableResult<SyncOperationRecord>();
   },
   updateStagedSourceCategory: async () => unavailableResult<StagedSourceRecord>(),
   updateInstalledSkillCategory: async () => unavailableResult<InstalledSkillRecord>(),

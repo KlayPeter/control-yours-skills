@@ -23,6 +23,7 @@ async function createTestPaths(): Promise<RuntimePaths> {
     tempRoot: path.join(dataRoot, "temp"),
     cacheRoot: path.join(dataRoot, "cache"),
     logsRoot: path.join(dataRoot, "logs"),
+    snapshotsRoot: path.join(dataRoot, "snapshots"),
     isDevelopment: true,
     homeDir: dataRoot
   };
@@ -65,5 +66,19 @@ describe("createDatabase", () => {
 
     expect(settings).toEqual({ ai_enabled: 0, ai_api_key: "" });
     closeDatabase(migratedDatabase);
+  });
+
+  it("creates the V2 sync audit and snapshot tables", async () => {
+    const paths = await createTestPaths();
+    const database = createDatabase(paths);
+    const tables = database
+      .prepare("select name from sqlite_master where type = 'table'")
+      .all() as Array<{ name: string }>;
+
+    expect(tables.map((table) => table.name)).toEqual(
+      expect.arrayContaining(["skill_snapshots", "sync_operations"])
+    );
+    await expect(fs.stat(paths.snapshotsRoot)).resolves.toMatchObject({});
+    closeDatabase(database);
   });
 });

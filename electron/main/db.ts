@@ -40,6 +40,7 @@ export function createDatabase(paths: RuntimePaths) {
   fs.mkdirSync(paths.tempRoot, { recursive: true });
   fs.mkdirSync(paths.cacheRoot, { recursive: true });
   fs.mkdirSync(paths.logsRoot, { recursive: true });
+  fs.mkdirSync(paths.snapshotsRoot, { recursive: true });
 
   const database = new Database(paths.databasePath);
   database.pragma("journal_mode = WAL");
@@ -135,6 +136,38 @@ export function createDatabase(paths: RuntimePaths) {
       detail text,
       related_id text,
       created_at text not null
+    );
+
+    create table if not exists skill_snapshots (
+      id text primary key,
+      skill_id text not null,
+      sync_target_id text,
+      side text not null,
+      reason text not null,
+      content_hash text,
+      snapshot_path text not null unique,
+      size_bytes integer not null default 0,
+      is_pinned integer not null default 0,
+      created_at text not null,
+      foreign key(skill_id) references installed_skills(id) on delete cascade,
+      foreign key(sync_target_id) references sync_targets(id) on delete set null
+    );
+
+    create table if not exists sync_operations (
+      id text primary key,
+      skill_id text not null,
+      sync_target_id text not null,
+      direction text not null,
+      action text not null,
+      source_hash_before text,
+      target_hash_before text,
+      snapshot_id text,
+      status text not null,
+      error text,
+      created_at text not null,
+      foreign key(skill_id) references installed_skills(id) on delete cascade,
+      foreign key(sync_target_id) references sync_targets(id) on delete cascade,
+      foreign key(snapshot_id) references skill_snapshots(id) on delete set null
     );
   `);
 

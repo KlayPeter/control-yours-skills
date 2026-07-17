@@ -6,9 +6,11 @@ import type {
   CommitFolderImportInput,
   CopyWorkspaceSkillInput,
   ExportInstalledSkillInput,
+  ExecuteSyncDecisionInput,
   InstallStagedSourcesInput,
   InstallWorkspaceSkillInput,
   RemoveSyncTargetInput,
+  PreviewSyncInput,
   SaveSettingsInput,
   SyncInstalledSkillInput,
   UpdateInstalledSkillCategoryInput,
@@ -96,6 +98,12 @@ export function registerIpcHandlers(backend: SkillManagerBackend, rendererUrl: s
   );
   registerHandler("skill-manager:adopt-sync-target", (input: AdoptSyncTargetInput) =>
     backend.adoptSyncTarget(input)
+  );
+  registerHandler("skill-manager:preview-sync", (input: PreviewSyncInput) =>
+    backend.previewSync(input)
+  );
+  registerHandler("skill-manager:execute-sync-decision", (input: ExecuteSyncDecisionInput) =>
+    backend.executeSyncDecision(input)
   );
   registerHandler("skill-manager:update-staged-source-category", (input: UpdateStagedSourceCategoryInput) =>
     backend.updateStagedSourceCategory(input)

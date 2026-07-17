@@ -328,6 +328,70 @@ export interface AdoptSyncTargetInput {
   syncTargetId: string;
 }
 
+export type SyncDirection = "push" | "adopt";
+export type SyncDecisionAction = "overwrite-target" | "adopt-target";
+export type DirectoryChangeType = "added" | "modified" | "deleted";
+
+export interface DirectoryDiffSummary {
+  added: number;
+  modified: number;
+  deleted: number;
+  unchanged: number;
+}
+
+export interface DirectoryDiffEntry {
+  path: string;
+  change: DirectoryChangeType;
+  kind: "text" | "binary";
+  beforeSize: number;
+  afterSize: number;
+  patch: string | null;
+  truncated: boolean;
+}
+
+export interface PreviewSyncInput {
+  skillId: string;
+  syncTargetId: string;
+  direction: SyncDirection;
+}
+
+export interface SyncPreview {
+  skillId: string;
+  skillName: string;
+  syncTargetId: string;
+  targetLabel: string;
+  direction: SyncDirection;
+  sourcePath: string;
+  targetPath: string;
+  sourceHash: string | null;
+  targetHash: string | null;
+  summary: DirectoryDiffSummary;
+  entries: DirectoryDiffEntry[];
+}
+
+export interface ExecuteSyncDecisionInput {
+  skillId: string;
+  syncTargetId: string;
+  action: SyncDecisionAction;
+  expectedSourceHash: string | null;
+  expectedTargetHash: string | null;
+  expectedTargetPath: string;
+}
+
+export interface SyncOperationRecord {
+  id: string;
+  skillId: string;
+  syncTargetId: string;
+  direction: SyncDirection;
+  action: SyncDecisionAction;
+  sourceHashBefore: string | null;
+  targetHashBefore: string | null;
+  snapshotId: string | null;
+  status: "success" | "failed";
+  error: string | null;
+  createdAt: string;
+}
+
 export interface SkillManagerApi {
   getSnapshot(): Promise<SkillManagerSnapshot>;
   importLocalArchive(filePath: string): Promise<OperationResult<StagedSourceRecord>>;
@@ -352,6 +416,8 @@ export interface SkillManagerApi {
   syncInstalledSkill(input: SyncInstalledSkillInput): Promise<OperationResult<number>>;
   syncAllSkills(): Promise<OperationResult<number>>;
   adoptSyncTarget(input: AdoptSyncTargetInput): Promise<OperationResult<string>>;
+  previewSync(input: PreviewSyncInput): Promise<OperationResult<SyncPreview>>;
+  executeSyncDecision(input: ExecuteSyncDecisionInput): Promise<OperationResult<SyncOperationRecord>>;
   updateStagedSourceCategory(input: UpdateStagedSourceCategoryInput): Promise<OperationResult<StagedSourceRecord>>;
   updateInstalledSkillCategory(input: UpdateInstalledSkillCategoryInput): Promise<OperationResult<InstalledSkillRecord>>;
   saveSettings(input: SaveSettingsInput): Promise<OperationResult<SettingsRecord>>;

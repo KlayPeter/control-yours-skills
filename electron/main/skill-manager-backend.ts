@@ -19,6 +19,7 @@ import type {
   CommitFolderImportInput,
   InstallStagedSourcesInput,
   DirectoryValidationResult,
+  ExecuteSyncDecisionInput,
   EnvironmentInfo,
   InstallStrategy,
   InstalledSkillDetail,
@@ -29,6 +30,9 @@ import type {
   SkillCategoryRecord,
   SettingsRecord,
   SkillManagerSnapshot,
+  SyncOperationRecord,
+  SyncPreview,
+  PreviewSyncInput,
   SyncStatus,
   SyncTargetRecord,
   SourceType,
@@ -48,6 +52,8 @@ import { classifySkill } from "./utils/skill-classification";
 import { detectSkillDirectory, discoverSkillDirectories, slugifySkillName } from "./utils/skill-parser";
 import { detectSourceType, resolveGitHubArchiveUrl, validateRemoteSource } from "./utils/source-url";
 import { computeDirectoryHash, replaceDirectory } from "./utils/sync-engine";
+import { diffDirectories } from "./utils/directory-diff";
+import { createDirectorySnapshot } from "./utils/directory-snapshot";
 import {
   resolveSystemProviderSkillPath,
   scanProjectTree,
@@ -1349,13 +1355,181 @@ export class SkillManagerBackend {
     return { ok: true, data: removed };
   }
 
+  async previewSync(input: PreviewSyncInput): Promise<OperationResult<SyncPreview>> {
+    const installed = this.getInstalledSkill(input.skillId);
+    const syncTarget = this.getSyncTarget(input.syncTargetId);
+    if (!installed || !syncTarget || syncTarget.skillId !== installed.id) {
+      return { ok: false, error: "The selected skill or sync target could not be found." };
+    }
+
+    const settings = this.getSettings();
+    const targetPath =
+      syncTarget.targetSkillPath ||
+      (await this.resolveInstallPath(syncTarget.path, installed.slug, settings.conflictPolicy));
+    if (input.direction === "adopt" && !fs.existsSync(targetPath)) {
+      return { ok: false, error: "The target version no longer exists." };
+    }
+
+    const [sourceHash, targetHash, difference] = await Promise.all([
+      computeDirectoryHash(installed.installPath),
+      computeDirectoryHash(targetPath),
+      input.direction === "push"
+        ? diffDirectories(targetPath, installed.installPath)
+        : diffDirectories(installed.installPath, targetPath)
+    ]);
+
+    return {
+      ok: true,
+      data: {
+        skillId: installed.id,
+        skillName: installed.name,
+        syncTargetId: syncTarget.id,
+        targetLabel: syncTarget.label,
+        direction: input.direction,
+        sourcePath: installed.installPath,
+        targetPath,
+        sourceHash,
+        targetHash,
+        ...difference
+      }
+    };
+  }
+
+  async executeSyncDecision(input: ExecuteSyncDecisionInput): Promise<OperationResult<SyncOperationRecord>> {
+    const installed = this.getInstalledSkill(input.skillId);
+    const syncTarget = this.getSyncTarget(input.syncTargetId);
+    if (!installed || !syncTarget || syncTarget.skillId !== installed.id) {
+      return { ok: false, error: "The selected skill or sync target could not be found." };
+    }
+
+    const direction = input.action === "overwrite-target" ? "push" : "adopt";
+    const settings = this.getSettings();
+    const targetPath =
+      syncTarget.targetSkillPath ||
+      (await this.resolveInstallPath(syncTarget.path, installed.slug, settings.conflictPolicy));
+    const operationId = randomUUID();
+    const createdAt = nowIso();
+
+    if (targetPath !== input.expectedTargetPath) {
+      return { ok: false, error: "The target path changed after preview. Review the changes again." };
+    }
+
+    const [sourceHash, targetHash] = await Promise.all([
+      computeDirectoryHash(installed.installPath),
+      computeDirectoryHash(targetPath)
+    ]);
+    if (sourceHash !== input.expectedSourceHash || targetHash !== input.expectedTargetHash) {
+      return { ok: false, error: "The skill changed after preview. Review the latest changes before continuing." };
+    }
+    if (direction === "adopt" && !targetHash) {
+      return { ok: false, error: "The target version no longer exists." };
+    }
+
+    let snapshotId: string | null = null;
+
+    try {
+      const destinationPath = direction === "push" ? targetPath : installed.installPath;
+      if (fs.existsSync(destinationPath)) {
+        snapshotId = await this.createSafetySnapshot({
+          skillId: installed.id,
+          syncTargetId: syncTarget.id,
+          side: direction === "push" ? "target" : "center",
+          reason: input.action,
+          sourcePath: destinationPath
+        });
+      }
+
+      if (direction === "push") {
+        const baseValidation = await this.validateDirectory(syncTarget.path);
+        if (!baseValidation.writable) {
+          throw new Error(baseValidation.error || "The sync target directory is not writable.");
+        }
+        await replaceDirectory(installed.installPath, targetPath);
+      } else {
+        await replaceDirectory(targetPath, installed.installPath);
+        const parsed = await detectSkillDirectory(installed.installPath);
+        this.database
+          .prepare(
+            "update installed_skills set name = ?, slug = ?, description = ?, skill_md_path = ?, updated_at = ? where id = ?"
+          )
+          .run(parsed.name, parsed.slug, parsed.description, parsed.skillMdPath, nowIso(), installed.id);
+      }
+
+      const [nextSourceHash, nextTargetHash] = await Promise.all([
+        computeDirectoryHash(installed.installPath),
+        computeDirectoryHash(targetPath)
+      ]);
+      this.updateSyncTarget(syncTarget.id, {
+        targetSkillPath: targetPath,
+        status: "synced",
+        lastSyncedAt: nowIso(),
+        lastError: null,
+        conflictDetail: null,
+        sourceHash: nextSourceHash,
+        targetHash: nextTargetHash,
+        lastSyncedSourceHash: nextSourceHash,
+        lastSyncedTargetHash: nextTargetHash,
+        updatedAt: nowIso()
+      });
+
+      const record: SyncOperationRecord = {
+        id: operationId,
+        skillId: installed.id,
+        syncTargetId: syncTarget.id,
+        direction,
+        action: input.action,
+        sourceHashBefore: sourceHash,
+        targetHashBefore: targetHash,
+        snapshotId,
+        status: "success",
+        error: null,
+        createdAt
+      };
+      this.insertSyncOperation(record);
+      await this.writeLog(
+        "install",
+        "info",
+        direction === "push"
+          ? `成功将技能 [${installed.name}] 发布同步至目标 [${syncTarget.label}]`
+          : `采纳了来自目标环境 [${syncTarget.label}] 的外部修改`,
+        direction === "push"
+          ? `流转路线: ${installed.installPath} -> ${targetPath}`
+          : `流转路线: ${targetPath} -> ${installed.installPath}`,
+        installed.id
+      );
+      return { ok: true, data: record };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to apply the sync decision.";
+      const record: SyncOperationRecord = {
+        id: operationId,
+        skillId: installed.id,
+        syncTargetId: syncTarget.id,
+        direction,
+        action: input.action,
+        sourceHashBefore: sourceHash,
+        targetHashBefore: targetHash,
+        snapshotId,
+        status: "failed",
+        error: message,
+        createdAt
+      };
+      this.insertSyncOperation(record);
+      this.updateSyncTarget(syncTarget.id, {
+        status: "sync_failed",
+        lastError: message,
+        updatedAt: nowIso()
+      });
+      await this.writeLog("install", "error", "Failed to apply the sync decision.", message, installed.id);
+      return { ok: false, error: message };
+    }
+  }
+
   async syncInstalledSkill(input: { skillId: string; syncTargetId?: string }): Promise<OperationResult<number>> {
     const installed = this.getInstalledSkill(input.skillId);
     if (!installed) {
       return { ok: false, error: "The selected installed skill could not be found." };
     }
 
-    const settings = this.getSettings();
     const syncTargets = input.syncTargetId
       ? this.listSyncTargetsBySkill(installed.id).filter((target) => target.id === input.syncTargetId)
       : this.listSyncTargetsBySkill(installed.id);
@@ -1367,57 +1541,23 @@ export class SkillManagerBackend {
     let syncedCount = 0;
 
     for (const syncTarget of syncTargets) {
-      try {
-        const baseValidation = await this.validateDirectory(syncTarget.path);
-        if (!baseValidation.writable) {
-          throw new Error(baseValidation.error || "The sync target directory is not writable.");
+      const preview = await this.previewSync({
+        skillId: installed.id,
+        syncTargetId: syncTarget.id,
+        direction: "push"
+      });
+      if (preview.ok && preview.data) {
+        const result = await this.executeSyncDecision({
+          skillId: installed.id,
+          syncTargetId: syncTarget.id,
+          action: "overwrite-target",
+          expectedSourceHash: preview.data.sourceHash,
+          expectedTargetHash: preview.data.targetHash,
+          expectedTargetPath: preview.data.targetPath
+        });
+        if (result.ok) {
+          syncedCount += 1;
         }
-
-        const targetSkillPath =
-          syncTarget.targetSkillPath || (await this.resolveInstallPath(syncTarget.path, installed.slug, settings.conflictPolicy));
-        const sourceHash = await computeDirectoryHash(installed.installPath);
-
-        await this.writeLog(
-          "install",
-          "info",
-          `准备将技能 [${installed.name}] 发布同步至目标 [${syncTarget.label}]`,
-          `流转路线: ${installed.installPath} -> ${targetSkillPath}`,
-          installed.id
-        );
-
-        await replaceDirectory(installed.installPath, targetSkillPath);
-        const targetHash = await computeDirectoryHash(targetSkillPath);
-
-        this.updateSyncTarget(syncTarget.id, {
-          targetSkillPath,
-          status: "synced",
-          lastSyncedAt: nowIso(),
-          lastError: null,
-          conflictDetail: null,
-          sourceHash,
-          targetHash,
-          lastSyncedSourceHash: sourceHash,
-          lastSyncedTargetHash: targetHash,
-          updatedAt: nowIso()
-        });
-
-        await this.writeLog(
-          "install",
-          "info",
-          `成功将技能 [${installed.name}] 发布同步至目标 [${syncTarget.label}]`,
-          `成功落地于: ${targetSkillPath}`,
-          installed.id
-        );
-
-        syncedCount += 1;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to sync the installed skill.";
-        this.updateSyncTarget(syncTarget.id, {
-          status: "sync_failed",
-          lastError: message,
-          updatedAt: nowIso()
-        });
-        await this.writeLog("install", "error", `将技能 [${installed.name}] 发布至目标 [${syncTarget.label}] 失败`, message, installed.id);
       }
     }
 
@@ -1453,52 +1593,26 @@ export class SkillManagerBackend {
       return { ok: false, error: "The synced target directory no longer exists." };
     }
 
-    try {
-      await replaceDirectory(syncTarget.targetSkillPath, installed.installPath);
-      const parsed = await detectSkillDirectory(installed.installPath);
-      this.database
-        .prepare(
-          `
-            update installed_skills
-            set name = ?, slug = ?, description = ?, skill_md_path = ?, updated_at = ?
-            where id = ?
-          `
-        )
-        .run(parsed.name, parsed.slug, parsed.description, parsed.skillMdPath, nowIso(), installed.id);
-
-      const sourceHash = await computeDirectoryHash(installed.installPath);
-      const targetHash = await computeDirectoryHash(syncTarget.targetSkillPath);
-      this.updateSyncTarget(syncTarget.id, {
-        status: "synced",
-        lastSyncedAt: nowIso(),
-        lastError: null,
-        conflictDetail: null,
-        sourceHash,
-        targetHash,
-        lastSyncedSourceHash: sourceHash,
-        lastSyncedTargetHash: targetHash,
-        updatedAt: nowIso()
-      });
-
-      await this.writeLog(
-        "install",
-        "info",
-        `采纳了来自目标环境 [${syncTarget.label}] 的外部修改，反向覆盖至中心仓库`,
-        `流转路线: ${syncTarget.targetSkillPath} -> ${installed.installPath}`,
-        installed.id
-      );
-
-      return { ok: true, data: installed.installPath };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to adopt the target version.";
-      this.updateSyncTarget(syncTarget.id, {
-        status: "sync_failed",
-        lastError: message,
-        updatedAt: nowIso()
-      });
-      await this.writeLog("install", "error", "Failed to adopt the target version.", message, installed.id);
-      return { ok: false, error: message };
+    const preview = await this.previewSync({
+      skillId: installed.id,
+      syncTargetId: syncTarget.id,
+      direction: "adopt"
+    });
+    if (!preview.ok || !preview.data) {
+      return { ok: false, error: preview.error || "Failed to preview the target version." };
     }
+
+    const result = await this.executeSyncDecision({
+      skillId: installed.id,
+      syncTargetId: syncTarget.id,
+      action: "adopt-target",
+      expectedSourceHash: preview.data.sourceHash,
+      expectedTargetHash: preview.data.targetHash,
+      expectedTargetPath: preview.data.targetPath
+    });
+    return result.ok
+      ? { ok: true, data: installed.installPath }
+      : { ok: false, error: result.error };
   }
 
   async installWorkspaceSkill(input: InstallWorkspaceSkillInput): Promise<OperationResult<string>> {
@@ -2675,6 +2789,84 @@ export class SkillManagerBackend {
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : "Failed to move skill." };
     }
+  }
+
+  private async createSafetySnapshot(input: {
+    skillId: string;
+    syncTargetId: string | null;
+    side: "center" | "target";
+    reason: string;
+    sourcePath: string;
+  }) {
+    const snapshotId = randomUUID();
+    const snapshotPath = path.join(this.paths.snapshotsRoot, input.skillId, snapshotId);
+    const contentHash = await computeDirectoryHash(input.sourcePath);
+    const snapshot = await createDirectorySnapshot(input.sourcePath, snapshotPath);
+
+    this.database
+      .prepare(
+        `
+          insert into skill_snapshots (
+            id, skill_id, sync_target_id, side, reason, content_hash,
+            snapshot_path, size_bytes, is_pinned, created_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+        `
+      )
+      .run(
+        snapshotId,
+        input.skillId,
+        input.syncTargetId,
+        input.side,
+        input.reason,
+        contentHash,
+        snapshot.snapshotPath,
+        snapshot.sizeBytes,
+        nowIso()
+      );
+
+    const expired = this.database
+      .prepare(
+        `
+          select id, snapshot_path
+          from skill_snapshots
+          where skill_id = ? and is_pinned = 0
+          order by created_at desc
+          limit -1 offset 20
+        `
+      )
+      .all(input.skillId) as Array<{ id: string; snapshot_path: string }>;
+    for (const item of expired) {
+      await fsp.rm(item.snapshot_path, { recursive: true, force: true });
+      this.database.prepare("delete from skill_snapshots where id = ?").run(item.id);
+    }
+
+    return snapshotId;
+  }
+
+  private insertSyncOperation(record: SyncOperationRecord) {
+    this.database
+      .prepare(
+        `
+          insert into sync_operations (
+            id, skill_id, sync_target_id, direction, action,
+            source_hash_before, target_hash_before, snapshot_id,
+            status, error, created_at
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+      )
+      .run(
+        record.id,
+        record.skillId,
+        record.syncTargetId,
+        record.direction,
+        record.action,
+        record.sourceHashBefore,
+        record.targetHashBefore,
+        record.snapshotId,
+        record.status,
+        record.error,
+        record.createdAt
+      );
   }
 
   private async writeLog(

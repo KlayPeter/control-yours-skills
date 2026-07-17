@@ -9,6 +9,7 @@ export interface RuntimePaths {
   tempRoot: string;
   cacheRoot: string;
   logsRoot: string;
+  snapshotsRoot: string;
   isDevelopment: boolean;
   homeDir: string;
 }
@@ -28,6 +29,7 @@ export function resolveRuntimePaths(userDataPath: string): RuntimePaths {
     tempRoot: path.join(dataRoot, "temp"),
     cacheRoot: path.join(dataRoot, "cache"),
     logsRoot: path.join(dataRoot, "logs"),
+    snapshotsRoot: path.join(dataRoot, "snapshots"),
     isDevelopment,
     homeDir: os.homedir()
   };
