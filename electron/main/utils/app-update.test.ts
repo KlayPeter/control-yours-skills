@@ -13,6 +13,7 @@ describe("supportsAppUpdates", () => {
     expect(supportsAppUpdates(true, "win32")).toBe(true);
     expect(supportsAppUpdates(true, "linux")).toBe(false);
     expect(supportsAppUpdates(false, "darwin")).toBe(false);
+    expect(supportsAppUpdates(true, "darwin", false)).toBe(false);
   });
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "control-your-skills",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "private": false,
   "description": "Electron desktop Skill Manager MVP built with Next.js and TypeScript.",
   "main": "dist-electron/main/index.js",
@@ -115,7 +115,8 @@
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ],
       "hardenedRuntime": false
     },

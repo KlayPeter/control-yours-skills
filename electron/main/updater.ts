@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+
 import { app, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
 
@@ -15,9 +17,41 @@ let activeWindow: BrowserWindow | null = null;
 let initialized = false;
 let checkInFlight: Promise<unknown> | null = null;
 let notifyRendererOnError = false;
+let macSignatureValid: boolean | null = null;
+
+function hasValidMacSignature() {
+  if (process.platform !== "darwin") {
+    return true;
+  }
+
+  if (macSignatureValid !== null) {
+    return macSignatureValid;
+  }
+
+  try {
+    execFileSync(
+      "/usr/bin/codesign",
+      ["--verify", "--deep", "--strict", process.execPath],
+      { stdio: "ignore" }
+    );
+    macSignatureValid = true;
+  } catch {
+    macSignatureValid = false;
+  }
+
+  return macSignatureValid;
+}
 
 function isSupported() {
-  return supportsAppUpdates(app.isPackaged, process.platform);
+  if (!app.isPackaged) {
+    return false;
+  }
+
+  return supportsAppUpdates(
+    true,
+    process.platform,
+    hasValidMacSignature()
+  );
 }
 
 function sendToRenderer(channel: string, ...args: unknown[]) {
@@ -47,7 +81,7 @@ function ensureSupported() {
   if (notifyRendererOnError) {
     sendToRenderer(
       "updater:error",
-      "Software updates are only available in packaged Windows and macOS builds."
+      "Software updates require an installed Windows build or a signed macOS build."
     );
   }
   notifyRendererOnError = false;

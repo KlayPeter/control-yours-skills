@@ -1,7 +1,14 @@
 import type { ProgressInfo, UpdateInfo } from "@shared/contracts";
 
-export function supportsAppUpdates(isPackaged: boolean, platform: NodeJS.Platform) {
-  return isPackaged && (platform === "darwin" || platform === "win32");
+export function supportsAppUpdates(
+  isPackaged: boolean,
+  platform: NodeJS.Platform,
+  macSignatureValid = true
+) {
+  return (
+    isPackaged &&
+    (platform === "win32" || (platform === "darwin" && macSignatureValid))
+  );
 }
 
 export function normalizeUpdateInfo(info: unknown): UpdateInfo {
