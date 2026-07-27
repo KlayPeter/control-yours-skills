@@ -125,6 +125,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   const [sidebarWidth, setSidebarWidth] = useState(340);
   const [isDragging, setIsDragging] = useState(false);
+  const [updateCheckRequest, setUpdateCheckRequest] = useState(0);
   const dragRef = useRef({ isDragging: false });
 
   const startResizing = (e: React.MouseEvent) => {
@@ -180,7 +181,7 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
 
   return (
     <div className="app-shell app-grid min-h-screen app-text">
-      <AutoUpdaterDialog />
+      <AutoUpdaterDialog checkRequest={updateCheckRequest} t={t} />
       <SourceViewerModal
         onClose={() => setModalState(null)}
         onOpenPath={(targetPath) => void openPath(targetPath)}
@@ -333,6 +334,15 @@ export function WorkspaceApp({ section, initialSkillId }: WorkspaceAppProps) {
                     {busyLabel}
                   </div>
                 ) : null}
+                <button
+                  className="app-button flex items-center gap-2 px-3"
+                  onClick={() => setUpdateCheckRequest((current) => current + 1)}
+                  title={t.checkForUpdates}
+                  type="button"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  <span>{t.checkForUpdates}</span>
+                </button>
                 <button
                   aria-label={t.refresh}
                   className="app-icon-button rounded-2xl"
