@@ -68,6 +68,7 @@ const api: SkillManagerApi = {
 contextBridge.exposeInMainWorld("skillManager", api);
 
 const updaterApi: AppUpdaterApi = {
+  getRuntimeInfo: () => ipcRenderer.invoke("updater:get-runtime-info"),
   check: () => ipcRenderer.send("updater:check"),
   download: () => ipcRenderer.send("updater:download"),
   install: () => ipcRenderer.send("updater:install"),

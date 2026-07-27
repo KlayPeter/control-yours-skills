@@ -516,7 +516,14 @@ export interface ProgressInfo {
   bytesPerSecond: number;
 }
 
+export interface AppUpdaterRuntimeInfo {
+  currentVersion: string;
+  supported: boolean;
+  autoCheckEnabled: boolean;
+}
+
 export interface AppUpdaterApi {
+  getRuntimeInfo(): Promise<AppUpdaterRuntimeInfo>;
   check(): void;
   download(): void;
   install(): void;

@@ -1,48 +1,144 @@
-import { ipcMain } from "electron";
+import { app, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
 
 import type { BrowserWindow } from "electron";
+import {
+  normalizeProgressInfo,
+  normalizeUpdateInfo,
+  supportsAppUpdates,
+  updaterErrorMessage
+} from "./utils/app-update";
+
+const AUTO_CHECK_DELAY_MS = 10_000;
+
+let activeWindow: BrowserWindow | null = null;
+let initialized = false;
+let checkInFlight: Promise<unknown> | null = null;
+let notifyRendererOnError = false;
+
+function isSupported() {
+  return supportsAppUpdates(app.isPackaged, process.platform);
+}
+
+function sendToRenderer(channel: string, ...args: unknown[]) {
+  if (!activeWindow || activeWindow.isDestroyed() || activeWindow.webContents.isDestroyed()) {
+    return;
+  }
+
+  activeWindow.webContents.send(channel, ...args);
+}
+
+function reportError(error: unknown) {
+  const message = updaterErrorMessage(error);
+  console.error(`[updater] ${message}`);
+
+  if (notifyRendererOnError) {
+    sendToRenderer("updater:error", message);
+  }
+
+  notifyRendererOnError = false;
+}
+
+function ensureSupported() {
+  if (isSupported()) {
+    return true;
+  }
+
+  if (notifyRendererOnError) {
+    sendToRenderer(
+      "updater:error",
+      "Software updates are only available in packaged Windows and macOS builds."
+    );
+  }
+  notifyRendererOnError = false;
+  return false;
+}
+
+function checkForUpdates(notifyOnError: boolean) {
+  notifyRendererOnError ||= notifyOnError;
+
+  if (!ensureSupported() || checkInFlight) {
+    return;
+  }
+
+  checkInFlight = autoUpdater
+    .checkForUpdates()
+    .catch(reportError)
+    .finally(() => {
+      checkInFlight = null;
+    });
+}
 
 export function setupUpdater(mainWindow: BrowserWindow) {
-  // We want to ask the user before downloading
+  activeWindow = mainWindow;
+  mainWindow.once("closed", () => {
+    if (activeWindow === mainWindow) {
+      activeWindow = null;
+    }
+  });
+
+  if (initialized) {
+    return;
+  }
+  initialized = true;
+
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  // Forward events to the renderer
   autoUpdater.on("update-available", (info) => {
-    mainWindow.webContents.send("updater:update-available", info);
+    notifyRendererOnError = false;
+    sendToRenderer("updater:update-available", normalizeUpdateInfo(info));
   });
 
   autoUpdater.on("update-not-available", () => {
-    mainWindow.webContents.send("updater:update-not-available");
+    notifyRendererOnError = false;
+    sendToRenderer("updater:update-not-available");
   });
 
-  autoUpdater.on("error", (err) => {
-    mainWindow.webContents.send("updater:error", err == null ? "unknown" : (err.stack || err).toString());
-  });
+  autoUpdater.on("error", reportError);
 
-  autoUpdater.on("download-progress", (progressObj) => {
-    mainWindow.webContents.send("updater:download-progress", progressObj);
+  autoUpdater.on("download-progress", (progress) => {
+    sendToRenderer("updater:download-progress", normalizeProgressInfo(progress));
   });
 
   autoUpdater.on("update-downloaded", () => {
-    mainWindow.webContents.send("updater:update-downloaded");
+    notifyRendererOnError = false;
+    sendToRenderer("updater:update-downloaded");
   });
 
-  // Handle commands from the renderer
+  ipcMain.handle("updater:get-runtime-info", () => ({
+    currentVersion: app.getVersion(),
+    supported: isSupported(),
+    autoCheckEnabled: isSupported()
+  }));
+
   ipcMain.on("updater:check", () => {
-    autoUpdater.checkForUpdates().catch(err => {
-      mainWindow.webContents.send("updater:error", (err.stack || err).toString());
-    });
+    checkForUpdates(true);
   });
 
   ipcMain.on("updater:download", () => {
-    autoUpdater.downloadUpdate().catch(err => {
-      mainWindow.webContents.send("updater:error", (err.stack || err).toString());
-    });
+    notifyRendererOnError = true;
+    if (!ensureSupported()) {
+      return;
+    }
+    void autoUpdater.downloadUpdate().catch(reportError);
   });
 
   ipcMain.on("updater:install", () => {
-    autoUpdater.quitAndInstall();
+    notifyRendererOnError = true;
+    if (!ensureSupported()) {
+      return;
+    }
+
+    try {
+      autoUpdater.quitAndInstall();
+    } catch (error) {
+      reportError(error);
+    }
   });
+
+  if (isSupported()) {
+    const timer = setTimeout(() => checkForUpdates(false), AUTO_CHECK_DELAY_MS);
+    timer.unref();
+  }
 }
